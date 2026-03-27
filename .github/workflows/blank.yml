@@ -1,4 +1,4 @@
-name: Create Ubuntu VPS
+name: Create Ubuntu VPS with Web SSH
 
 on:
   workflow_dispatch:
@@ -39,49 +39,63 @@ jobs:
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo systemctl restart sshd || sudo systemctl restart ssh
         
+    - name: Install and run Web SSH (wssh)
+      run: |
+        # Install Python and pip
+        sudo apt-get install -y python3-pip
+        pip3 install wssh --break-system-packages
+        
+        # Run web SSH server on port 8080
+        nohup wssh --address=0.0.0.0 --port=8080 > wssh.log 2>&1 &
+        sleep 5
+        
     - name: Install cloudflared
       run: |
         wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
         chmod +x cloudflared-linux-amd64
         sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
         
-    - name: Start Cloudflare Tunnel
+    - name: Create HTTP tunnel (for web SSH)
       run: |
-        nohup cloudflared tunnel --url ssh://localhost:22 > cloudflared.log 2>&1 &
+        # Tunnel HTTP port 8080
+        nohup cloudflared tunnel --url http://localhost:8080 > cloudflared.log 2>&1 &
         sleep 12
         
-        TUNNEL_URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' cloudflared.log | head -1)
+        WEB_URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' cloudflared.log | head -1)
         
-        if [ -n "$TUNNEL_URL" ]; then
-          echo "TUNNEL_URL=$TUNNEL_URL" >> $GITHUB_ENV
+        if [ -n "$WEB_URL" ]; then
+          echo "WEB_URL=$WEB_URL" >> $GITHUB_ENV
+          echo "✅ Web SSH URL: $WEB_URL"
         fi
         
     - name: Save connection info
       run: |
         echo ""
         echo "============================================================"
-        echo "✅ UBUNTU VPS READY"
+        echo "✅ UBUNTU VPS READY - Web SSH"
         echo "============================================================"
         echo ""
-        echo "🔐 LOGIN:"
-        echo "   User: $USERNAME"
-        echo "   Pass: $PASSWORD"
+        echo "🔐 LOGIN CREDENTIALS:"
+        echo "   Username: $USERNAME"
+        echo "   Password: $PASSWORD"
         echo ""
-        echo "🌐 CONNECT VIA BROWSER:"
-        echo "   $TUNNEL_URL"
+        echo "🌐 WEB SSH URL (OPEN IN SAFARI):"
+        echo "   $WEB_URL"
         echo ""
-        echo "💻 CONNECT VIA SSH (Terminal):"
-        echo "   cloudflared access ssh --hostname $TUNNEL_URL"
+        echo "📱 HOW TO USE:"
+        echo "   1. Open Safari"
+        echo "   2. Go to: $WEB_URL"
+        echo "   3. Login with username and password"
         echo ""
         echo "⏱️ Duration: ${{ github.event.inputs.duration }} hours"
         echo "============================================================"
         
         {
-          echo "User: $USERNAME"
-          echo "Pass: $PASSWORD"
-          echo "URL: $TUNNEL_URL"
+          echo "Username: $USERNAME"
+          echo "Password: $PASSWORD"
+          echo "Web SSH URL: $WEB_URL"
           echo ""
-          echo "Open in Safari: $TUNNEL_URL"
+          echo "Open in Safari: $WEB_URL"
         } > vps-info.txt
         
     - name: Upload info
@@ -93,5 +107,6 @@ jobs:
     - name: Keep alive
       run: |
         HOURS=${{ github.event.inputs.duration }}
-        echo "VPS running for $HOURS hours"
+        echo "🟢 VPS running for $HOURS hours"
+        echo "🔗 Web SSH: $WEB_URL"
         sleep $((HOURS * 3600))
