@@ -1,4 +1,4 @@
-name: Create Ubuntu VPS
+name: Create Ubuntu VPS with Tailscale
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
     - name: Install SSH
       run: |
         sudo apt-get update
-        sudo apt-get install -y openssh-server curl
+        sudo apt-get install -y openssh-server
         
     - name: Create user
       run: |
@@ -32,30 +32,25 @@ jobs:
         echo "${{ github.event.inputs.user}}:${{ github.event.inputs.pass}}" | sudo chpasswd
         sudo usermod -aG sudo ${{ github.event.inputs.user }}
         
-    - name: Setup SSH
+    - name: Configure SSH
       run: |
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
         
-    - name: Create Serveo Tunnel
+    - name: Install Tailscale
       run: |
-        # Tạo tunnel với serveo
-        ssh -R 0:localhost:22 serveo.net > serveo.log 2>&1 &
-        sleep 15
+        curl -fsSL https://tailscale.com/install.sh | sh
         
-        # Lấy hostname từ log
-        cat serveo.log
+    - name: Connect to Tailscale
+      run: |
+        sudo tailscale up --auth-key=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=github-vps
+        sleep 5
         
-        # Lấy URL
-        HOSTNAME=$(grep -o '[a-z0-9.-]*\.serveo\.net' serveo.log | head -1)
-        
-        if [ -z "$HOSTNAME" ]; then
-          # Thử cách khác
-          sleep 10
-          HOSTNAME=$(grep -o '[a-z0-9.-]*\.serveo\.net' serveo.log | head -1)
-        fi
-        
-        echo "HOSTNAME=$HOSTNAME" >> $GITHUB_ENV
+    - name: Get Tailscale IP
+      run: |
+        TAILSCALE_IP=$(sudo tailscale ip -4)
+        echo "TAILSCALE_IP=$TAILSCALE_IP" >> $GITHUB_ENV
+        echo "✅ VPS IP: $TAILSCALE_IP"
         
     - name: Show connection info
       run: |
@@ -64,14 +59,14 @@ jobs:
         echo "✅ UBUNTU VPS READY!"
         echo "========================================="
         echo ""
-        echo "🔐 SSH CONNECTION:"
-        echo "   Host: $HOSTNAME"
+        echo "🔐 SSH CONNECTION (via Tailscale):"
+        echo "   IP: $TAILSCALE_IP"
         echo "   Port: 22"
         echo "   User: ${{ github.event.inputs.user }}"
         echo "   Pass: ${{ github.event.inputs.pass }}"
         echo ""
         echo "📱 SSH COMMAND:"
-        echo "   ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+        echo "   ssh ${{ github.event.inputs.user }}@$TAILSCALE_IP -p 22"
         echo ""
         echo "========================================="
         
@@ -80,12 +75,15 @@ jobs:
           echo "========================================="
           echo "UBUNTU VPS CONNECTION INFO"
           echo "========================================="
-          echo "Host: $HOSTNAME"
+          echo "IP: $TAILSCALE_IP"
           echo "Port: 22"
           echo "User: ${{ github.event.inputs.user }}"
           echo "Pass: ${{ github.event.inputs.pass }}"
           echo ""
-          echo "SSH: ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+          echo "SSH Command:"
+          echo "ssh ${{ github.event.inputs.user }}@$TAILSCALE_IP -p 22"
+          echo ""
+          echo "📱 Tailscale app must be ON on your iPhone"
           echo "========================================="
         } > vps-info.txt
         
@@ -98,5 +96,5 @@ jobs:
     - name: Keep alive
       run: |
         echo "🟢 VPS running for ${{ github.event.inputs.hours }} hours"
-        echo "🔗 SSH: ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+        echo "🔗 SSH: ssh ${{ github.event.inputs.user }}@$TAILSCALE_IP -p 22"
         sleep ${{ github.event.inputs.hours }}h
