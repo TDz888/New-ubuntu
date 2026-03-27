@@ -1,122 +1,97 @@
-name: Create Ubuntu VPS with Web SSH
+name: Create Ubuntu VPS
 
 on:
   workflow_dispatch:
     inputs:
-      username:
+      user:
         description: 'Username'
         required: true
-        default: 'ubuntu-vps'
-      duration:
-        description: 'Duration (hours)'
+        default: 'ubuntu'
+      pass:
+        description: 'Password'
+        required: true
+        default: '123456'
+      hours:
+        description: 'Hours to run'
         required: true
         default: '6'
 
 jobs:
-  create-vps:
+  build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Install tools
+    - name: Install SSH
       run: |
         sudo apt-get update
-        sudo apt-get install -y openssh-server curl wget
+        sudo apt-get install -y openssh-server curl
         
     - name: Create user
       run: |
-        USERNAME="${{ github.event.inputs.username }}"
-        PASSWORD=$(openssl rand -base64 12 | tr -d '=+/' | head -c 12)
+        sudo useradd -m -s /bin/bash ${{ github.event.inputs.user }}
+        echo "${{ github.event.inputs.user}}:${{ github.event.inputs.pass}}" | sudo chpasswd
+        sudo usermod -aG sudo ${{ github.event.inputs.user }}
         
-        echo "USERNAME=$USERNAME" >> $GITHUB_ENV
-        echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
-        
-        sudo useradd -m -s /bin/bash $USERNAME
-        echo "$USERNAME:$PASSWORD" | sudo chpasswd
-        sudo usermod -aG sudo $USERNAME
-        
-    - name: Configure SSH
+    - name: Setup SSH
       run: |
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        sudo systemctl restart sshd || sudo systemctl restart ssh
+        sudo systemctl restart ssh
         
-    - name: Install ttyd (Web SSH)
+    - name: Create Pinggy Tunnel
       run: |
-        wget -q https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
-        chmod +x ttyd.x86_64
-        sudo mv ttyd.x86_64 /usr/local/bin/ttyd
-        nohup ttyd -p 8080 -c "$USERNAME:$PASSWORD" login > ttyd.log 2>&1 &
-        sleep 5
+        # Chạy pinggy tunnel
+        ssh -R 0:localhost:22 a.pinggy.io > pinggy.log 2>&1 &
+        sleep 10
         
-    - name: Create tunnel with pinggy (no password)
-      run: |
-        # Use pinggy with simple command
-        ssh -R 80:localhost:8080 a.pinggy.io > pinggy.log 2>&1 &
-        sleep 12
+        # Lấy IP và Port
+        PINGGY_INFO=$(cat pinggy.log)
+        echo "$PINGGY_INFO"
         
-        # Get URL
-        PINGGY_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' pinggy.log | head -1)
+        # Lấy hostname từ log
+        HOSTNAME=$(echo "$PINGGY_INFO" | grep -o '[a-z0-9.-]*\.pinggy\.io' | head -1)
+        echo "HOSTNAME=$HOSTNAME" >> $GITHUB_ENV
         
-        if [ -z "$PINGGY_URL" ]; then
-          sleep 5
-          PINGGY_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' pinggy.log | head -1)
-        fi
-        
-        echo "WEB_URL=$PINGGY_URL" >> $GITHUB_ENV
-        echo "✅ Tunnel URL: $PINGGY_URL"
-        
-    - name: Save connection info
+    - name: Show connection info
       run: |
         echo ""
-        echo "============================================================"
+        echo "========================================="
         echo "✅ UBUNTU VPS READY!"
-        echo "============================================================"
+        echo "========================================="
         echo ""
-        echo "🔐 LOGIN CREDENTIALS:"
-        echo "   Username: $USERNAME"
-        echo "   Password: $PASSWORD"
+        echo "🔐 SSH CONNECTION:"
+        echo "   Host: $HOSTNAME"
+        echo "   Port: 22"
+        echo "   User: ${{ github.event.inputs.user }}"
+        echo "   Pass: ${{ github.event.inputs.pass }}"
         echo ""
-        echo "🌐 OPEN IN SAFARI (NO PASSWORD NEEDED):"
-        echo "   $WEB_URL"
+        echo "📱 SSH COMMAND:"
+        echo "   ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
         echo ""
-        echo "📱 STEPS:"
-        echo "   1. Copy URL above"
-        echo "   2. Open Safari on iPhone"
-        echo "   3. Paste URL and press Enter"
-        echo "   4. Enter username: $USERNAME"
-        echo "   5. Enter password: $PASSWORD"
-        echo "   6. Start using terminal!"
-        echo ""
-        echo "⏱️ VPS runs for: ${{ github.event.inputs.duration }} hours"
-        echo "============================================================"
+        echo "========================================="
         
+        # Lưu vào file
         {
-          echo "========================================"
+          echo "========================================="
           echo "UBUNTU VPS CONNECTION INFO"
-          echo "========================================"
+          echo "========================================="
+          echo "Host: $HOSTNAME"
+          echo "Port: 22"
+          echo "User: ${{ github.event.inputs.user }}"
+          echo "Pass: ${{ github.event.inputs.pass }}"
           echo ""
-          echo "Username: $USERNAME"
-          echo "Password: $PASSWORD"
-          echo ""
-          echo "Web SSH URL: $WEB_URL"
-          echo ""
-          echo "Open in Safari:"
-          echo "$WEB_URL"
-          echo ""
-          echo "========================================"
+          echo "SSH Command:"
+          echo "ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+          echo "========================================="
         } > vps-info.txt
         
-    - name: Upload connection info
+    - name: Upload info
       uses: actions/upload-artifact@v4
       with:
         name: vps-info
         path: vps-info.txt
         
-    - name: Keep VPS alive
+    - name: Keep alive
       run: |
-        HOURS=${{ github.event.inputs.duration }}
-        echo ""
-        echo "🟢 VPS IS RUNNING"
-        echo "🔗 Web SSH: $WEB_URL"
-        echo "⏰ Will stop after $HOURS hours"
-        echo ""
-        sleep $((HOURS * 3600))
+        echo "🟢 VPS running for ${{ github.event.inputs.hours }} hours"
+        echo "🔗 SSH: ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+        sleep ${{ github.event.inputs.hours }}h
