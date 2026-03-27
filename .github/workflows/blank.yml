@@ -1,0 +1,186 @@
+name: Create Ubuntu VPS with SSH
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Username'
+        required: true
+        default: 'ubuntu-vps'
+      duration:
+        description: 'Duration (hours)'
+        required: true
+        default: '6'
+
+jobs:
+  create-vps:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Install required tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openssh-server curl jq wget
+        
+    - name: Create SSH user
+      run: |
+        USERNAME="${{ github.event.inputs.username }}"
+        PASSWORD=$(openssl rand -base64 12 | tr -d '=+/' | head -c 12)
+        
+        echo "USERNAME=$USERNAME" >> $GITHUB_ENV
+        echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
+        
+        sudo useradd -m -s /bin/bash $USERNAME
+        echo "$USERNAME:$PASSWORD" | sudo chpasswd
+        sudo usermod -aG sudo $USERNAME
+        
+    - name: Configure SSH
+      run: |
+        sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+        sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+        sudo systemctl restart sshd || sudo systemctl restart ssh
+        
+    - name: Install ngrok
+      run: |
+        wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+        tar xzf ngrok-v3-stable-linux-amd64.tgz
+        sudo mv ngrok /usr/local/bin/
+        rm ngrok-v3-stable-linux-amd64.tgz
+        
+        if [ -n "${{ secrets.NGROK_TOKEN }}" ]; then
+          ngrok config add-authtoken "${{ secrets.NGROK_TOKEN }}"
+          echo "NGROK_TOKEN_CONFIGURED=true" >> $GITHUB_ENV
+        else
+          echo "NGROK_TOKEN_CONFIGURED=false" >> $GITHUB_ENV
+        fi
+        
+    - name: Start ngrok tunnel
+      if: env.NGROK_TOKEN_CONFIGURED == 'true'
+      run: |
+        ngrok tcp 22 --log stdout > ngrok.log 2>&1 &
+        sleep 8
+        
+        # Get ngrok URL
+        MAX_RETRIES=10
+        RETRY=0
+        NGROK_URL=""
+        
+        while [ $RETRY -lt $MAX_RETRIES ] && [ -z "$NGROK_URL" ]; do
+          sleep 2
+          NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | jq -r '.tunnels[0].public_url // empty')
+          RETRY=$((RETRY + 1))
+        done
+        
+        if [ -n "$NGROK_URL" ]; then
+          NGROK_HOST=$(echo "$NGROK_URL" | sed 's/tcp:\/\///' | cut -d':' -f1)
+          NGROK_PORT=$(echo "$NGROK_URL" | cut -d':' -f3)
+          
+          echo "NGROK_HOST=$NGROK_HOST" >> $GITHUB_ENV
+          echo "NGROK_PORT=$NGROK_PORT" >> $GITHUB_ENV
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          echo "NGROK_SUCCESS=true" >> $GITHUB_ENV
+        else
+          echo "NGROK_SUCCESS=false" >> $GITHUB_ENV
+        fi
+        
+    - name: Get public IP
+      run: |
+        PUBLIC_IP=$(curl -s ifconfig.me)
+        echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+        
+    - name: Display and save connection info
+      run: |
+        echo ""
+        echo "============================================================"
+        echo "              ✅ UBUNTU VPS IS READY ✅"
+        echo "============================================================"
+        echo ""
+        echo "🔐 LOGIN CREDENTIALS:"
+        echo "   Username: $USERNAME"
+        echo "   Password: $PASSWORD"
+        echo "   Public IP: $PUBLIC_IP"
+        echo ""
+        
+        if [ "$NGROK_SUCCESS" = "true" ]; then
+          echo "📡 SSH CONNECTION DETAILS:"
+          echo "   Host: $NGROK_HOST"
+          echo "   Port: $NGROK_PORT"
+          echo ""
+          echo "🚀 SSH COMMAND:"
+          echo "   ssh $USERNAME@$NGROK_HOST -p $NGROK_PORT"
+          echo ""
+        else
+          echo "⚠️  NGROK NOT CONFIGURED"
+          echo "   Please add NGROK_TOKEN to repository secrets"
+          echo "   Get token at: https://dashboard.ngrok.com/get-started/your-authtoken"
+          echo ""
+        fi
+        
+        echo "⏱️  VPS will run for: ${{ github.event.inputs.duration }} hours"
+        echo "============================================================"
+        
+        # Create info file
+        {
+          echo "============================================================"
+          echo "              UBUNTU VPS CONNECTION INFORMATION"
+          echo "============================================================"
+          echo ""
+          echo "[LOGIN CREDENTIALS]"
+          echo "Username: $USERNAME"
+          echo "Password: $PASSWORD"
+          echo "Public IP: $PUBLIC_IP"
+          echo ""
+          if [ "$NGROK_SUCCESS" = "true" ]; then
+            echo "[SSH CONNECTION]"
+            echo "Host: $NGROK_HOST"
+            echo "Port: $NGROK_PORT"
+            echo "SSH Command: ssh $USERNAME@$NGROK_HOST -p $NGROK_PORT"
+            echo ""
+          fi
+          echo "[VPS INFORMATION]"
+          echo "Created: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Duration: ${{ github.event.inputs.duration }} hours"
+          echo "Status: Running"
+          echo ""
+          if [ "$NGROK_SUCCESS" != "true" ]; then
+            echo "[IMPORTANT]"
+            echo "To get SSH connection details, you need to:"
+            echo "1. Sign up at https://ngrok.com"
+            echo "2. Get your authtoken from dashboard"
+            echo "3. Add NGROK_TOKEN to repository secrets"
+            echo "4. Run this workflow again"
+            echo ""
+          fi
+          echo "============================================================"
+        } > vps-info.txt
+        
+        # Also create a simple text file for easy reading
+        {
+          echo "Host: $NGROK_HOST"
+          echo "Port: $NGROK_PORT"
+          echo "User: $USERNAME"
+          echo "Pass: $PASSWORD"
+        } > vps-connect.txt
+        
+    - name: Upload connection files
+      uses: actions/upload-artifact@v4
+      with:
+        name: vps-connection-info
+        path: |
+          vps-info.txt
+          vps-connect.txt
+        
+    - name: Keep VPS alive
+      run: |
+        DURATION_HOURS=${{ github.event.inputs.duration }}
+        DURATION_SECONDS=$((DURATION_HOURS * 3600))
+        
+        echo ""
+        echo "============================================================"
+        echo "🟢 VPS IS RUNNING - Will shut down after $DURATION_HOURS hours"
+        echo "📥 Download 'vps-connection-info' artifact for connection details"
+        echo "🛑 To stop early, cancel this workflow"
+        echo "============================================================"
+        echo ""
+        
+        sleep $DURATION_SECONDS
