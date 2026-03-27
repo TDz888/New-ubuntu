@@ -41,27 +41,34 @@ jobs:
         sudo systemctl restart sshd || sudo systemctl restart ssh
         
     - name: Install ngrok
+      env:
+        NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
       run: |
         wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
         tar xzf ngrok-v3-stable-linux-amd64.tgz
         sudo mv ngrok /usr/local/bin/
         rm ngrok-v3-stable-linux-amd64.tgz
         
-        if [ -n "${{ secrets.NGROK_TOKEN }}" ]; then
-          ngrok config add-authtoken "${{ secrets.NGROK_TOKEN }}"
-          echo "NGROK_TOKEN_CONFIGURED=true" >> $GITHUB_ENV
+        # Debug: show token length
+        echo "Token length: ${#NGROK_TOKEN}"
+        
+        if [ -n "$NGROK_TOKEN" ]; then
+          ngrok config add-authtoken "$NGROK_TOKEN"
+          echo "✅ Ngrok configured successfully"
+          echo "NGROK_CONFIGURED=true" >> $GITHUB_ENV
         else
-          echo "NGROK_TOKEN_CONFIGURED=false" >> $GITHUB_ENV
+          echo "❌ NGROK_TOKEN is empty or not set"
+          echo "NGROK_CONFIGURED=false" >> $GITHUB_ENV
         fi
         
     - name: Start ngrok tunnel
-      if: env.NGROK_TOKEN_CONFIGURED == 'true'
+      if: env.NGROK_CONFIGURED == 'true'
       run: |
         ngrok tcp 22 --log stdout > ngrok.log 2>&1 &
-        sleep 8
+        sleep 10
         
         # Get ngrok URL
-        MAX_RETRIES=10
+        MAX_RETRIES=15
         RETRY=0
         NGROK_URL=""
         
@@ -78,9 +85,11 @@ jobs:
           echo "NGROK_HOST=$NGROK_HOST" >> $GITHUB_ENV
           echo "NGROK_PORT=$NGROK_PORT" >> $GITHUB_ENV
           echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
-          echo "NGROK_SUCCESS=true" >> $GITHUB_ENV
+          echo "✅ Ngrok tunnel: $NGROK_HOST:$NGROK_PORT"
         else
-          echo "NGROK_SUCCESS=false" >> $GITHUB_ENV
+          echo "⚠️ Failed to get ngrok URL"
+          echo "NGROK_HOST=" >> $GITHUB_ENV
+          echo "NGROK_PORT=" >> $GITHUB_ENV
         fi
         
     - name: Get public IP
@@ -101,7 +110,7 @@ jobs:
         echo "   Public IP: $PUBLIC_IP"
         echo ""
         
-        if [ "$NGROK_SUCCESS" = "true" ]; then
+        if [ -n "$NGROK_HOST" ] && [ -n "$NGROK_PORT" ]; then
           echo "📡 SSH CONNECTION DETAILS:"
           echo "   Host: $NGROK_HOST"
           echo "   Port: $NGROK_PORT"
@@ -110,9 +119,7 @@ jobs:
           echo "   ssh $USERNAME@$NGROK_HOST -p $NGROK_PORT"
           echo ""
         else
-          echo "⚠️  NGROK NOT CONFIGURED"
-          echo "   Please add NGROK_TOKEN to repository secrets"
-          echo "   Get token at: https://dashboard.ngrok.com/get-started/your-authtoken"
+          echo "⚠️  NGROK NOT CONFIGURED - Check your NGROK_TOKEN secret"
           echo ""
         fi
         
@@ -125,36 +132,22 @@ jobs:
           echo "              UBUNTU VPS CONNECTION INFORMATION"
           echo "============================================================"
           echo ""
-          echo "[LOGIN CREDENTIALS]"
           echo "Username: $USERNAME"
           echo "Password: $PASSWORD"
           echo "Public IP: $PUBLIC_IP"
           echo ""
-          if [ "$NGROK_SUCCESS" = "true" ]; then
-            echo "[SSH CONNECTION]"
+          if [ -n "$NGROK_HOST" ] && [ -n "$NGROK_PORT" ]; then
             echo "Host: $NGROK_HOST"
             echo "Port: $NGROK_PORT"
             echo "SSH Command: ssh $USERNAME@$NGROK_HOST -p $NGROK_PORT"
             echo ""
           fi
-          echo "[VPS INFORMATION]"
           echo "Created: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "Duration: ${{ github.event.inputs.duration }} hours"
-          echo "Status: Running"
-          echo ""
-          if [ "$NGROK_SUCCESS" != "true" ]; then
-            echo "[IMPORTANT]"
-            echo "To get SSH connection details, you need to:"
-            echo "1. Sign up at https://ngrok.com"
-            echo "2. Get your authtoken from dashboard"
-            echo "3. Add NGROK_TOKEN to repository secrets"
-            echo "4. Run this workflow again"
-            echo ""
-          fi
           echo "============================================================"
         } > vps-info.txt
         
-        # Also create a simple text file for easy reading
+        # Simple connect file
         {
           echo "Host: $NGROK_HOST"
           echo "Port: $NGROK_PORT"
@@ -177,10 +170,8 @@ jobs:
         
         echo ""
         echo "============================================================"
-        echo "🟢 VPS IS RUNNING - Will shut down after $DURATION_HOURS hours"
-        echo "📥 Download 'vps-connection-info' artifact for connection details"
-        echo "🛑 To stop early, cancel this workflow"
+        echo "🟢 VPS RUNNING - $DURATION_HOURS hours remaining"
+        echo "📥 Download artifact 'vps-connection-info'"
         echo "============================================================"
-        echo ""
         
         sleep $DURATION_SECONDS
