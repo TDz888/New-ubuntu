@@ -47,58 +47,76 @@ jobs:
         nohup ttyd -p 8080 -c "$USERNAME:$PASSWORD" login > ttyd.log 2>&1 &
         sleep 5
         
-    - name: Install localtunnel (FREE, no account needed)
+    - name: Create tunnel with pinggy (no password)
       run: |
-        sudo apt-get install -y npm
-        sudo npm install -g localtunnel
-        
-        # Start localtunnel
-        nohup lt --port 8080 --subdomain vps${{ github.run_id }} > lt.log 2>&1 &
-        sleep 10
+        # Use pinggy with simple command
+        ssh -R 80:localhost:8080 a.pinggy.io > pinggy.log 2>&1 &
+        sleep 12
         
         # Get URL
-        LT_URL=$(grep -o 'https://[a-z0-9.-]*\.loca\.lt' lt.log | head -1)
-        echo "WEB_URL=$LT_URL" >> $GITHUB_ENV
+        PINGGY_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' pinggy.log | head -1)
         
-    - name: Save info
+        if [ -z "$PINGGY_URL" ]; then
+          sleep 5
+          PINGGY_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' pinggy.log | head -1)
+        fi
+        
+        echo "WEB_URL=$PINGGY_URL" >> $GITHUB_ENV
+        echo "✅ Tunnel URL: $PINGGY_URL"
+        
+    - name: Save connection info
       run: |
         echo ""
         echo "============================================================"
         echo "✅ UBUNTU VPS READY!"
         echo "============================================================"
         echo ""
-        echo "🔐 LOGIN:"
+        echo "🔐 LOGIN CREDENTIALS:"
         echo "   Username: $USERNAME"
         echo "   Password: $PASSWORD"
         echo ""
-        echo "🌐 OPEN IN SAFARI:"
+        echo "🌐 OPEN IN SAFARI (NO PASSWORD NEEDED):"
         echo "   $WEB_URL"
         echo ""
-        echo "📱 HOW TO USE:"
+        echo "📱 STEPS:"
         echo "   1. Copy URL above"
         echo "   2. Open Safari on iPhone"
-        echo "   3. Paste URL and go"
-        echo "   4. Login with username/password"
+        echo "   3. Paste URL and press Enter"
+        echo "   4. Enter username: $USERNAME"
+        echo "   5. Enter password: $PASSWORD"
+        echo "   6. Start using terminal!"
         echo ""
+        echo "⏱️ VPS runs for: ${{ github.event.inputs.duration }} hours"
         echo "============================================================"
         
         {
+          echo "========================================"
+          echo "UBUNTU VPS CONNECTION INFO"
+          echo "========================================"
+          echo ""
           echo "Username: $USERNAME"
           echo "Password: $PASSWORD"
-          echo "URL: $WEB_URL"
           echo ""
-          echo "Open in Safari: $WEB_URL"
+          echo "Web SSH URL: $WEB_URL"
+          echo ""
+          echo "Open in Safari:"
+          echo "$WEB_URL"
+          echo ""
+          echo "========================================"
         } > vps-info.txt
         
-    - name: Upload
+    - name: Upload connection info
       uses: actions/upload-artifact@v4
       with:
         name: vps-info
         path: vps-info.txt
         
-    - name: Keep alive
+    - name: Keep VPS alive
       run: |
         HOURS=${{ github.event.inputs.duration }}
-        echo "🟢 VPS running for $HOURS hours"
-        echo "🔗 $WEB_URL"
+        echo ""
+        echo "🟢 VPS IS RUNNING"
+        echo "🔗 Web SSH: $WEB_URL"
+        echo "⏰ Will stop after $HOURS hours"
+        echo ""
         sleep $((HOURS * 3600))
