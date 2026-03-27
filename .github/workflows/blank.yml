@@ -39,66 +39,58 @@ jobs:
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo systemctl restart sshd || sudo systemctl restart ssh
         
-    - name: Install and run Web SSH (wssh)
+    - name: Install ttyd (Web SSH)
       run: |
-        # Install Python and pip
-        sudo apt-get install -y python3-pip
-        pip3 install wssh --break-system-packages
-        
-        # Run web SSH server on port 8080
-        nohup wssh --address=0.0.0.0 --port=8080 > wssh.log 2>&1 &
+        wget -q https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
+        chmod +x ttyd.x86_64
+        sudo mv ttyd.x86_64 /usr/local/bin/ttyd
+        nohup ttyd -p 8080 -c "$USERNAME:$PASSWORD" login > ttyd.log 2>&1 &
         sleep 5
         
-    - name: Install cloudflared
+    - name: Install localtunnel (FREE, no account needed)
       run: |
-        wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-        chmod +x cloudflared-linux-amd64
-        sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+        sudo apt-get install -y npm
+        sudo npm install -g localtunnel
         
-    - name: Create HTTP tunnel (for web SSH)
-      run: |
-        # Tunnel HTTP port 8080
-        nohup cloudflared tunnel --url http://localhost:8080 > cloudflared.log 2>&1 &
-        sleep 12
+        # Start localtunnel
+        nohup lt --port 8080 --subdomain vps${{ github.run_id }} > lt.log 2>&1 &
+        sleep 10
         
-        WEB_URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' cloudflared.log | head -1)
+        # Get URL
+        LT_URL=$(grep -o 'https://[a-z0-9.-]*\.loca\.lt' lt.log | head -1)
+        echo "WEB_URL=$LT_URL" >> $GITHUB_ENV
         
-        if [ -n "$WEB_URL" ]; then
-          echo "WEB_URL=$WEB_URL" >> $GITHUB_ENV
-          echo "✅ Web SSH URL: $WEB_URL"
-        fi
-        
-    - name: Save connection info
+    - name: Save info
       run: |
         echo ""
         echo "============================================================"
-        echo "✅ UBUNTU VPS READY - Web SSH"
+        echo "✅ UBUNTU VPS READY!"
         echo "============================================================"
         echo ""
-        echo "🔐 LOGIN CREDENTIALS:"
+        echo "🔐 LOGIN:"
         echo "   Username: $USERNAME"
         echo "   Password: $PASSWORD"
         echo ""
-        echo "🌐 WEB SSH URL (OPEN IN SAFARI):"
+        echo "🌐 OPEN IN SAFARI:"
         echo "   $WEB_URL"
         echo ""
         echo "📱 HOW TO USE:"
-        echo "   1. Open Safari"
-        echo "   2. Go to: $WEB_URL"
-        echo "   3. Login with username and password"
+        echo "   1. Copy URL above"
+        echo "   2. Open Safari on iPhone"
+        echo "   3. Paste URL and go"
+        echo "   4. Login with username/password"
         echo ""
-        echo "⏱️ Duration: ${{ github.event.inputs.duration }} hours"
         echo "============================================================"
         
         {
           echo "Username: $USERNAME"
           echo "Password: $PASSWORD"
-          echo "Web SSH URL: $WEB_URL"
+          echo "URL: $WEB_URL"
           echo ""
           echo "Open in Safari: $WEB_URL"
         } > vps-info.txt
         
-    - name: Upload info
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: vps-info
@@ -108,5 +100,5 @@ jobs:
       run: |
         HOURS=${{ github.event.inputs.duration }}
         echo "🟢 VPS running for $HOURS hours"
-        echo "🔗 Web SSH: $WEB_URL"
+        echo "🔗 $WEB_URL"
         sleep $((HOURS * 3600))
