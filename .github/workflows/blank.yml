@@ -37,18 +37,24 @@ jobs:
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
         
-    - name: Create Pinggy Tunnel
+    - name: Create Serveo Tunnel
       run: |
-        # Chạy pinggy tunnel
-        ssh -R 0:localhost:22 a.pinggy.io > pinggy.log 2>&1 &
-        sleep 10
-        
-        # Lấy IP và Port
-        PINGGY_INFO=$(cat pinggy.log)
-        echo "$PINGGY_INFO"
+        # Tạo tunnel với serveo
+        ssh -R 0:localhost:22 serveo.net > serveo.log 2>&1 &
+        sleep 15
         
         # Lấy hostname từ log
-        HOSTNAME=$(echo "$PINGGY_INFO" | grep -o '[a-z0-9.-]*\.pinggy\.io' | head -1)
+        cat serveo.log
+        
+        # Lấy URL
+        HOSTNAME=$(grep -o '[a-z0-9.-]*\.serveo\.net' serveo.log | head -1)
+        
+        if [ -z "$HOSTNAME" ]; then
+          # Thử cách khác
+          sleep 10
+          HOSTNAME=$(grep -o '[a-z0-9.-]*\.serveo\.net' serveo.log | head -1)
+        fi
+        
         echo "HOSTNAME=$HOSTNAME" >> $GITHUB_ENV
         
     - name: Show connection info
@@ -79,8 +85,7 @@ jobs:
           echo "User: ${{ github.event.inputs.user }}"
           echo "Pass: ${{ github.event.inputs.pass }}"
           echo ""
-          echo "SSH Command:"
-          echo "ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
+          echo "SSH: ssh ${{ github.event.inputs.user }}@$HOSTNAME -p 22"
           echo "========================================="
         } > vps-info.txt
         
