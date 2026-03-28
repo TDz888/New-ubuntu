@@ -1,134 +1,109 @@
-name: 🐧 Ubuntu VPS - Tailscale
+name: Ubuntu VPS - Tailscale
 
 on:
   workflow_dispatch:
     inputs:
       username:
-        description: '👤 Username'
+        description: 'Username'
         required: true
         default: 'ubuntu'
       password:
-        description: '🔑 Password'
+        description: 'Password'
         required: true
         default: 'hieudz'
       duration:
-        description: '⏱️ Hours (max 6)'
+        description: 'Hours (max 6)'
         required: true
         default: '6'
-  schedule:
-    - cron: '*/10 * * * *'   # Kiểm tra renew mỗi 10 phút
 
 jobs:
   create-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 360
     
     steps:
-      - name: 📦 Install SSH
+      - name: Install SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-server curl jq
 
-      - name: 👤 Create user
+      - name: Create user
         run: |
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || echo "User exists"
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
 
-      - name: 🔧 Configure SSH
+      - name: Configure SSH
         run: |
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart sshd || sudo systemctl restart ssh
 
-      - name: 🔐 Install Tailscale
+      - name: Install Tailscale
         run: curl -fsSL https://tailscale.com/install.sh | sh
 
-      - name: 🌐 Connect Tailscale
+      - name: Connect Tailscale
         run: |
           if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
-            echo "❌ Missing TAILSCALE_AUTH_KEY"
+            echo "Missing TAILSCALE_AUTH_KEY"
             exit 1
           fi
-          sudo tailscale up --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="ubuntu-vps-$(date +%s)"
+          sudo tailscale up --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="ubuntu-vps"
           sleep 5
           echo "IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
 
-      - name: 🌍 Get public IP
+      - name: Get public IP
         run: echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
 
-      - name: 💾 Save connection info
+      - name: Save connection info
         run: |
-          cat > vps-info.txt << 'EOF'
-╔══════════════════════════════════════════════════════════════╗
-║                    🐧 UBUNTU VPS READY 🐧                    ║
-╚══════════════════════════════════════════════════════════════╝
+          echo "============================================================" > vps-info.txt
+          echo "UBUNTU VPS READY" >> vps-info.txt
+          echo "============================================================" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "LOGIN CREDENTIALS" >> vps-info.txt
+          echo "  Username: ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  Password: ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "  Public IP: $PUBLIC_IP" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "TAILSCALE CONNECTION" >> vps-info.txt
+          echo "  Host: $IP" >> vps-info.txt
+          echo "  Port: 22" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "SSH COMMAND" >> vps-info.txt
+          echo "  ssh ${{ github.event.inputs.username }}@$IP -p 22" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "SHELLY SETUP" >> vps-info.txt
+          echo "  Host: $IP" >> vps-info.txt
+          echo "  Port: 22" >> vps-info.txt
+          echo "  User: ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  Pass: ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "IMPORTANT" >> vps-info.txt
+          echo "  Tailscale VPN must be ON on your iPhone" >> vps-info.txt
+          echo "  Created: $(date '+%Y-%m-%d %H:%M:%S')" >> vps-info.txt
+          echo "============================================================" >> vps-info.txt
 
-🔐 LOGIN CREDENTIALS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Username: USER_PLACEHOLDER
-  Password: PASS_PLACEHOLDER
-  Public IP: PUBLIC_PLACEHOLDER
-
-📡 TAILSCALE CONNECTION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Host: IP_PLACEHOLDER
-  Port: 22
-
-🚀 SSH COMMAND
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ssh USER_PLACEHOLDER@IP_PLACEHOLDER -p 22
-
-📱 SHELLY SETUP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Host: IP_PLACEHOLDER
-  Port: 22
-  User: USER_PLACEHOLDER
-  Pass: PASS_PLACEHOLDER
-
-⚠️  IMPORTANT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  • Tailscale VPN must be ON on your iPhone
-  • VPS will auto-renew every 5h55m
-  • IP remains the same (Tailscale IP)
-  • Created: DATE_PLACEHOLDER
-═══════════════════════════════════════════════════════════════
-EOF
-          sed -i "s/USER_PLACEHOLDER/${{ github.event.inputs.username }}/g" vps-info.txt
-          sed -i "s/PASS_PLACEHOLDER/${{ github.event.inputs.password }}/g" vps-info.txt
-          sed -i "s/PUBLIC_PLACEHOLDER/$PUBLIC_IP/g" vps-info.txt
-          sed -i "s/IP_PLACEHOLDER/$IP/g" vps-info.txt
-          sed -i "s/DATE_PLACEHOLDER/$(date '+%Y-%m-%d %H:%M:%S')/g" vps-info.txt
-
-      - name: 📤 Upload connection info
+      - name: Upload connection info
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-vps-connection
           path: vps-info.txt
           retention-days: 7
 
-      - name: 🔄 Save state for renew
-        run: |
-          echo "$IP" > /tmp/last_ip.txt
-          echo "${{ github.event.inputs.username }}" > /tmp/last_user.txt
-          echo "${{ github.event.inputs.password }}" > /tmp/last_pass.txt
-
-      - name: ⏰ Keep alive
+      - name: Keep alive
         run: |
           HOURS=${{ github.event.inputs.duration }}
           echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║                    🟢 VPS IS RUNNING 🟢                      ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "VPS IS RUNNING"
+          echo "============================================================"
           echo ""
-          echo "   📡 Tailscale IP : $IP"
-          echo "   👤 Username     : ${{ github.event.inputs.username }}"
-          echo "   🔑 Password     : ${{ github.event.inputs.password }}"
-          echo "   ⏱️  Remaining    : $HOURS hours"
-          echo "   🔗 SSH Command  : ssh ${{ github.event.inputs.username }}@$IP -p 22"
+          echo "Tailscale IP: $IP"
+          echo "Username: ${{ github.event.inputs.username }}"
+          echo "Password: ${{ github.event.inputs.password }}"
           echo ""
-          echo "   📱 Open Shelly app and connect now!"
-          echo "   🔄 Auto-renew will keep this IP active"
+          echo "SSH: ssh ${{ github.event.inputs.username }}@$IP -p 22"
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
+          echo "VPS will run for: $HOURS hours"
+          echo "============================================================"
           sleep $((HOURS * 3600))
