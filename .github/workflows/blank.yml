@@ -7,14 +7,12 @@ on:
         description: '👤 Username'
         required: true
         default: 'ubuntu'
-        type: string
       password:
         description: '🔑 Password'
         required: true
         default: '123456'
-        type: string
       duration:
-        description: '⏱️ Duration (hours)'
+        description: '⏱️ Hours to run'
         required: true
         default: '6'
         type: choice
@@ -27,275 +25,110 @@ on:
           - '24'
 
 jobs:
-  create-vps:
-    name: 🚀 Creating Ubuntu VPS
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 4320  # 3 days max
-    
+    timeout-minutes: 4320
+
     steps:
-    # ============================================
-    # STEP 1: CÀI ĐẶT SSH
-    # ============================================
-    - name: 📦 Installing SSH server
-      run: |
-        echo "🔄 Updating system packages..."
-        sudo apt-get update -qq
-        echo "🔄 Installing OpenSSH server..."
-        sudo apt-get install -y openssh-server curl jq -qq
-        echo "✅ SSH server installed"
-        
-    # ============================================
-    # STEP 2: TẠO USER
-    # ============================================
-    - name: 👤 Creating user account
-      run: |
-        USER="${{ github.event.inputs.username }}"
-        PASS="${{ github.event.inputs.password }}"
-        
-        echo "🔄 Creating user: $USER"
-        sudo useradd -m -s /bin/bash "$USER"
-        echo "$USER:$PASS" | sudo chpasswd
-        sudo usermod -aG sudo "$USER"
-        
-        echo "✅ User created successfully"
-        echo "USERNAME=$USER" >> $GITHUB_ENV
-        
-    # ============================================
-    # STEP 3: CẤU HÌNH SSH
-    # ============================================
-    - name: 🔧 Configuring SSH
-      run: |
-        echo "🔄 Configuring SSH settings..."
-        sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        sudo systemctl restart sshd || sudo systemctl restart ssh
-        
-        echo "✅ SSH configured with password authentication"
-        
-    # ============================================
-    # STEP 4: CÀI ĐẶT TAILSCALE
-    # ============================================
-    - name: 🔐 Installing Tailscale
-      run: |
-        echo "🔄 Downloading Tailscale..."
-        curl -fsSL https://tailscale.com/install.sh | sh > /dev/null 2>&1
-        echo "✅ Tailscale installed"
-        
-    # ============================================
-    # STEP 5: KẾT NỐI TAILSCALE
-    # ============================================
-    - name: 🌐 Connecting to Tailscale network
-      run: |
-        if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
-          echo "❌ ERROR: TAILSCALE_AUTH_KEY not found in secrets!"
-          echo "📝 Please add your Tailscale auth key to repository secrets"
-          exit 1
-        fi
-        
-        echo "🔄 Connecting to Tailscale network..."
-        sudo tailscale up \
-          --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" \
-          --hostname="ubuntu-vps-$(date +%s)" \
-          --accept-routes \
-          --accept-dns=false
-        
-        sleep 5
-        
-        TAILSCALE_IP=$(sudo tailscale ip -4)
-        echo "TAILSCALE_IP=$TAILSCALE_IP" >> $GITHUB_ENV
-        echo "✅ Connected to Tailscale network"
-        echo "📡 Tailscale IP: $TAILSCALE_IP"
-        
-    # ============================================
-    # STEP 6: LẤY PUBLIC IP
-    # ============================================
-    - name: 🌍 Getting public IP
-      run: |
-        PUBLIC_IP=$(curl -s ifconfig.me)
-        echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-        echo "🌍 Public IP: $PUBLIC_IP"
-        
-    # ============================================
-    # STEP 7: HIỂN THỊ THÔNG TIN KẾT NỐI
-    # ============================================
-    - name: 📋 Display connection information
-      run: |
-        echo ""
-        echo "╔════════════════════════════════════════════════════════════════════╗"
-        echo "║                     🐧 UBUNTU VPS READY 🐧                         ║"
-        echo "╚════════════════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "┌────────────────────────────────────────────────────────────────────┐"
-        echo "│                         🔐 LOGIN CREDENTIALS                       │"
-        echo "├────────────────────────────────────────────────────────────────────┤"
-        printf "│  👤 Username :  %-45s │\n" "${{ github.event.inputs.username }}"
-        printf "│  🔑 Password :  %-45s │\n" "${{ github.event.inputs.password }}"
-        printf "│  🌍 Public IP:  %-45s │\n" "$PUBLIC_IP"
-        echo "└────────────────────────────────────────────────────────────────────┘"
-        echo ""
-        echo "┌────────────────────────────────────────────────────────────────────┐"
-        echo "│                    📡 TAILSCALE CONNECTION                         │"
-        echo "├────────────────────────────────────────────────────────────────────┤"
-        printf "│  🌐 Host      :  %-45s │\n" "$TAILSCALE_IP"
-        printf "│  🔌 Port      :  %-45s │\n" "22"
-        echo "└────────────────────────────────────────────────────────────────────┘"
-        echo ""
-        echo "┌────────────────────────────────────────────────────────────────────┐"
-        echo "│                      🚀 SSH COMMAND                                │"
-        echo "├────────────────────────────────────────────────────────────────────┤"
-        printf "│  💻 ssh %s@%s -p 22%-17s │\n" "${{ github.event.inputs.username }}" "$TAILSCALE_IP" ""
-        echo "└────────────────────────────────────────────────────────────────────┘"
-        echo ""
-        echo "┌────────────────────────────────────────────────────────────────────┐"
-        echo "│                      📱 SHELLY SETUP                               │"
-        echo "├────────────────────────────────────────────────────────────────────┤"
-        echo "│  • Open Shelly app on iPhone                                       │"
-        echo "│  • Tap '+' → Add Host                                              │"
-        echo "│  • Enter:                                                          │"
-        printf "│    - Host: %-48s │\n" "$TAILSCALE_IP"
-        echo "│    - Port: 22                                                      │"
-        printf "│    - User: %-49s │\n" "${{ github.event.inputs.username }}"
-        printf "│    - Pass: %-49s │\n" "${{ github.event.inputs.password }}"
-        echo "│  • Tap 'Connect'                                                   │"
-        echo "└────────────────────────────────────────────────────────────────────┘"
-        echo ""
-        echo "┌────────────────────────────────────────────────────────────────────┐"
-        echo "│                      ⚠️  IMPORTANT NOTES                           │"
-        echo "├────────────────────────────────────────────────────────────────────┤"
-        echo "│  • Tailscale VPN must be ON on your iPhone                         │"
-        echo "│  • VPS will run for: ${{ github.event.inputs.duration }} hours                    │"
-        echo "│  • Auto-shutdown at: $(date -d "+${{ github.event.inputs.duration }} hours" '+%H:%M:%S')"
-        echo "│  • Download 'vps-info.txt' for offline access                      │"
-        echo "└────────────────────────────────────────────────────────────────────┘"
-        echo ""
-        
-    # ============================================
-    # STEP 8: LƯU FILE THÔNG TIN
-    # ============================================
-    - name: 💾 Saving connection info to file
-      run: |
-        cat > vps-info.txt << 'EOF'
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                         🐧 UBUNTU VPS CONNECTION INFO 🐧                      ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+      - name: 📦 Install SSH
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-server curl jq
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              🔐 LOGIN CREDENTIALS                             │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Username  :  USERNAME_PLACEHOLDER
-│  Password  :  PASSWORD_PLACEHOLDER
-│  Public IP :  PUBLIC_IP_PLACEHOLDER
-└──────────────────────────────────────────────────────────────────────────────┘
+      - name: 👤 Create user
+        run: |
+          sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}"
+          echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
+          sudo usermod -aG sudo "${{ github.event.inputs.username }}"
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           📡 TAILSCALE CONNECTION                            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Host      :  TAILSCALE_IP_PLACEHOLDER
-│  Port      :  22
-└──────────────────────────────────────────────────────────────────────────────┘
+      - name: 🔧 Configure SSH
+        run: |
+          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart sshd || sudo systemctl restart ssh
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              🚀 SSH COMMAND                                   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  ssh USERNAME_PLACEHOLDER@TAILSCALE_IP_PLACEHOLDER -p 22
-└──────────────────────────────────────────────────────────────────────────────┘
+      - name: 🔐 Install Tailscale
+        run: curl -fsSL https://tailscale.com/install.sh | sh
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           📱 SHELLY CONFIGURATION                            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Address   :  TAILSCALE_IP_PLACEHOLDER
-│  Port      :  22
-│  Username  :  USERNAME_PLACEHOLDER
-│  Password  :  PASSWORD_PLACEHOLDER
-└──────────────────────────────────────────────────────────────────────────────┘
+      - name: 🌐 Connect Tailscale
+        run: |
+          if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
+            echo "❌ Missing TAILSCALE_AUTH_KEY secret"
+            exit 1
+          fi
+          sudo tailscale up --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="ubuntu-vps"
+          sleep 3
+          echo "IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              ⚠️  NOTES                                        │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  • Tailscale VPN must be ON on your iPhone/iPad                              │
-│  • VPS will auto-shutdown after DURATION_PLACEHOLDER hours                   │
-│  • Created: CREATED_TIME_PLACEHOLDER                                         │
-│  • Expires: EXPIRES_TIME_PLACEHOLDER                                         │
-└──────────────────────────────────────────────────────────────────────────────┘
+      - name: 🌍 Get public IP
+        run: echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
 
-═══════════════════════════════════════════════════════════════════════════════
-EOF
+      - name: 📋 Show connection info
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════╗"
+          echo "║            ✅ UBUNTU VPS IS READY ✅               ║"
+          echo "╚════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🔐 LOGIN CREDENTIALS"
+          echo "  • Username : ${{ github.event.inputs.username }}"
+          echo "  • Password : ${{ github.event.inputs.password }}"
+          echo "  • Public IP: $PUBLIC_IP"
+          echo ""
+          echo "📡 TAILSCALE CONNECTION"
+          echo "  • Host     : $IP"
+          echo "  • Port     : 22"
+          echo ""
+          echo "🚀 SSH COMMAND"
+          echo "  ssh ${{ github.event.inputs.username }}@$IP -p 22"
+          echo ""
+          echo "📱 SHELLY SETUP"
+          echo "  • Host : $IP"
+          echo "  • Port : 22"
+          echo "  • User : ${{ github.event.inputs.username }}"
+          echo "  • Pass : ${{ github.event.inputs.password }}"
+          echo ""
+          echo "⏱️  VPS runs for ${{ github.event.inputs.duration }} hours"
+          echo "⚠️  Tailscale VPN must be ON on your iPhone"
 
-        # Replace placeholders
-        sed -i "s/USERNAME_PLACEHOLDER/${{ github.event.inputs.username }}/g" vps-info.txt
-        sed -i "s/PASSWORD_PLACEHOLDER/${{ github.event.inputs.password }}/g" vps-info.txt
-        sed -i "s/PUBLIC_IP_PLACEHOLDER/$PUBLIC_IP/g" vps-info.txt
-        sed -i "s/TAILSCALE_IP_PLACEHOLDER/$TAILSCALE_IP/g" vps-info.txt
-        sed -i "s/DURATION_PLACEHOLDER/${{ github.event.inputs.duration }}/g" vps-info.txt
-        sed -i "s/CREATED_TIME_PLACEHOLDER/$(date '+%Y-%m-%d %H:%M:%S')/g" vps-info.txt
-        sed -i "s/EXPIRES_TIME_PLACEHOLDER/$(date -d "+${{ github.event.inputs.duration }} hours" '+%Y-%m-%d %H:%M:%S')/g" vps-info.txt
-        
-        # Simple connect file
-        cat > vps-connect.txt << SIMPLE
-┌─────────────────────────────────────┐
-│  UBUNTU VPS - QUICK CONNECT         │
-├─────────────────────────────────────┤
-│  Host: $TAILSCALE_IP
-│  Port: 22
-│  User: ${{ github.event.inputs.username }}
-│  Pass: ${{ github.event.inputs.password }}
-├─────────────────────────────────────┤
-│  ssh ${{ github.event.inputs.username }}@$TAILSCALE_IP -p 22
-└─────────────────────────────────────┘
-SIMPLE
-        
-        echo "✅ Connection info saved to vps-info.txt"
-        
-    # ============================================
-    # STEP 9: UPLOAD ARTIFACTS
-    # ============================================
-    - name: 📤 Uploading connection files
-      uses: actions/upload-artifact@v4
-      with:
-        name: 🐧-ubuntu-vps-connection
-        path: |
-          vps-info.txt
-          vps-connect.txt
-        retention-days: 7
-        
-    # ============================================
-    # STEP 10: KEEP VPS ALIVE
-    # ============================================
-    - name: ⏰ Keeping VPS alive
-      run: |
-        DURATION=${{ github.event.inputs.duration }}
-        SECONDS=$((DURATION * 3600))
-        
-        echo ""
-        echo "╔════════════════════════════════════════════════════════════════════╗"
-        echo "║                         🟢 VPS IS RUNNING 🟢                       ║"
-        echo "╚════════════════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "   📡 Tailscale IP : $TAILSCALE_IP"
-        echo "   👤 Username     : ${{ github.event.inputs.username }}"
-        echo "   ⏱️  Remaining    : $DURATION hours"
-        echo "   🔗 SSH Command  : ssh ${{ github.event.inputs.username }}@$TAILSCALE_IP -p 22"
-        echo ""
-        echo "   📱 Open Shelly app and connect now!"
-        echo ""
-        echo "   ⏰ Auto-shutdown at: $(date -d "+$DURATION hours" '+%H:%M:%S')"
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        
-        sleep $SECONDS
-        
-    # ============================================
-    # STEP 11: SHUTDOWN NOTIFICATION
-    # ============================================
-    - name: 🔴 VPS Shutting down
-      if: always()
-      run: |
-        echo ""
-        echo "╔════════════════════════════════════════════════════════════════════╗"
-        echo "║                    🔴 VPS HAS BEEN SHUT DOWN 🔴                    ║"
-        echo "╚════════════════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "   The VPS has completed its ${{ github.event.inputs.duration }} hour run."
-        echo "   Run the workflow again to create a new VPS."
-        echo ""
+      - name: 💾 Save connection file
+        run: |
+          echo "════════════════════════════════════════════════════" > vps-info.txt
+          echo "🐧 UBUNTU VPS CONNECTION INFO" >> vps-info.txt
+          echo "════════════════════════════════════════════════════" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "🔐 LOGIN" >> vps-info.txt
+          echo "  Username : ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  Password : ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "  Public IP: $PUBLIC_IP" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "📡 TAILSCALE" >> vps-info.txt
+          echo "  Host     : $IP" >> vps-info.txt
+          echo "  Port     : 22" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "🚀 SSH COMMAND" >> vps-info.txt
+          echo "  ssh ${{ github.event.inputs.username }}@$IP -p 22" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "📱 SHELLY" >> vps-info.txt
+          echo "  Host: $IP" >> vps-info.txt
+          echo "  Port: 22" >> vps-info.txt
+          echo "  User: ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  Pass: ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "⏱️  Expires after ${{ github.event.inputs.duration }} hours" >> vps-info.txt
+          echo "════════════════════════════════════════════════════" >> vps-info.txt
+
+      - name: 📤 Upload connection files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-vps-connection
+          path: vps-info.txt
+
+      - name: ⏰ Keep alive
+        run: |
+          H=${{ github.event.inputs.duration }}
+          echo ""
+          echo "🟢 VPS RUNNING — $H hours remaining"
+          echo "🔗 ssh ${{ github.event.inputs.username }}@$IP -p 22"
+          echo "📱 Open Shelly and connect now"
+          echo ""
+          sleep $((H * 3600))
