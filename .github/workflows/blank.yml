@@ -1,4 +1,4 @@
-name: Ubuntu VPS - All in One
+name: Ubuntu VPS
 
 on:
   workflow_dispatch:
@@ -15,260 +15,69 @@ on:
         description: 'Hours to run'
         required: true
         default: '6'
-      tunnel_method:
-        description: 'Tunnel method (pinggy/sakura/bore/local)
-        required: true
-        default: 'pinggy'
-        type: choice
-        options:
-          - 'pinggy'
-          - 'sakura'
-          - 'bore'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 4320  # 3 days max
     
     steps:
-    # ========== 1. CÀI ĐẶT SSH ==========
     - name: Install SSH
       run: |
         sudo apt-get update
-        sudo apt-get install -y openssh-server curl wget jq
+        sudo apt-get install -y openssh-server curl
         
     - name: Create user
       run: |
         sudo useradd -m -s /bin/bash ${{ github.event.inputs.user }}
         echo "${{ github.event.inputs.user}}:${{ github.event.inputs.pass}}" | sudo chpasswd
         sudo usermod -aG sudo ${{ github.event.inputs.user }}
-        echo "✅ User created: ${{ github.event.inputs.user }}"
         
     - name: Configure SSH
       run: |
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        sudo systemctl restart sshd || sudo systemctl restart ssh
-        echo "✅ SSH configured"
+        sudo systemctl restart ssh
         
-    # ========== 2. PINGGY TUNNEL ==========
-    - name: Pinggy Tunnel
-      if: github.event.inputs.tunnel_method == 'pinggy'
+    - name: Create tunnel
       run: |
-        echo "🚀 Starting Pinggy tunnel..."
-        
-        if [ -n "${{ secrets.PINGGY_TOKEN }}" ]; then
-          ssh -p 443 -R0:localhost:22 -o ServerAliveInterval=30 ${{ secrets.PINGGY_TOKEN }}@a.pinggy.io > pinggy.log 2>&1 &
-        else
-          ssh -R 0:localhost:22 a.pinggy.io > pinggy.log 2>&1 &
-        fi
-        
+        # Dùng pinggy free, không cần token
+        ssh -R 0:localhost:22 a.pinggy.io > pinggy.log 2>&1 &
         sleep 12
         
-        PINGGY_URL=$(grep -o '[a-z0-9.-]*\.pinggy\.io:[0-9]\+' pinggy.log | head -1)
-        PINGGY_HOST=$(echo $PINGGY_URL | cut -d':' -f1)
-        PINGGY_PORT=$(echo $PINGGY_URL | cut -d':' -f2)
+        # Lấy host và port
+        HOST=$(grep -o '[a-z0-9.-]*\.pinggy\.io' pinggy.log | head -1)
+        PORT=$(grep -o ':[0-9]\+' pinggy.log | head -1 | tr -d ':')
         
-        echo "PINGGY_HOST=$PINGGY_HOST" >> $GITHUB_ENV
-        echo "PINGGY_PORT=$PINGGY_PORT" >> $GITHUB_ENV
-        echo "TUNNEL_METHOD=Pinggy" >> $GITHUB_ENV
+        echo "HOST=$HOST" >> $GITHUB_ENV
+        echo "PORT=$PORT" >> $GITHUB_ENV
         
-    # ========== 3. SAKURA FRP TUNNEL ==========
-    - name: Sakura FRP Tunnel
-      if: github.event.inputs.tunnel_method == 'sakura'
-      run: |
-        echo "🚀 Starting Sakura FRP tunnel..."
-        
-        if [ -z "${{ secrets.SAKURA_KEY }}" ]; then
-          echo "❌ SAKURA_KEY not found in secrets"
-          exit 1
-        fi
-        
-        wget -q https://github.com/natfrp/frp/releases/download/v0.60.0-sakura-6.0/frp_0.60.0-sakura-6.0_linux_amd64.tar.gz
-        tar -xzf frp_*.tar.gz
-        cd frp_*
-        chmod +x frpc
-        
-        cat > frpc.ini << EOF
-[common]
-server_addr = frp-nat1.natfrp.cloud
-server_port = 7000
-token = ${{ secrets.SAKURA_KEY }}
-
-[ssh]
-type = tcp
-local_ip = 127.0.0.1
-local_port = 22
-remote_port = 0
-EOF
-        
-        nohup ./frpc -c frpc.ini > sakura.log 2>&1 &
-        sleep 12
-        
-        SAKURA_URL=$(grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+:[0-9]\+' sakura.log | head -1)
-        SAKURA_HOST=$(echo $SAKURA_URL | cut -d':' -f1)
-        SAKURA_PORT=$(echo $SAKURA_URL | cut -d':' -f2)
-        
-        echo "SAKURA_HOST=$SAKURA_HOST" >> $GITHUB_ENV
-        echo "SAKURA_PORT=$SAKURA_PORT" >> $GITHUB_ENV
-        echo "TUNNEL_METHOD=Sakura FRP" >> $GITHUB_ENV
-        
-    # ========== 4. BORE TUNNEL ==========
-    - name: Bore Tunnel
-      if: github.event.inputs.tunnel_method == 'bore'
-      run: |
-        echo "🚀 Starting Bore tunnel..."
-        
-        curl -L https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz | tar xz
-        sudo mv bore /usr/local/bin/
-        
-        nohup bore local 22 --to bore.pub > bore.log 2>&1 &
-        sleep 10
-        
-        BORE_URL=$(grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+:[0-9]\+' bore.log | head -1)
-        BORE_HOST=$(echo $BORE_URL | cut -d':' -f1)
-        BORE_PORT=$(echo $BORE_URL | cut -d':' -f2)
-        
-        echo "BORE_HOST=$BORE_HOST" >> $GITHUB_ENV
-        echo "BORE_PORT=$BORE_PORT" >> $GITHUB_ENV
-        echo "TUNNEL_METHOD=Bore" >> $GITHUB_ENV
-        
-    # ========== 5. TAILSCALE VPN (tùy chọn) ==========
-    - name: Tailscale VPN
-      if: github.event.inputs.tunnel_method == 'tailscale'
-      run: |
-        echo "🚀 Starting Tailscale..."
-        
-        if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
-          echo "❌ TAILSCALE_AUTH_KEY not found"
-          exit 1
-        fi
-        
-        curl -fsSL https://tailscale.com/install.sh | sh
-        sudo tailscale up --auth-key=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=github-vps
-        sleep 5
-        
-        TAILSCALE_IP=$(sudo tailscale ip -4)
-        echo "TAILSCALE_IP=$TAILSCALE_IP" >> $GITHUB_ENV
-        echo "TUNNEL_METHOD=Tailscale" >> $GITHUB_ENV
-        
-    # ========== 6. PUBLIC IP ==========
-    - name: Get Public IP
-      run: |
-        PUBLIC_IP=$(curl -s ifconfig.me)
-        echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-        
-    # ========== 7. HIỂN THỊ THÔNG TIN ==========
-    - name: Show Connection Info
+    - name: Show info
       run: |
         echo ""
-        echo "╔══════════════════════════════════════════════════════════════╗"
-        echo "║              ✅ UBUNTU VPS IS READY! ✅                       ║"
-        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo "========================================="
+        echo "✅ UBUNTU VPS READY!"
+        echo "========================================="
         echo ""
-        echo "🔐 LOGIN CREDENTIALS:"
-        echo "   Username: ${{ github.event.inputs.user }}"
-        echo "   Password: ${{ github.event.inputs.pass }}"
-        echo "   Public IP: $PUBLIC_IP"
+        echo "Host: $HOST"
+        echo "Port: $PORT"
+        echo "User: ${{ github.event.inputs.user }}"
+        echo "Pass: ${{ github.event.inputs.pass }}"
         echo ""
-        echo "🌐 TUNNEL METHOD: $TUNNEL_METHOD"
+        echo "SSH: ssh ${{ github.event.inputs.user }}@$HOST -p $PORT"
         echo ""
+        echo "========================================="
         
-        if [ -n "$PINGGY_HOST" ]; then
-          echo "📡 PINGGY CONNECTION:"
-          echo "   Host: $PINGGY_HOST"
-          echo "   Port: $PINGGY_PORT"
-          echo "   SSH: ssh ${{ github.event.inputs.user }}@$PINGGY_HOST -p $PINGGY_PORT"
-          echo ""
-          SSH_HOST=$PINGGY_HOST
-          SSH_PORT=$PINGGY_PORT
-        elif [ -n "$SAKURA_HOST" ]; then
-          echo "📡 SAKURA FRP CONNECTION:"
-          echo "   Host: $SAKURA_HOST"
-          echo "   Port: $SAKURA_PORT"
-          echo "   SSH: ssh ${{ github.event.inputs.user }}@$SAKURA_HOST -p $SAKURA_PORT"
-          echo ""
-          SSH_HOST=$SAKURA_HOST
-          SSH_PORT=$SAKURA_PORT
-        elif [ -n "$BORE_HOST" ]; then
-          echo "📡 BORE CONNECTION:"
-          echo "   Host: $BORE_HOST"
-          echo "   Port: $BORE_PORT"
-          echo "   SSH: ssh ${{ github.event.inputs.user }}@$BORE_HOST -p $BORE_PORT"
-          echo ""
-          SSH_HOST=$BORE_HOST
-          SSH_PORT=$BORE_PORT
-        elif [ -n "$TAILSCALE_IP" ]; then
-          echo "📡 TAILSCALE CONNECTION:"
-          echo "   IP: $TAILSCALE_IP"
-          echo "   Port: 22"
-          echo "   SSH: ssh ${{ github.event.inputs.user }}@$TAILSCALE_IP -p 22"
-          echo ""
-          echo "⚠️  Make sure Tailscale VPN is ON on your iPhone!"
-          echo ""
-          SSH_HOST=$TAILSCALE_IP
-          SSH_PORT=22
-        else
-          echo "⚠️  No tunnel method selected or failed"
-          SSH_HOST=""
-          SSH_PORT=""
-        fi
+        # Lưu file
+        echo "Host: $HOST" > vps-info.txt
+        echo "Port: $PORT" >> vps-info.txt
+        echo "User: ${{ github.event.inputs.user }}" >> vps-info.txt
+        echo "Pass: ${{ github.event.inputs.pass }}" >> vps-info.txt
         
-        echo "⏱️  VPS will run for: ${{ github.event.inputs.hours }} hours"
-        echo "📱  Use Shelly app with: $SSH_HOST:$SSH_PORT"
-        echo ""
-        echo "╔══════════════════════════════════════════════════════════════╗"
-        echo "║  📥 Download artifact 'vps-info.txt' for full details        ║"
-        echo "╚══════════════════════════════════════════════════════════════╝"
-        
-        # Save to file
-        {
-          echo "============================================================"
-          echo "UBUNTU VPS CONNECTION INFORMATION"
-          echo "============================================================"
-          echo ""
-          echo "Username: ${{ github.event.inputs.user }}"
-          echo "Password: ${{ github.event.inputs.pass }}"
-          echo "Public IP: $PUBLIC_IP"
-          echo "Tunnel Method: $TUNNEL_METHOD"
-          echo ""
-          echo "SSH CONNECTION:"
-          echo "Host: $SSH_HOST"
-          echo "Port: $SSH_PORT"
-          echo "SSH Command: ssh ${{ github.event.inputs.user }}@$SSH_HOST -p $SSH_PORT"
-          echo ""
-          echo "Created: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo "Duration: ${{ github.event.inputs.hours }} hours"
-          echo "============================================================"
-        } > vps-info.txt
-        
-        # Simple connect file
-        {
-          echo "Host: $SSH_HOST"
-          echo "Port: $SSH_PORT"
-          echo "User: ${{ github.event.inputs.user }}"
-          echo "Pass: ${{ github.event.inputs.pass }}"
-        } > vps-connect.txt
-        
-    # ========== 8. UPLOAD ARTIFACTS ==========
-    - name: Upload connection files
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: vps-info
-        path: |
-          vps-info.txt
-          vps-connect.txt
-          
-    # ========== 9. KEEP VPS ALIVE ==========
-    - name: Keep VPS alive
+        path: vps-info.txt
+        
+    - name: Keep alive
       run: |
-        HOURS=${{ github.event.inputs.hours }}
-        SECONDS=$((HOURS * 3600))
-        
-        echo ""
-        echo "🟢 VPS IS RUNNING - $HOURS hours remaining"
-        echo "🔗 SSH: ssh ${{ github.event.inputs.user }}@$SSH_HOST -p $SSH_PORT"
-        echo "📱 Download vps-info.txt from Artifacts"
-        echo "🛑 Will stop automatically after $HOURS hours"
-        echo ""
-        
-        sleep $SECONDS
+        sleep ${{ github.event.inputs.hours }}h
