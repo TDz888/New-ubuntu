@@ -20,10 +20,41 @@ on:
         description: 'Password'
         required: true
         default: 'Vps@123456'
+      cpu_cores:
+        description: 'CPU Cores (1-4)'
+        required: true
+        default: '2'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+      ram_gb:
+        description: 'RAM (GB) - Max 16GB'
+        required: true
+        default: '4'
+        type: choice
+        options:
+          - '2'
+          - '4'
+          - '8'
+          - '12'
+          - '16'
+      wallpaper_url:
+        description: 'Wallpaper URL (leave empty for default)'
+        required: false
+        default: ''
       duration:
         description: 'Hours to run'
         required: true
         default: '6'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '4'
+          - '6'
 
 jobs:
   create-vps:
@@ -31,34 +62,22 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      # ============================================
-      # CÀI ĐẶT CÔNG CỤ
-      # ============================================
       - name: Install tools
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-server curl wget qemu-utils qemu-system-x86
           
-      # ============================================
-      # TẠO USER
-      # ============================================
       - name: Create user
         run: |
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           
-      # ============================================
-      # CẤU HÌNH SSH
-      # ============================================
       - name: Configure SSH
         run: |
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart sshd || sudo systemctl restart ssh
           
-      # ============================================
-      # CÀI ĐẶT TAILSCALE
-      # ============================================
       - name: Install Tailscale
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
@@ -74,19 +93,40 @@ jobs:
           echo "TAILSCALE_IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
           
       # ============================================
-      # WINDOWS 11 (4 Cores, 8GB RAM, 80GB SSD)
+      # TÍNH TOÁN CẤU HÌNH
+      # ============================================
+      - name: Set configuration
+        run: |
+          CPU="${{ github.event.inputs.cpu_cores }}"
+          RAM="${{ github.event.inputs.ram_gb }}"
+          RAM_MB=$((RAM * 1024))
+          echo "CPU_CORES=$CPU" >> $GITHUB_ENV
+          echo "RAM_MB=$RAM_MB" >> $GITHUB_ENV
+          
+          # Tính dung lượng SSD dựa trên RAM
+          if [ "$RAM" -le "4" ]; then
+            SSD_SIZE="40"
+          elif [ "$RAM" -le "8" ]; then
+            SSD_SIZE="60"
+          else
+            SSD_SIZE="80"
+          fi
+          echo "SSD_SIZE=$SSD_SIZE" >> $GITHUB_ENV
+          
+      # ============================================
+      # WINDOWS 11
       # ============================================
       - name: Setup Windows 11
         if: github.event.inputs.os_type == 'windows11'
         run: |
-          echo "Setting up Windows 11 VM..."
-          qemu-img create -f qcow2 windows11.qcow2 80G
+          echo "Setting up Windows 11 VM with ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${SSD_SIZE}GB SSD..."
+          qemu-img create -f qcow2 windows11.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
           echo "  -drive file=windows11.qcow2,format=qcow2 \\" >> start-vm.sh
           echo "  -cdrom /tmp/win11.iso \\" >> start-vm.sh
-          echo "  -m 8192 \\" >> start-vm.sh
-          echo "  -smp 4 \\" >> start-vm.sh
+          echo "  -m ${RAM_MB} \\" >> start-vm.sh
+          echo "  -smp ${CPU_CORES} \\" >> start-vm.sh
           echo "  -vga qxl \\" >> start-vm.sh
           echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
           echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
@@ -95,19 +135,19 @@ jobs:
           chmod +x start-vm.sh
           
       # ============================================
-      # WINDOWS 10 (2 Cores, 4GB RAM, 60GB SSD)
+      # WINDOWS 10
       # ============================================
       - name: Setup Windows 10
         if: github.event.inputs.os_type == 'windows10'
         run: |
-          echo "Setting up Windows 10 VM..."
-          qemu-img create -f qcow2 windows10.qcow2 60G
+          echo "Setting up Windows 10 VM with ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${SSD_SIZE}GB SSD..."
+          qemu-img create -f qcow2 windows10.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
           echo "  -drive file=windows10.qcow2,format=qcow2 \\" >> start-vm.sh
           echo "  -cdrom /tmp/win10.iso \\" >> start-vm.sh
-          echo "  -m 4096 \\" >> start-vm.sh
-          echo "  -smp 2 \\" >> start-vm.sh
+          echo "  -m ${RAM_MB} \\" >> start-vm.sh
+          echo "  -smp ${CPU_CORES} \\" >> start-vm.sh
           echo "  -vga qxl \\" >> start-vm.sh
           echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
           echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
@@ -116,19 +156,19 @@ jobs:
           chmod +x start-vm.sh
           
       # ============================================
-      # UBUNTU DESKTOP (4 Cores, 8GB RAM, 50GB SSD)
+      # UBUNTU DESKTOP (XFCE - NHẸ NHẤT)
       # ============================================
       - name: Setup Ubuntu Desktop
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          echo "Setting up Ubuntu Desktop VM..."
-          qemu-img create -f qcow2 ubuntu.qcow2 50G
+          echo "Setting up Ubuntu Desktop VM with XFCE (lightweight)..."
+          qemu-img create -f qcow2 ubuntu.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
           echo "  -drive file=ubuntu.qcow2,format=qcow2 \\" >> start-vm.sh
           echo "  -cdrom /tmp/ubuntu.iso \\" >> start-vm.sh
-          echo "  -m 8192 \\" >> start-vm.sh
-          echo "  -smp 4 \\" >> start-vm.sh
+          echo "  -m ${RAM_MB} \\" >> start-vm.sh
+          echo "  -smp ${CPU_CORES} \\" >> start-vm.sh
           echo "  -vga qxl \\" >> start-vm.sh
           echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
           echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
@@ -137,42 +177,85 @@ jobs:
           chmod +x start-vm.sh
           
       # ============================================
-      # CÀI XRDP CHO UBUNTU
+      # CÀI XRDP + XFCE (NHẸ NHẤT)
       # ============================================
-      - name: Install xRDP for Ubuntu
+      - name: Install xRDP + XFCE for Ubuntu
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          sudo apt-get install -y xrdp ubuntu-desktop
+          echo "Installing XFCE desktop (lightweight) and xRDP..."
+          sudo apt-get update
+          sudo apt-get install -y xrdp xfce4 xfce4-goodies wget
+          echo "xfce4-session" | sudo tee /home/${{ github.event.inputs.username }}/.xsession
+          sudo chown ${{ github.event.inputs.username }}:${{ github.event.inputs.username }} /home/${{ github.event.inputs.username }}/.xsession
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
+          echo "✅ xRDP + XFCE installed"
           
       # ============================================
-      # LẤY PUBLIC IP
+      # CÀI HÌNH NỀN (CHO TẤT CẢ OS)
       # ============================================
+      - name: Set wallpaper for Windows
+        if: github.event.inputs.os_type == 'windows11' || github.event.inputs.os_type == 'windows10'
+        run: |
+          WALLPAPER_URL="${{ github.event.inputs.wallpaper_url }}"
+          if [ -n "$WALLPAPER_URL" ]; then
+            echo "Downloading wallpaper from $WALLPAPER_URL"
+            wget -O wallpaper.jpg "$WALLPAPER_URL"
+            echo "Wallpaper downloaded. Note: Apply manually in Windows after RDP connection"
+            echo "Wallpaper file saved to C:\\wallpaper.jpg"
+          else
+            echo "Using default Windows wallpaper"
+          fi
+          
+      - name: Set wallpaper for Ubuntu
+        if: github.event.inputs.os_type == 'ubuntu-desktop'
+        run: |
+          WALLPAPER_URL="${{ github.event.inputs.wallpaper_url }}"
+          if [ -n "$WALLPAPER_URL" ]; then
+            echo "Downloading wallpaper from $WALLPAPER_URL"
+            wget -O wallpaper.jpg "$WALLPAPER_URL"
+            sudo mkdir -p /usr/share/backgrounds/custom
+            sudo cp wallpaper.jpg /usr/share/backgrounds/custom/
+            echo "Setting wallpaper for user ${{ github.event.inputs.username }}..."
+            sudo -u ${{ github.event.inputs.username }} bash -c 'cat > /home/${{ github.event.inputs.username }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml << EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <channel name="xfce4-desktop" version="1.0">
+              <property name="backdrop" type="empty">
+                <property name="screen0" type="empty">
+                  <property name="monitor0" type="empty">
+                    <property name="workspace0" type="empty">
+                      <property name="last-image" type="string" value="/usr/share/backgrounds/custom/wallpaper.jpg"/>
+                    </property>
+                  </property>
+                </property>
+              </property>
+            </channel>
+            EOF'
+            echo "✅ Custom wallpaper applied"
+          else
+            echo "Using default Ubuntu wallpaper"
+          fi
+          
       - name: Get public IP
         run: |
           echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
-        
+          
       # ============================================
-      # LƯU THÔNG TIN KẾT NỐI (CÓ CẤU HÌNH)
+      # LƯU THÔNG TIN KẾT NỐI
       # ============================================
       - name: Save connection info
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "windows11" ]; then
             OS_NAME="Windows 11 Pro"
-            CPU_CORES="4 vCPUs"
-            RAM_SIZE="8 GB"
-            SSD_SIZE="80 GB"
           elif [ "${{ github.event.inputs.os_type }}" = "windows10" ]; then
             OS_NAME="Windows 10 Pro"
-            CPU_CORES="2 vCPUs"
-            RAM_SIZE="4 GB"
-            SSD_SIZE="60 GB"
           else
-            OS_NAME="Ubuntu Desktop 22.04"
-            CPU_CORES="4 vCPUs"
-            RAM_SIZE="8 GB"
-            SSD_SIZE="50 GB"
+            OS_NAME="Ubuntu Desktop 22.04 (XFCE)"
+          fi
+          
+          WALLPAPER_INFO="${{ github.event.inputs.wallpaper_url }}"
+          if [ -z "$WALLPAPER_INFO" ]; then
+            WALLPAPER_INFO="Default"
           fi
           
           echo "╔══════════════════════════════════════════════════════════════╗" > vps-info.txt
@@ -182,9 +265,10 @@ jobs:
           echo "📋 SYSTEM SPECIFICATIONS" >> vps-info.txt
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> vps-info.txt
           echo "  Operating System : $OS_NAME" >> vps-info.txt
-          echo "  CPU Cores        : $CPU_CORES" >> vps-info.txt
-          echo "  RAM              : $RAM_SIZE" >> vps-info.txt
-          echo "  Storage (SSD)    : $SSD_SIZE" >> vps-info.txt
+          echo "  CPU Cores        : ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info.txt
+          echo "  RAM              : ${{ github.event.inputs.ram_gb }} GB" >> vps-info.txt
+          echo "  Storage (SSD)    : ${SSD_SIZE} GB" >> vps-info.txt
+          echo "  Wallpaper        : $WALLPAPER_INFO" >> vps-info.txt
           echo "" >> vps-info.txt
           echo "🔐 LOGIN CREDENTIALS" >> vps-info.txt
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> vps-info.txt
@@ -220,13 +304,11 @@ jobs:
           echo "⚠️  IMPORTANT NOTES" >> vps-info.txt
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> vps-info.txt
           echo "  • Tailscale VPN must be ON on your device" >> vps-info.txt
+          echo "  • GitHub Actions limits: max 4 CPU cores, 16GB RAM" >> vps-info.txt
           echo "  • VPS will auto-shutdown after ${{ github.event.inputs.duration }} hours" >> vps-info.txt
           echo "  • Run workflow again to create a new VPS" >> vps-info.txt
           echo "══════════════════════════════════════════════════════════════" >> vps-info.txt
           
-      # ============================================
-      # UPLOAD FILE THÔNG TIN
-      # ============================================
       - name: Upload connection info
         uses: actions/upload-artifact@v4
         with:
@@ -234,28 +316,16 @@ jobs:
           path: vps-info.txt
           retention-days: 7
           
-      # ============================================
-      # GIỮ VPS CHẠY
-      # ============================================
       - name: Keep VPS alive
         run: |
           HOURS=${{ github.event.inputs.duration }}
           
           if [ "${{ github.event.inputs.os_type }}" = "windows11" ]; then
             OS_ICON="🪟"
-            CPU_INFO="4 vCPUs"
-            RAM_INFO="8 GB"
-            DISK_INFO="80 GB"
           elif [ "${{ github.event.inputs.os_type }}" = "windows10" ]; then
             OS_ICON="🪟"
-            CPU_INFO="2 vCPUs"
-            RAM_INFO="4 GB"
-            DISK_INFO="60 GB"
           else
             OS_ICON="🐧"
-            CPU_INFO="4 vCPUs"
-            RAM_INFO="8 GB"
-            DISK_INFO="50 GB"
           fi
           
           echo ""
@@ -264,9 +334,9 @@ jobs:
           echo "╚══════════════════════════════════════════════════════════════╝"
           echo ""
           echo "  $OS_ICON OS        : ${{ github.event.inputs.os_type }}"
-          echo "  🔧 CPU Cores      : $CPU_INFO"
-          echo "  💾 RAM            : $RAM_INFO"
-          echo "  💿 SSD            : $DISK_INFO"
+          echo "  🔧 CPU Cores      : ${{ github.event.inputs.cpu_cores }} vCPUs"
+          echo "  💾 RAM            : ${{ github.event.inputs.ram_gb }} GB"
+          echo "  💿 SSD            : ${SSD_SIZE} GB"
           echo "  📡 Tailscale IP   : $TAILSCALE_IP"
           echo "  🔌 RDP Port       : 3389"
           echo "  👤 Username       : ${{ github.event.inputs.username }}"
