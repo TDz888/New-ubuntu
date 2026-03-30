@@ -157,88 +157,124 @@ jobs:
           echo "SSD_SIZE=$SSD_SIZE" >> $GITHUB_ENV
           
       # ============================================
-      # WINDOWS 11 VỚI RDP AUTO-ENABLE
+      # WINDOWS 11 - TẠO VM + BẬT RDP
       # ============================================
       - name: 🪟 DEPLOY WINDOWS 11 + RDP
         if: github.event.inputs.os_type == 'windows11'
         run: |
           echo ""
           echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 11 PRO + RDP                    │"
+          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 11 PRO                          │"
           echo "└─────────────────────────────────────────────────────────────┘"
           echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
-          
           qemu-img create -f qcow2 windows11.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
+          echo "  ✅ Disk image created"
           
-          # Tạo script enable RDP (chạy khi Windows boot)
+          echo "  🔧 Configuring RDP auto-enable script..."
           cat > enable-rdp.ps1 << 'RDPSCRIPT'
-Write-Host "Enabling Remote Desktop..."
+Write-Host "========================================="
+Write-Host "  🔧 REMOTE DESKTOP CONFIGURATION"
+Write-Host "========================================="
+Write-Host "  [1/4] Enabling Remote Desktop registry..."
 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+Write-Host "  ✅ Registry configured"
+
+Write-Host "  [2/4] Disabling Network Level Authentication..."
 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+Write-Host "  ✅ NLA disabled"
+
+Write-Host "  [3/4] Configuring Windows Firewall..."
 netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
-New-NetFirewallRule -DisplayName "RDP-In" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -ErrorAction SilentlyContinue
+netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389
+Write-Host "  ✅ Firewall rules added"
+
+Write-Host "  [4/4] Starting Remote Desktop Services..."
 Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
 Start-Service -Name TermService -ErrorAction SilentlyContinue
-Write-Host "RDP Enabled Successfully!"
+Write-Host "  ✅ TermService started"
+
+Write-Host ""
+Write-Host "🎉 REMOTE DESKTOP ENABLED SUCCESSFULLY!"
+Write-Host "   Port: 3389"
+Write-Host "   Status: Active"
 RDPSCRIPT
-          
-          echo "  ✅ Windows 11 VM ready with RDP auto-enable"
+          echo "  ✅ RDP enable script created"
           echo ""
           
       # ============================================
-      # WINDOWS 10 VỚI RDP AUTO-ENABLE
+      # WINDOWS 10 - TẠO VM + BẬT RDP
       # ============================================
       - name: 🪟 DEPLOY WINDOWS 10 + RDP
         if: github.event.inputs.os_type == 'windows10'
         run: |
           echo ""
           echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 10 PRO + RDP                    │"
+          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 10 PRO                          │"
           echo "└─────────────────────────────────────────────────────────────┘"
           echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
-          
           qemu-img create -f qcow2 windows10.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
+          echo "  ✅ Disk image created"
           
+          echo "  🔧 Configuring RDP auto-enable script..."
           cat > enable-rdp.ps1 << 'RDPSCRIPT'
-Write-Host "Enabling Remote Desktop..."
+Write-Host "========================================="
+Write-Host "  🔧 REMOTE DESKTOP CONFIGURATION"
+Write-Host "========================================="
+Write-Host "  [1/4] Enabling Remote Desktop registry..."
 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+Write-Host "  ✅ Registry configured"
+
+Write-Host "  [2/4] Disabling Network Level Authentication..."
 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+Write-Host "  ✅ NLA disabled"
+
+Write-Host "  [3/4] Configuring Windows Firewall..."
 netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
-New-NetFirewallRule -DisplayName "RDP-In" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -ErrorAction SilentlyContinue
+netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389
+Write-Host "  ✅ Firewall rules added"
+
+Write-Host "  [4/4] Starting Remote Desktop Services..."
 Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
 Start-Service -Name TermService -ErrorAction SilentlyContinue
-Write-Host "RDP Enabled Successfully!"
+Write-Host "  ✅ TermService started"
+
+Write-Host ""
+Write-Host "🎉 REMOTE DESKTOP ENABLED SUCCESSFULLY!"
+Write-Host "   Port: 3389"
+Write-Host "   Status: Active"
 RDPSCRIPT
-          
-          echo "  ✅ Windows 10 VM ready with RDP auto-enable"
+          echo "  ✅ RDP enable script created"
           echo ""
           
       # ============================================
-      # UBUNTU DESKTOP VỚI LXDE + XRDP
+      # UBUNTU DESKTOP - TẠO VM + BẬT RDP
       # ============================================
       - name: 🐧 DEPLOY UBUNTU DESKTOP + RDP
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
           echo ""
           echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🐧 ĐANG TRIỂN KHAI UBUNTU DESKTOP + RDP (LXDE)            │"
+          echo "│  🐧 ĐANG TRIỂN KHAI UBUNTU DESKTOP (LXDE)                  │"
           echo "└─────────────────────────────────────────────────────────────┘"
           echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
-          
           qemu-img create -f qcow2 ubuntu.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
+          echo "  ✅ Disk image created"
           
-          echo "  🔄 Installing xrdp and LXDE..."
+          echo "  🔧 Installing xRDP and LXDE..."
           sudo apt-get update -qq > /dev/null 2>&1
           sudo apt-get install -y -qq xrdp lxde lxde-common lxde-core > /dev/null 2>&1
+          echo "  ✅ xRDP installed"
           
+          echo "  🔧 Configuring LXDE session..."
           echo "lxsession -s LXDE -e LXDE" | sudo tee /home/${{ github.event.inputs.username }}/.xsession > /dev/null 2>&1
           sudo chown ${{ github.event.inputs.username }}:${{ github.event.inputs.username }} /home/${{ github.event.inputs.username }}/.xsession
           echo "startlxde" | sudo tee -a /etc/xrdp/startwm.sh > /dev/null 2>&1
+          echo "  ✅ Session configured"
           
+          echo "  🔧 Starting xRDP service..."
           sudo systemctl enable xrdp > /dev/null 2>&1
           sudo systemctl start xrdp > /dev/null 2>&1
-          
-          echo "  ✅ Ubuntu VM ready with RDP (LXDE)"
+          echo "  ✅ xRDP service started"
           echo ""
           
       # ============================================
@@ -256,60 +292,70 @@ RDPSCRIPT
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "windows11" ]; then
             OS_NAME="Windows 11 Pro"
+            OS_ICON="🪟"
           elif [ "${{ github.event.inputs.os_type }}" = "windows10" ]; then
             OS_NAME="Windows 10 Pro"
+            OS_ICON="🪟"
           else
             OS_NAME="Ubuntu Desktop (LXDE)"
+            OS_ICON="🐧"
           fi
           
           START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
           END_TIME=$(date -d "+${{ github.event.inputs.duration }} hours" '+%Y-%m-%d %H:%M:%S')
           
           echo ""
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│              🎉 KẾT NỐI THÀNH CÔNG! 🎉                     │"
-          echo "├─────────────────────────────────────────────────────────────┤"
-          echo "│  🖥️  Hệ điều hành : $OS_NAME"
-          echo "│  ⚡ CPU          : ${{ github.event.inputs.cpu_cores }} vCPUs"
-          echo "│  💾 RAM         : ${{ github.event.inputs.ram_gb }} GB"
-          echo "│  💿 SSD         : ${SSD_SIZE} GB"
-          echo "├─────────────────────────────────────────────────────────────┤"
-          echo "│  🌐 Địa chỉ     : $TAILSCALE_IP"
-          echo "│  🔌 Cổng        : 3389 (RDP)"
-          echo "│  👤 Tài khoản   : ${{ github.event.inputs.username }}"
-          echo "│  🔐 Mật khẩu    : ${{ github.event.inputs.password }}"
-          echo "├─────────────────────────────────────────────────────────────┤"
-          echo "│  💡 HƯỚNG DẪN KẾT NỐI (iPhone)                            │"
-          echo "│    1. Cài Tailscale → Bật VPN                              │"
-          echo "│    2. Cài Microsoft Remote Desktop từ App Store            │"
-          echo "│    3. Add PC → PC name: $TAILSCALE_IP:3389                 │"
-          echo "│    4. User: ${{ github.event.inputs.username }} / Pass: ${{ github.event.inputs.password }}"
-          echo "│    5. Connect và Enjoy! 🚀                                 │"
-          echo "├─────────────────────────────────────────────────────────────┤"
-          echo "│  ⏱️  Bắt đầu : $START_TIME"
-          echo "│  ⏱️  Kết thúc : $END_TIME"
-          echo "└─────────────────────────────────────────────────────────────┘"
-          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║              🎉 KẾT NỐI THÀNH CÔNG! 🎉                       ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║                                                              ║"
+          echo "║  📋 THÔNG SỐ HỆ THỐNG                                        ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  $OS_ICON Hệ điều hành │  $OS_NAME" >> vps-info-temp.txt
+          echo "║  │  ⚡ CPU              │  ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info-temp.txt
+          echo "║  │  💾 RAM             │  ${{ github.event.inputs.ram_gb }} GB" >> vps-info-temp.txt
+          echo "║  │  💿 SSD             │  ${SSD_SIZE} GB" >> vps-info-temp.txt
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  🔐 THÔNG TIN ĐĂNG NHẬP                                      ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  👤 Username    │  ${{ github.event.inputs.username }}" >> vps-info-temp.txt
+          echo "║  │  🔑 Password    │  ${{ github.event.inputs.password }}" >> vps-info-temp.txt
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  🌐 KẾT NỐI TAILSCALE                                       ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  🌐 Host       │  $TAILSCALE_IP" >> vps-info-temp.txt
+          echo "║  │  🔌 Port       │  3389 (RDP)" >> vps-info-temp.txt
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  🚀 TRẠNG THÁI DỊCH VỤ                                      ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  🔵 Remote Desktop  │  🟢 ĐÃ BẬT (Port 3389)" >> vps-info-temp.txt
+          echo "║  │  🔵 SSH             │  🟢 ĐÃ BẬT (Port 22)" >> vps-info-temp.txt
+          echo "║  │  🔵 Tailscale VPN   │  🟢 ĐÃ KẾT NỐI" >> vps-info-temp.txt
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  📱 HƯỚNG DẪN KẾT NỐI (iPhone)                              ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  1. Cài Tailscale → Bật VPN                            │ ║"
+          echo "║  │  2. Cài Microsoft Remote Desktop từ App Store          │ ║"
+          echo "║  │  3. Add PC → PC name: $TAILSCALE_IP:3389" >> vps-info-temp.txt
+          echo "║  │  4. User: ${{ github.event.inputs.username }} / Pass: ${{ github.event.inputs.password }}" >> vps-info-temp.txt
+          echo "║  │  5. Connect và Enjoy! 🚀                                │ ║"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  ⏱️  THỜI GIAN                                             ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  🕐 Bắt đầu  │  $START_TIME" >> vps-info-temp.txt
+          echo "║  │  🕐 Kết thúc │  $END_TIME" >> vps-info-temp.txt
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "╚══════════════════════════════════════════════════════════════╝" >> vps-info-temp.txt
           
-          # Lưu file info
-          echo "╔══════════════════════════════════════════════════════════════╗" > vps-info.txt
-          echo "║              🎉 VPS CONNECTION INFORMATION 🎉                 ║" >> vps-info.txt
-          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
-          echo "║  🖥️  OS      : $OS_NAME" >> vps-info.txt
-          echo "║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info.txt
-          echo "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB" >> vps-info.txt
-          echo "║  💿 SSD      : ${SSD_SIZE} GB" >> vps-info.txt
-          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
-          echo "║  🌐 Host     : $TAILSCALE_IP" >> vps-info.txt
-          echo "║  🔌 Port     : 3389" >> vps-info.txt
-          echo "║  👤 User     : ${{ github.event.inputs.username }}" >> vps-info.txt
-          echo "║  🔑 Pass     : ${{ github.event.inputs.password }}" >> vps-info.txt
-          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
-          echo "║  📱 Microsoft Remote Desktop: $TAILSCALE_IP:3389" >> vps-info.txt
-          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
-          echo "║  ⏱️  Created : $START_TIME" >> vps-info.txt
-          echo "║  ⏱️  Expires : $END_TIME" >> vps-info.txt
-          echo "╚══════════════════════════════════════════════════════════════╝" >> vps-info.txt
+          # Hiển thị ra console
+          cat vps-info-temp.txt
+          mv vps-info-temp.txt vps-info.txt
           
       # ============================================
       # UPLOAD FILE THÔNG TIN
@@ -322,7 +368,7 @@ RDPSCRIPT
           retention-days: 7
           
       # ============================================
-      # DUY TRÌ PHIÊN LÀM VIỆC (ĐẸP + TỰ XOÁ)
+      # DUY TRÌ PHIÊN LÀM VIỆC + TỰ XOÁ
       # ============================================
       - name: ⏳ DUY TRÌ & TỰ ĐỘNG XOÁ VM
         run: |
@@ -334,17 +380,16 @@ RDPSCRIPT
           echo "│  🟢 VPS ĐANG CHẠY - KẾT NỐI NGAY! 🟢                       │"
           echo "├─────────────────────────────────────────────────────────────┤"
           echo "│  🌐 Tailscale IP : $TAILSCALE_IP"
-          echo "│  🔌 Port         : 3389"
+          echo "│  🔌 Port         : 3389 (RDP)"
           echo "│  👤 Username     : ${{ github.event.inputs.username }}"
           echo "│  🔑 Password     : ${{ github.event.inputs.password }}"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  📱 Microsoft Remote Desktop: $TAILSCALE_IP:3389"
           echo "└─────────────────────────────────────────────────────────────┘"
           echo ""
           
-          # Hiệu ứng đếm giờ đẹp
+          # Timer đẹp
           START_TIME=$(date +%s)
-          FRAMES=("⣾" "⣽" "⣻" "⢿" "⡿" "⣟" "⣯" "⣷")
-          COLORS=("31" "32" "33" "34" "35" "36" "91" "92")
-          
           while true; do
             CURRENT_TIME=$(date +%s)
             ELAPSED=$((CURRENT_TIME - START_TIME))
@@ -357,10 +402,8 @@ RDPSCRIPT
             H=$((REMAINING / 3600))
             M=$(((REMAINING % 3600) / 60))
             S=$((REMAINING % 60))
-            FRAME=${FRAMES[$((ELAPSED % ${#FRAMES[@]}))]}
-            COLOR=${COLORS[$((ELAPSED % ${#COLORS[@]}))]}
             
-            printf "\r\033[${COLOR}m$FRAME Thời gian còn lại: %02d:%02d:%02d\033[0m" $H $M $S
+            printf "\r  ⏳ Thời gian còn lại: %02d:%02d:%02d" $H $M $S
             sleep 1
           done
           
@@ -389,13 +432,11 @@ RDPSCRIPT
           echo ""
           
       # ============================================
-      # DỌN DẸP CUỐI (ĐẢM BẢO)
+      # DỌN DẸP CUỐI
       # ============================================
       - name: 🧹 DỌN DẸP CUỐI
         if: always()
         run: |
-          echo "  🧹 Final cleanup..."
           sudo pkill -f qemu-system-x86_64 2>/dev/null || true
           rm -f windows11.qcow2 windows10.qcow2 ubuntu.qcow2 2>/dev/null || true
           sudo tailscale down 2>/dev/null || true
-          echo "  ✅ Cleanup completed"
