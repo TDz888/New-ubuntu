@@ -41,10 +41,6 @@ on:
           - '8'
           - '12'
           - '16'
-      wallpaper_url:
-        description: 'Wallpaper URL (leave empty for default)'
-        required: false
-        default: ''
       duration:
         description: 'Hours to run'
         required: true
@@ -62,22 +58,34 @@ jobs:
     timeout-minutes: 360
     
     steps:
+      # ============================================
+      # CÀI ĐẶT CÔNG CỤ
+      # ============================================
       - name: Install tools
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-server curl wget qemu-utils qemu-system-x86
           
+      # ============================================
+      # TẠO USER
+      # ============================================
       - name: Create user
         run: |
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           
+      # ============================================
+      # CẤU HÌNH SSH
+      # ============================================
       - name: Configure SSH
         run: |
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart sshd || sudo systemctl restart ssh
           
+      # ============================================
+      # CÀI ĐẶT TAILSCALE
+      # ============================================
       - name: Install Tailscale
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
@@ -103,7 +111,6 @@ jobs:
           echo "CPU_CORES=$CPU" >> $GITHUB_ENV
           echo "RAM_MB=$RAM_MB" >> $GITHUB_ENV
           
-          # Tính dung lượng SSD dựa trên RAM
           if [ "$RAM" -le "4" ]; then
             SSD_SIZE="40"
           elif [ "$RAM" -le "8" ]; then
@@ -119,7 +126,7 @@ jobs:
       - name: Setup Windows 11
         if: github.event.inputs.os_type == 'windows11'
         run: |
-          echo "Setting up Windows 11 VM with ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${SSD_SIZE}GB SSD..."
+          echo "Setting up Windows 11 VM..."
           qemu-img create -f qcow2 windows11.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
@@ -140,7 +147,7 @@ jobs:
       - name: Setup Windows 10
         if: github.event.inputs.os_type == 'windows10'
         run: |
-          echo "Setting up Windows 10 VM with ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${SSD_SIZE}GB SSD..."
+          echo "Setting up Windows 10 VM..."
           qemu-img create -f qcow2 windows10.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
@@ -156,12 +163,12 @@ jobs:
           chmod +x start-vm.sh
           
       # ============================================
-      # UBUNTU DESKTOP (XFCE - NHẸ NHẤT)
+      # UBUNTU DESKTOP
       # ============================================
       - name: Setup Ubuntu Desktop
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          echo "Setting up Ubuntu Desktop VM with XFCE (lightweight)..."
+          echo "Setting up Ubuntu Desktop VM..."
           qemu-img create -f qcow2 ubuntu.qcow2 ${SSD_SIZE}G
           echo "#!/bin/bash" > start-vm.sh
           echo "qemu-system-x86_64 \\" >> start-vm.sh
@@ -177,14 +184,14 @@ jobs:
           chmod +x start-vm.sh
           
       # ============================================
-      # CÀI XRDP + XFCE (NHẸ NHẤT)
+      # CÀI XRDP + XFCE CHO UBUNTU (NHẸ NHẤT)
       # ============================================
       - name: Install xRDP + XFCE for Ubuntu
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          echo "Installing XFCE desktop (lightweight) and xRDP..."
+          echo "Installing XFCE desktop and xRDP..."
           sudo apt-get update
-          sudo apt-get install -y xrdp xfce4 xfce4-goodies wget
+          sudo apt-get install -y xrdp xfce4 xfce4-goodies
           echo "xfce4-session" | sudo tee /home/${{ github.event.inputs.username }}/.xsession
           sudo chown ${{ github.event.inputs.username }}:${{ github.event.inputs.username }} /home/${{ github.event.inputs.username }}/.xsession
           sudo systemctl enable xrdp
@@ -192,50 +199,8 @@ jobs:
           echo "✅ xRDP + XFCE installed"
           
       # ============================================
-      # CÀI HÌNH NỀN (CHO TẤT CẢ OS)
+      # LẤY PUBLIC IP
       # ============================================
-      - name: Set wallpaper for Windows
-        if: github.event.inputs.os_type == 'windows11' || github.event.inputs.os_type == 'windows10'
-        run: |
-          WALLPAPER_URL="${{ github.event.inputs.wallpaper_url }}"
-          if [ -n "$WALLPAPER_URL" ]; then
-            echo "Downloading wallpaper from $WALLPAPER_URL"
-            wget -O wallpaper.jpg "$WALLPAPER_URL"
-            echo "Wallpaper downloaded. Note: Apply manually in Windows after RDP connection"
-            echo "Wallpaper file saved to C:\\wallpaper.jpg"
-          else
-            echo "Using default Windows wallpaper"
-          fi
-          
-      - name: Set wallpaper for Ubuntu
-        if: github.event.inputs.os_type == 'ubuntu-desktop'
-        run: |
-          WALLPAPER_URL="${{ github.event.inputs.wallpaper_url }}"
-          if [ -n "$WALLPAPER_URL" ]; then
-            echo "Downloading wallpaper from $WALLPAPER_URL"
-            wget -O wallpaper.jpg "$WALLPAPER_URL"
-            sudo mkdir -p /usr/share/backgrounds/custom
-            sudo cp wallpaper.jpg /usr/share/backgrounds/custom/
-            echo "Setting wallpaper for user ${{ github.event.inputs.username }}..."
-            sudo -u ${{ github.event.inputs.username }} bash -c 'cat > /home/${{ github.event.inputs.username }}/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml << EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <channel name="xfce4-desktop" version="1.0">
-              <property name="backdrop" type="empty">
-                <property name="screen0" type="empty">
-                  <property name="monitor0" type="empty">
-                    <property name="workspace0" type="empty">
-                      <property name="last-image" type="string" value="/usr/share/backgrounds/custom/wallpaper.jpg"/>
-                    </property>
-                  </property>
-                </property>
-              </property>
-            </channel>
-            EOF'
-            echo "✅ Custom wallpaper applied"
-          else
-            echo "Using default Ubuntu wallpaper"
-          fi
-          
       - name: Get public IP
         run: |
           echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
@@ -253,11 +218,6 @@ jobs:
             OS_NAME="Ubuntu Desktop 22.04 (XFCE)"
           fi
           
-          WALLPAPER_INFO="${{ github.event.inputs.wallpaper_url }}"
-          if [ -z "$WALLPAPER_INFO" ]; then
-            WALLPAPER_INFO="Default"
-          fi
-          
           echo "╔══════════════════════════════════════════════════════════════╗" > vps-info.txt
           echo "║              🖥️  VPS READY - RDP CONNECTION  🖥️              ║" >> vps-info.txt
           echo "╚══════════════════════════════════════════════════════════════╝" >> vps-info.txt
@@ -268,7 +228,6 @@ jobs:
           echo "  CPU Cores        : ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info.txt
           echo "  RAM              : ${{ github.event.inputs.ram_gb }} GB" >> vps-info.txt
           echo "  Storage (SSD)    : ${SSD_SIZE} GB" >> vps-info.txt
-          echo "  Wallpaper        : $WALLPAPER_INFO" >> vps-info.txt
           echo "" >> vps-info.txt
           echo "🔐 LOGIN CREDENTIALS" >> vps-info.txt
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> vps-info.txt
@@ -309,6 +268,9 @@ jobs:
           echo "  • Run workflow again to create a new VPS" >> vps-info.txt
           echo "══════════════════════════════════════════════════════════════" >> vps-info.txt
           
+      # ============================================
+      # UPLOAD FILE THÔNG TIN
+      # ============================================
       - name: Upload connection info
         uses: actions/upload-artifact@v4
         with:
@@ -316,6 +278,9 @@ jobs:
           path: vps-info.txt
           retention-days: 7
           
+      # ============================================
+      # GIỮ VPS CHẠY
+      # ============================================
       - name: Keep VPS alive
         run: |
           HOURS=${{ github.event.inputs.duration }}
