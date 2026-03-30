@@ -31,25 +31,38 @@ jobs:
     timeout-minutes: 360
     
     steps:
+      # ============================================
+      # CÀI ĐẶT CÔNG CỤ
+      # ============================================
       - name: Install tools
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-server curl wget qemu-utils qemu-system-x86_64
           
+      # ============================================
+      # TẠO USER
+      # ============================================
       - name: Create user
         run: |
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           
+      # ============================================
+      # CẤU HÌNH SSH
+      # ============================================
       - name: Configure SSH
         run: |
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart sshd || sudo systemctl restart ssh
           
+      # ============================================
+      # CÀI ĐẶT TAILSCALE
+      # ============================================
       - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-        
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+          
       - name: Connect Tailscale
         run: |
           if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
@@ -60,70 +73,72 @@ jobs:
           sleep 5
           echo "TAILSCALE_IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
           
+      # ============================================
+      # WINDOWS 11
+      # ============================================
       - name: Setup Windows 11
         if: github.event.inputs.os_type == 'windows11'
         run: |
           echo "Setting up Windows 11 VM..."
           qemu-img create -f qcow2 windows11.qcow2 50G
-          
-          echo "Creating startup script..."
-          cat > start-vm.sh << 'SCRIPT'
-          #!/bin/bash
-          qemu-system-x86_64 \
-            -drive file=windows11.qcow2,format=qcow2 \
-            -cdrom /tmp/win11.iso \
-            -m 4096 \
-            -smp 2 \
-            -vga qxl \
-            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
-            -device virtio-net-pci,netdev=net0 \
-            -enable-kvm \
-            -daemonize
-SCRIPT
+          echo "#!/bin/bash" > start-vm.sh
+          echo "qemu-system-x86_64 \\" >> start-vm.sh
+          echo "  -drive file=windows11.qcow2,format=qcow2 \\" >> start-vm.sh
+          echo "  -cdrom /tmp/win11.iso \\" >> start-vm.sh
+          echo "  -m 4096 \\" >> start-vm.sh
+          echo "  -smp 2 \\" >> start-vm.sh
+          echo "  -vga qxl \\" >> start-vm.sh
+          echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
+          echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
+          echo "  -enable-kvm \\" >> start-vm.sh
+          echo "  -daemonize" >> start-vm.sh
           chmod +x start-vm.sh
           
+      # ============================================
+      # WINDOWS 10
+      # ============================================
       - name: Setup Windows 10
         if: github.event.inputs.os_type == 'windows10'
         run: |
           echo "Setting up Windows 10 VM..."
           qemu-img create -f qcow2 windows10.qcow2 40G
-          
-          cat > start-vm.sh << 'SCRIPT'
-          #!/bin/bash
-          qemu-system-x86_64 \
-            -drive file=windows10.qcow2,format=qcow2 \
-            -cdrom /tmp/win10.iso \
-            -m 3072 \
-            -smp 2 \
-            -vga qxl \
-            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
-            -device virtio-net-pci,netdev=net0 \
-            -enable-kvm \
-            -daemonize
-SCRIPT
+          echo "#!/bin/bash" > start-vm.sh
+          echo "qemu-system-x86_64 \\" >> start-vm.sh
+          echo "  -drive file=windows10.qcow2,format=qcow2 \\" >> start-vm.sh
+          echo "  -cdrom /tmp/win10.iso \\" >> start-vm.sh
+          echo "  -m 3072 \\" >> start-vm.sh
+          echo "  -smp 2 \\" >> start-vm.sh
+          echo "  -vga qxl \\" >> start-vm.sh
+          echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
+          echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
+          echo "  -enable-kvm \\" >> start-vm.sh
+          echo "  -daemonize" >> start-vm.sh
           chmod +x start-vm.sh
           
+      # ============================================
+      # UBUNTU DESKTOP
+      # ============================================
       - name: Setup Ubuntu Desktop
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
           echo "Setting up Ubuntu Desktop VM..."
           qemu-img create -f qcow2 ubuntu.qcow2 30G
-          
-          cat > start-vm.sh << 'SCRIPT'
-          #!/bin/bash
-          qemu-system-x86_64 \
-            -drive file=ubuntu.qcow2,format=qcow2 \
-            -cdrom /tmp/ubuntu.iso \
-            -m 4096 \
-            -smp 2 \
-            -vga qxl \
-            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
-            -device virtio-net-pci,netdev=net0 \
-            -enable-kvm \
-            -daemonize
-SCRIPT
+          echo "#!/bin/bash" > start-vm.sh
+          echo "qemu-system-x86_64 \\" >> start-vm.sh
+          echo "  -drive file=ubuntu.qcow2,format=qcow2 \\" >> start-vm.sh
+          echo "  -cdrom /tmp/ubuntu.iso \\" >> start-vm.sh
+          echo "  -m 4096 \\" >> start-vm.sh
+          echo "  -smp 2 \\" >> start-vm.sh
+          echo "  -vga qxl \\" >> start-vm.sh
+          echo "  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\" >> start-vm.sh
+          echo "  -device virtio-net-pci,netdev=net0 \\" >> start-vm.sh
+          echo "  -enable-kvm \\" >> start-vm.sh
+          echo "  -daemonize" >> start-vm.sh
           chmod +x start-vm.sh
           
+      # ============================================
+      # CÀI XRDP CHO UBUNTU
+      # ============================================
       - name: Install xRDP for Ubuntu
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
@@ -131,21 +146,31 @@ SCRIPT
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
           
+      # ============================================
+      # LẤY PUBLIC IP
+      # ============================================
       - name: Get public IP
-        run: echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
+        run: |
+          echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
         
+      # ============================================
+      # LƯU THÔNG TIN KẾT NỐI
+      # ============================================
       - name: Save connection info
         run: |
-          OS_NAME="${{ github.event.inputs.os_type }}"
-          if [ "$OS_NAME" = "windows11" ]; then OS_DISPLAY="Windows 11 Pro"; fi
-          if [ "$OS_NAME" = "windows10" ]; then OS_DISPLAY="Windows 10 Pro"; fi
-          if [ "$OS_NAME" = "ubuntu-desktop" ]; then OS_DISPLAY="Ubuntu Desktop 22.04"; fi
+          if [ "${{ github.event.inputs.os_type }}" = "windows11" ]; then
+            OS_NAME="Windows 11 Pro"
+          elif [ "${{ github.event.inputs.os_type }}" = "windows10" ]; then
+            OS_NAME="Windows 10 Pro"
+          else
+            OS_NAME="Ubuntu Desktop 22.04"
+          fi
           
           echo "============================================================" > vps-info.txt
           echo "VPS READY - RDP CONNECTION" >> vps-info.txt
           echo "============================================================" >> vps-info.txt
           echo "" >> vps-info.txt
-          echo "Operating System: $OS_DISPLAY" >> vps-info.txt
+          echo "Operating System: $OS_NAME" >> vps-info.txt
           echo "" >> vps-info.txt
           echo "LOGIN CREDENTIALS:" >> vps-info.txt
           echo "  Username: ${{ github.event.inputs.username }}" >> vps-info.txt
@@ -155,14 +180,13 @@ SCRIPT
           echo "  Host: $TAILSCALE_IP" >> vps-info.txt
           echo "  Port: 3389" >> vps-info.txt
           echo "" >> vps-info.txt
-          echo "RDP COMMANDS:" >> vps-info.txt
-          echo "  Windows: mstsc /v:$TAILSCALE_IP:3389" >> vps-info.txt
-          echo "  Mac: open vnc://$TAILSCALE_IP:3389" >> vps-info.txt
+          echo "RDP COMMAND:" >> vps-info.txt
+          echo "  mstsc /v:$TAILSCALE_IP:3389" >> vps-info.txt
           echo "" >> vps-info.txt
-          echo "IPHONE SETUP (Microsoft Remote Desktop):" >> vps-info.txt
-          echo "  1. Install Tailscale from App Store - Turn ON VPN" >> vps-info.txt
-          echo "  2. Install Microsoft Remote Desktop from App Store" >> vps-info.txt
-          echo "  3. Add PC -> PC name: $TAILSCALE_IP:3389" >> vps-info.txt
+          echo "IPHONE SETUP:" >> vps-info.txt
+          echo "  1. Install Tailscale - Turn ON VPN" >> vps-info.txt
+          echo "  2. Install Microsoft Remote Desktop" >> vps-info.txt
+          echo "  3. Add PC: $TAILSCALE_IP:3389" >> vps-info.txt
           echo "  4. Username: ${{ github.event.inputs.username }}" >> vps-info.txt
           echo "  5. Password: ${{ github.event.inputs.password }}" >> vps-info.txt
           echo "" >> vps-info.txt
@@ -170,6 +194,9 @@ SCRIPT
           echo "Duration: ${{ github.event.inputs.duration }} hours" >> vps-info.txt
           echo "============================================================" >> vps-info.txt
           
+      # ============================================
+      # UPLOAD FILE THÔNG TIN
+      # ============================================
       - name: Upload connection info
         uses: actions/upload-artifact@v4
         with:
@@ -177,26 +204,25 @@ SCRIPT
           path: vps-info.txt
           retention-days: 7
           
+      # ============================================
+      # GIỮ VPS CHẠY
+      # ============================================
       - name: Keep VPS alive
         run: |
           HOURS=${{ github.event.inputs.duration }}
-          OS_NAME="${{ github.event.inputs.os_type }}"
-          
           echo ""
           echo "============================================================"
           echo "VPS IS RUNNING"
           echo "============================================================"
           echo ""
-          echo "OS: $OS_NAME"
+          echo "OS: ${{ github.event.inputs.os_type }}"
           echo "Tailscale IP: $TAILSCALE_IP"
           echo "RDP Port: 3389"
           echo "Username: ${{ github.event.inputs.username }}"
           echo "Password: ${{ github.event.inputs.password }}"
           echo ""
-          echo "Connect via Microsoft Remote Desktop: $TAILSCALE_IP:3389"
+          echo "Connect: $TAILSCALE_IP:3389"
           echo ""
           echo "VPS will run for: $HOURS hours"
-          echo "Auto-shutdown at: $(date -d "+$HOURS hours" '+%H:%M:%S')"
-          echo ""
           echo "============================================================"
           sleep $((HOURS * 3600))
