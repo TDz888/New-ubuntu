@@ -1,0 +1,251 @@
+name: 🖥️ VPS Creator - Windows & Ubuntu RDP
+
+on:
+  workflow_dispatch:
+    inputs:
+      os_type:
+        description: '🖥️ Choose Operating System'
+        required: true
+        default: 'windows11'
+        type: choice
+        options:
+          - 'windows11'
+          - 'windows10'
+          - 'ubuntu-desktop'
+      username:
+        description: '👤 Username'
+        required: true
+        default: 'vpsuser'
+      password:
+        description: '🔑 Password'
+        required: true
+        default: 'Vps@123456'
+      duration:
+        description: '⏱️ Hours to run'
+        required: true
+        default: '6'
+
+jobs:
+  create-vps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    steps:
+      # ============================================
+      # CÀI ĐẶT CÔNG CỤ CHUNG
+      # ============================================
+      - name: 📦 Install common tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl wget qemu-utils qemu-system-x86_64 qemu-kvm
+          sudo modprobe kvm
+
+      # ============================================
+      # WINDOWS 11 SETUP
+      # ============================================
+      - name: 🪟 Setup Windows 11
+        if: github.event.inputs.os_type == 'windows11'
+        run: |
+          echo "🪟 Creating Windows 11 VPS..."
+          
+          # Tạo disk image
+          qemu-img create -f qcow2 windows11.qcow2 50G
+          
+          # Tạo script startup
+          cat > start-windows.sh << 'WINSTART'
+          #!/bin/bash
+          qemu-system-x86_64 \
+            -drive file=windows11.qcow2,format=qcow2 \
+            -cdrom /tmp/win11.iso \
+            -m 4G \
+            -smp 2 \
+            -vga qxl \
+            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
+            -device virtio-net-pci,netdev=net0 \
+            -enable-kvm \
+            -daemonize
+WINSTART
+          chmod +x start-windows.sh
+
+      # ============================================
+      # WINDOWS 10 SETUP
+      # ============================================
+      - name: 🪟 Setup Windows 10
+        if: github.event.inputs.os_type == 'windows10'
+        run: |
+          echo "🪟 Creating Windows 10 VPS..."
+          
+          qemu-img create -f qcow2 windows10.qcow2 40G
+          
+          cat > start-windows.sh << 'WINSTART'
+          #!/bin/bash
+          qemu-system-x86_64 \
+            -drive file=windows10.qcow2,format=qcow2 \
+            -cdrom /tmp/win10.iso \
+            -m 3G \
+            -smp 2 \
+            -vga qxl \
+            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
+            -device virtio-net-pci,netdev=net0 \
+            -enable-kvm \
+            -daemonize
+WINSTART
+          chmod +x start-windows.sh
+
+      # ============================================
+      # UBUNTU DESKTOP SETUP
+      # ============================================
+      - name: 🐧 Setup Ubuntu Desktop
+        if: github.event.inputs.os_type == 'ubuntu-desktop'
+        run: |
+          echo "🐧 Creating Ubuntu Desktop VPS..."
+          
+          # Tạo disk image
+          qemu-img create -f qcow2 ubuntu-desktop.qcow2 30G
+          
+          cat > start-ubuntu.sh << 'UBUSTART'
+          #!/bin/bash
+          qemu-system-x86_64 \
+            -drive file=ubuntu-desktop.qcow2,format=qcow2 \
+            -cdrom /tmp/ubuntu.iso \
+            -m 4G \
+            -smp 2 \
+            -vga qxl \
+            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
+            -device virtio-net-pci,netdev=net0 \
+            -enable-kvm \
+            -daemonize
+UBUSTART
+          chmod +x start-ubuntu.sh
+
+      # ============================================
+      # CÀI ĐẶT XRDP CHO UBUNTU DESKTOP
+      # ============================================
+      - name: 🔧 Install xRDP for Ubuntu
+        if: github.event.inputs.os_type == 'ubuntu-desktop'
+        run: |
+          sudo apt-get install -y xrdp ubuntu-desktop
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
+          echo "✅ xRDP installed for Ubuntu Desktop"
+
+      # ============================================
+      # CÀI ĐẶT TAILSCALE
+      # ============================================
+      - name: 🔐 Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+          
+      - name: 🌐 Connect Tailscale
+        run: |
+          if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
+            echo "❌ Missing TAILSCALE_AUTH_KEY"
+            exit 1
+          fi
+          sudo tailscale up --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="vps-$(date +%s)"
+          sleep 5
+          echo "IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
+
+      # ============================================
+      # CẤU HÌNH RDP
+      # ============================================
+      - name: 🔌 Configure RDP
+        run: |
+          # Mở port RDP trong firewall
+          sudo ufw allow 3389/tcp 2>/dev/null || true
+          
+          # Tạo file config RDP
+          cat > rdp-config.rdp << RDPCFG
+full address:s:$IP:3389
+username:s:${{ github.event.inputs.username }}
+prompt for credentials:i:0
+authentication level:i:0
+enablecredsspsupport:i:1
+RDPCFG
+
+      # ============================================
+      # LƯU THÔNG TIN KẾT NỐI
+      # ============================================
+      - name: 💾 Save connection info
+        run: |
+          OS_NAME="${{ github.event.inputs.os_type }}"
+          case "$OS_NAME" in
+            windows11) OS_DISPLAY="Windows 11 Pro" ;;
+            windows10) OS_DISPLAY="Windows 10 Pro" ;;
+            ubuntu-desktop) OS_DISPLAY="Ubuntu Desktop 22.04" ;;
+            *) OS_DISPLAY="Unknown" ;;
+          esac
+          
+          echo "============================================================" > vps-info.txt
+          echo "🖥️  VPS READY - RDP CONNECTION" >> vps-info.txt
+          echo "============================================================" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "OS: $OS_DISPLAY" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "🔐 LOGIN CREDENTIALS:" >> vps-info.txt
+          echo "  Username: ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  Password: ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "📡 TAILSCALE CONNECTION:" >> vps-info.txt
+          echo "  Host: $IP" >> vps-info.txt
+          echo "  Port: 3389" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "🚀 RDP COMMAND:" >> vps-info.txt
+          echo "  Windows: mstsc /v:$IP:3389" >> vps-info.txt
+          echo "  Mac: open vnc://$IP:3389" >> vps-info.txt
+          echo "  Linux: remmina -c rdp://$IP:3389" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "📱 iPhone (Microsoft Remote Desktop):" >> vps-info.txt
+          echo "  1. Download 'Microsoft Remote Desktop' from App Store" >> vps-info.txt
+          echo "  2. Add PC → PC name: $IP:3389" >> vps-info.txt
+          echo "  3. User: ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "  4. Password: ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "" >> vps-info.txt
+          echo "⚠️  IMPORTANT:" >> vps-info.txt
+          echo "  • Tailscale VPN must be ON on your device" >> vps-info.txt
+          echo "  • VPS will run for: ${{ github.event.inputs.duration }} hours" >> vps-info.txt
+          echo "  • Created: $(date '+%Y-%m-%d %H:%M:%S')" >> vps-info.txt
+          echo "============================================================" >> vps-info.txt
+
+      - name: 📤 Upload connection info
+        uses: actions/upload-artifact@v4
+        with:
+          name: vps-rdp-connection
+          path: |
+            vps-info.txt
+            rdp-config.rdp
+          retention-days: 7
+
+      # ============================================
+      # GIỮ VPS CHẠY
+      # ============================================
+      - name: ⏰ Keep VPS alive
+        run: |
+          HOURS=${{ github.event.inputs.duration }}
+          OS_NAME="${{ github.event.inputs.os_type }}"
+          case "$OS_NAME" in
+            windows11) OS_ICON="🪟" ;;
+            windows10) OS_ICON="🪟" ;;
+            ubuntu-desktop) OS_ICON="🐧" ;;
+          esac
+          
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║              🟢 VPS IS RUNNING 🟢                            ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "   $OS_ICON OS: $OS_NAME"
+          echo "   📡 Tailscale IP: $IP"
+          echo "   🔌 RDP Port: 3389"
+          echo "   👤 Username: ${{ github.event.inputs.username }}"
+          echo "   🔑 Password: ${{ github.event.inputs.password }}"
+          echo ""
+          echo "   📱 Connect via Microsoft Remote Desktop app on iPhone:"
+          echo "      PC name: $IP:3389"
+          echo ""
+          echo "   ⏱️  VPS will run for: $HOURS hours"
+          echo "   ⏰ Auto-shutdown at: $(date -d "+$HOURS hours" '+%H:%M:%S')"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          sleep $((HOURS * 3600))
