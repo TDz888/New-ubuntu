@@ -1,10 +1,10 @@
-name: 🖥️ VPS Creator Pro
+name: 🚀 VPS CREATOR PRO - PREMIUM
 
 on:
   workflow_dispatch:
     inputs:
       os_type:
-        description: '🎯 Operating System'
+        description: '🖥️ Operating System'
         required: true
         default: 'windows11'
         type: choice
@@ -42,7 +42,7 @@ on:
           - '12'
           - '16'
       duration:
-        description: '⏱️ Duration (hours)'
+        description: '⏱️ Hours to run'
         required: true
         default: '6'
         type: choice
@@ -53,53 +53,117 @@ on:
           - '6'
 
 jobs:
-  create-vps:
+  Premium-VPS-Setup:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     
     steps:
-      - name: ⚙️ Initializing
+      # ============================================
+      # BANNER CHÀO MỪNG
+      # ============================================
+      - name: 🎯 KHỞI ĐỘNG HỆ THỐNG
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  🖥️  VPS CREATOR PRO - Starting deployment"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║          🚀 VPS CREATOR PRO - PREMIUM EDITION 🚀             ║"
+          echo "║                ⚡ Powered by Tailscale ⚡                     ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "  🖥️  OS       : ${{ github.event.inputs.os_type }}"
+          echo "  ⚡ CPU Cores : ${{ github.event.inputs.cpu_cores }} vCPUs"
+          echo "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
+          echo "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
+          echo ""
+          echo "  🕐 Started at: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
           
-      - name: 📦 Installing core packages
+      # ============================================
+      # CÀI ĐẶT CÔNG CỤ
+      # ============================================
+      - name: 📦 CÀI ĐẶT HỆ THỐNG
         run: |
-          echo "  📦 Installing packages..."
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  📦 ĐANG CÀI ĐẶT PACKAGES                                   │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
+          echo "  🔄 Updating package list..."
           sudo apt-get update -qq > /dev/null 2>&1
-          sudo apt-get install -y -qq openssh-server curl wget qemu-utils qemu-system-x86 > /dev/null 2>&1
-          echo "  ✅ Packages installed"
           
-      - name: 👤 Creating user
+          echo "  🔄 Installing qemu, ssh, curl..."
+          sudo apt-get install -y -qq openssh-server curl wget qemu-utils qemu-system-x86 > /dev/null 2>&1
+          
+          echo "  ✅ Packages installed successfully"
+          echo ""
+          
+      # ============================================
+      # TẠO USER
+      # ============================================
+      - name: 👤 TẠO TÀI KHOẢN
         run: |
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  👤 ĐANG TẠO TÀI KHOẢN                                      │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
           echo "  👤 Creating user: ${{ github.event.inputs.username }}"
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
-          echo "  ✅ User created"
           
-      - name: 🔧 Configuring SSH
+          echo "  ✅ User created successfully"
+          echo ""
+          
+      # ============================================
+      # CẤU HÌNH SSH
+      # ============================================
+      - name: 🔧 CẤU HÌNH SSH
         run: |
-          echo "  🔧 Configuring SSH..."
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔧 ĐANG CẤU HÌNH SSH                                       │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart ssh 2>/dev/null || sudo service ssh restart 2>/dev/null || true
-          echo "  ✅ SSH ready"
           
-      - name: 🔐 Tailscale connection
+          echo "  ✅ SSH configured"
+          echo ""
+          
+      # ============================================
+      # TAILSCALE CONNECTION
+      # ============================================
+      - name: 🌐 THIẾT LẬP MẠNG PREMIUM
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "  🔐 Connecting to Tailscale..."
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🌐 ĐANG KẾT NỐI TAILSCALE                                  │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
+          echo "  🔄 Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh > /dev/null 2>&1
-          if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
+          
+          if [ -z "$TAILSCALE_AUTH_KEY" ]; then
             echo "  ❌ Missing TAILSCALE_AUTH_KEY"
             exit 1
           fi
-          sudo tailscale up --auth-key="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="vps-rdp" > /dev/null 2>&1
-          sleep 3
-          echo "TAILSCALE_IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
-          echo "  ✅ Tailscale connected - IP: $(sudo tailscale ip -4)"
           
-      - name: ⚙️ Calculating resources
+          echo "  🔄 Connecting to Tailscale network..."
+          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname="vps-premium" > /dev/null 2>&1
+          sleep 5
+          
+          TAILSCALE_IP=$(sudo tailscale ip -4)
+          echo "TAILSCALE_IP=$TAILSCALE_IP" >> $GITHUB_ENV
+          
+          echo "  ✅ Connected - IP: $TAILSCALE_IP"
+          echo ""
+          
+      # ============================================
+      # TÍNH TOÁN CẤU HÌNH
+      # ============================================
+      - name: ⚙️ TÍNH TOÁN TÀI NGUYÊN
         run: |
           CPU="${{ github.event.inputs.cpu_cores }}"
           RAM="${{ github.event.inputs.ram_gb }}"
@@ -116,163 +180,187 @@ jobs:
           fi
           echo "SSD_SIZE=$SSD_SIZE" >> $GITHUB_ENV
           
-      - name: 🪟 Deploying Windows 11
+      # ============================================
+      # WINDOWS 11
+      # ============================================
+      - name: 🪟 DEPLOY WINDOWS 11
         if: github.event.inputs.os_type == 'windows11'
         run: |
-          echo "  🪟 Deploying Windows 11 Pro"
-          echo "  └─ CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 11 PRO                          │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
           qemu-img create -f qcow2 windows11.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
           echo "  ✅ Windows 11 VM ready"
+          echo ""
           
-      - name: 🪟 Deploying Windows 10
+      # ============================================
+      # WINDOWS 10
+      # ============================================
+      - name: 🪟 DEPLOY WINDOWS 10
         if: github.event.inputs.os_type == 'windows10'
         run: |
-          echo "  🪟 Deploying Windows 10 Pro"
-          echo "  └─ CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🪟 ĐANG TRIỂN KHAI WINDOWS 10 PRO                          │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
           qemu-img create -f qcow2 windows10.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
           echo "  ✅ Windows 10 VM ready"
+          echo ""
           
-      - name: 🐧 Deploying Ubuntu Desktop
+      # ============================================
+      # UBUNTU DESKTOP
+      # ============================================
+      - name: 🐧 DEPLOY UBUNTU DESKTOP
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          echo "  🐧 Deploying Ubuntu Desktop (LXDE - Lightweight)"
-          echo "  └─ CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🐧 ĐANG TRIỂN KHAI UBUNTU DESKTOP (LXDE)                   │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "  📊 CPU: ${CPU_CORES} cores | RAM: ${RAM_MB}MB | SSD: ${SSD_SIZE}GB"
           qemu-img create -f qcow2 ubuntu.qcow2 ${SSD_SIZE}G > /dev/null 2>&1
           echo "  ✅ Ubuntu VM ready"
+          echo ""
           
-      - name: 🖥️ Configuring RDP (LXDE - No D-Bus issues)
+      # ============================================
+      # CÀI XRDP + LXDE CHO UBUNTU
+      # ============================================
+      - name: 🖥️ CÀI ĐẶT RDP CHO UBUNTU
         if: github.event.inputs.os_type == 'ubuntu-desktop'
         run: |
-          echo "  🖥️ Installing LXDE + xRDP..."
-          sudo apt-get update -qq > /dev/null 2>&1
-          sudo apt-get install -y -qq xrdp lxde lxde-common lxde-core lxde-icon-theme lxde-settings-daemon lxmenu-data lxpolkit lxsession lxsession-edit lxterminal lxappearance lxinput lxrandr lxtask > /dev/null 2>&1
+          echo ""
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🖥️ ĐANG CÀI ĐẶT RDP + LXDE                                 │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           
-          # Cấu hình xrdp cho LXDE
+          echo "  🔄 Installing xrdp and LXDE..."
+          sudo apt-get update -qq > /dev/null 2>&1
+          sudo apt-get install -y -qq xrdp lxde lxde-common lxde-core > /dev/null 2>&1
+          
+          echo "  🔄 Configuring session..."
           echo "lxsession -s LXDE -e LXDE" | sudo tee /home/${{ github.event.inputs.username }}/.xsession > /dev/null 2>&1
           sudo chown ${{ github.event.inputs.username }}:${{ github.event.inputs.username }} /home/${{ github.event.inputs.username }}/.xsession
           
-          # Sửa startwm.sh cho xrdp
-          sudo sed -i 's/startxfce4/startlxde/g' /etc/xrdp/startwm.sh 2>/dev/null || true
           echo "startlxde" | sudo tee -a /etc/xrdp/startwm.sh > /dev/null 2>&1
-          
           sudo systemctl enable xrdp > /dev/null 2>&1
           sudo systemctl start xrdp > /dev/null 2>&1
-          echo "  ✅ RDP service ready (LXDE desktop)"
           
-      - name: 🌍 Fetching public IP
+          echo "  ✅ RDP service ready (port 3389)"
+          echo ""
+          
+      # ============================================
+      # LẤY PUBLIC IP
+      # ============================================
+      - name: 🌍 LẤY PUBLIC IP
         run: |
-          echo "  🌍 Public IP: $(curl -s ifconfig.me)"
-          echo "PUBLIC_IP=$(curl -s ifconfig.me)" >> $GITHUB_ENV
+          PUBLIC_IP=$(curl -s ifconfig.me)
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
           
-      - name: 📄 Generating connection info
+      # ============================================
+      # HIỂN THỊ THÔNG TIN KẾT NỐI
+      # ============================================
+      - name: 🎉 THÔNG TIN KẾT NỐI
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "windows11" ]; then
             OS_NAME="Windows 11 Pro"
           elif [ "${{ github.event.inputs.os_type }}" = "windows10" ]; then
             OS_NAME="Windows 10 Pro"
           else
-            OS_NAME="Ubuntu Desktop 22.04 (LXDE)"
+            OS_NAME="Ubuntu Desktop (LXDE)"
           fi
           
-          cat > vps-info.txt << 'EOF'
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                         🖥️  VPS CONNECTION INFORMATION  🖥️                   ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                                                                              ║
-║  📋 SYSTEM SPECIFICATIONS                                                    ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  Operating System   │  OS_PLACEHOLDER                                   │ ║
-║  │  CPU Cores          │  CPU_PLACEHOLDER vCPUs                           │ ║
-║  │  RAM                │  RAM_PLACEHOLDER GB                              │ ║
-║  │  Storage (SSD)      │  SSD_PLACEHOLDER GB                              │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  🔐 LOGIN CREDENTIALS                                                        ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  Username          │  USER_PLACEHOLDER                                  │ ║
-║  │  Password          │  PASS_PLACEHOLDER                                  │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  📡 TAILSCALE CONNECTION                                                     ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  Host              │  IP_PLACEHOLDER                                    │ ║
-║  │  Port              │  3389 (RDP)                                       │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  🚀 RDP COMMAND                                                              ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  Windows  │  mstsc /v:IP_PLACEHOLDER:3389                              │ ║
-║  │  Mac      │  open vnc://IP_PLACEHOLDER:3389                            │ ║
-║  │  Linux    │  remmina -c rdp://IP_PLACEHOLDER:3389                      │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  📱 IPHONE SETUP (Microsoft Remote Desktop)                                  ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  1. Install Tailscale from App Store → Turn ON VPN                     │ ║
-║  │  2. Install Microsoft Remote Desktop from App Store                    │ ║
-║  │  3. Add PC → PC name: IP_PLACEHOLDER:3389                              │ ║
-║  │  4. Username: USER_PLACEHOLDER                                         │ ║
-║  │  5. Password: PASS_PLACEHOLDER                                         │ ║
-║  │  6. Connect and enjoy!                                                 │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  ⏱️  TIME INFORMATION                                                        ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  Created           │  DATE_PLACEHOLDER                                 │ ║
-║  │  Duration          │  DURATION_PLACEHOLDER hours                       │ ║
-║  │  Expires           │  EXPIRE_PLACEHOLDER                               │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-║  ⚠️  IMPORTANT NOTES                                                         ║
-║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
-║  │  • Tailscale VPN must be ON on your device                             │ ║
-║  │  • GitHub Actions limits: max 4 CPU cores, 16GB RAM                    │ ║
-║  │  • VPS will auto-shutdown after DURATION_PLACEHOLDER hours             │ ║
-║  │  • Run workflow again to create a new VPS                              │ ║
-║  └─────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-EOF
-          
-          sed -i "s/OS_PLACEHOLDER/$OS_NAME/g" vps-info.txt
-          sed -i "s/CPU_PLACEHOLDER/${{ github.event.inputs.cpu_cores }}/g" vps-info.txt
-          sed -i "s/RAM_PLACEHOLDER/${{ github.event.inputs.ram_gb }}/g" vps-info.txt
-          sed -i "s/SSD_PLACEHOLDER/${SSD_SIZE}/g" vps-info.txt
-          sed -i "s/USER_PLACEHOLDER/${{ github.event.inputs.username }}/g" vps-info.txt
-          sed -i "s/PASS_PLACEHOLDER/${{ github.event.inputs.password }}/g" vps-info.txt
-          sed -i "s/IP_PLACEHOLDER/$TAILSCALE_IP/g" vps-info.txt
-          sed -i "s/DATE_PLACEHOLDER/$(date '+%Y-%m-%d %H:%M:%S')/g" vps-info.txt
-          sed -i "s/DURATION_PLACEHOLDER/${{ github.event.inputs.duration }}/g" vps-info.txt
-          sed -i "s/EXPIRE_PLACEHOLDER/$(date -d "+${{ github.event.inputs.duration }} hours" '+%Y-%m-%d %H:%M:%S')/g" vps-info.txt
-          
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  📄 Connection information saved"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│              🎉 KẾT NỐI THÀNH CÔNG! 🎉                     │"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  🖥️  Hệ điều hành : $OS_NAME"
+          echo "│  ⚡ CPU          : ${{ github.event.inputs.cpu_cores }} vCPUs"
+          echo "│  💾 RAM         : ${{ github.event.inputs.ram_gb }} GB"
+          echo "│  💿 SSD         : ${SSD_SIZE} GB"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  🌐 Địa chỉ     : $TAILSCALE_IP"
+          echo "│  🔌 Cổng        : 3389 (RDP)"
+          echo "│  👤 Tài khoản   : ${{ github.event.inputs.username }}"
+          echo "│  🔐 Mật khẩu    : ${{ github.event.inputs.password }}"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  💡 HƯỚNG DẪN KẾT NỐI                                     │"
+          echo "│    1. Cài Tailscale trên iPhone → Bật VPN                  │"
+          echo "│    2. Cài Microsoft Remote Desktop từ App Store            │"
+          echo "│    3. Add PC → PC name: $TAILSCALE_IP:3389                 │"
+          echo "│    4. User: ${{ github.event.inputs.username }} / Pass: ${{ github.event.inputs.password }}"
+          echo "│    5. Connect và Enjoy! 🚀                                 │"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  ⏱️  Bắt đầu : $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "│  ⏱️  Kết thúc : $(date -d "+${{ github.event.inputs.duration }} hours" '+%Y-%m-%d %H:%M:%S')"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          echo ""
           
-      - name: 📤 Upload connection file
+          # Lưu file info
+          echo "╔══════════════════════════════════════════════════════════════╗" > vps-info.txt
+          echo "║              🎉 VPS CONNECTION INFORMATION 🎉                 ║" >> vps-info.txt
+          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
+          echo "║  🖥️  OS      : $OS_NAME" >> vps-info.txt
+          echo "║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info.txt
+          echo "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB" >> vps-info.txt
+          echo "║  💿 SSD      : ${SSD_SIZE} GB" >> vps-info.txt
+          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
+          echo "║  🌐 Host     : $TAILSCALE_IP" >> vps-info.txt
+          echo "║  🔌 Port     : 3389" >> vps-info.txt
+          echo "║  👤 User     : ${{ github.event.inputs.username }}" >> vps-info.txt
+          echo "║  🔑 Pass     : ${{ github.event.inputs.password }}" >> vps-info.txt
+          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
+          echo "║  📱 Microsoft Remote Desktop: $TAILSCALE_IP:3389" >> vps-info.txt
+          echo "╠══════════════════════════════════════════════════════════════╣" >> vps-info.txt
+          echo "║  ⏱️  Created : $(date '+%Y-%m-%d %H:%M:%S')" >> vps-info.txt
+          echo "║  ⏱️  Expires : $(date -d "+${{ github.event.inputs.duration }} hours" '+%Y-%m-%d %H:%M:%S')" >> vps-info.txt
+          echo "╚══════════════════════════════════════════════════════════════╝" >> vps-info.txt
+          
+      # ============================================
+      # UPLOAD FILE THÔNG TIN
+      # ============================================
+      - name: 📤 UPLOAD CONNECTION INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection-info
           path: vps-info.txt
           retention-days: 7
           
-      - name: 🟢 VPS is running
+      # ============================================
+      # DUY TRÌ PHIÊN LÀM VIỆC
+      # ============================================
+      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
         run: |
+          HOURS=${{ github.event.inputs.duration }}
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  🟢 VPS IS RUNNING - CONNECT NOW"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🟢 VPS ĐANG CHẠY - KẾT NỐI NGAY! 🟢                       │"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  🌐 Tailscale IP : $TAILSCALE_IP"
+          echo "│  🔌 Port         : 3389"
+          echo "│  👤 Username     : ${{ github.event.inputs.username }}"
+          echo "│  🔑 Password     : ${{ github.event.inputs.password }}"
+          echo "├─────────────────────────────────────────────────────────────┤"
+          echo "│  ⏱️  Thời gian còn lại: $HOURS giờ"
+          echo "│  ⏰ Tự động tắt lúc: $(date -d "+$HOURS hours" '+%H:%M:%S')"
+          echo "└─────────────────────────────────────────────────────────────┘"
           echo ""
-          echo "  📡 Tailscale IP : $TAILSCALE_IP"
-          echo "  🔌 RDP Port     : 3389"
-          echo "  👤 Username     : ${{ github.event.inputs.username }}"
-          echo "  🔑 Password     : ${{ github.event.inputs.password }}"
+          
+          # Hiệu ứng đếm giờ
+          for i in $(seq 1 $((HOURS * 60))); do
+            REMAINING=$((HOURS * 3600 - i * 60))
+            H=$((REMAINING / 3600))
+            M=$(((REMAINING % 3600) / 60))
+            S=$((REMAINING % 60))
+            printf "\r  ⏳ Thời gian còn lại: %02d:%02d:%02d" $H $M $S
+            sleep 60
+          done
+          
           echo ""
-          echo "  📱 Microsoft Remote Desktop: $TAILSCALE_IP:3389"
           echo ""
-          echo "  ⏱️  Auto-shutdown at: $(date -d "+${{ github.event.inputs.duration }} hours" '+%H:%M:%S')"
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔴 ĐÃ HẾT THỜI GIAN - VPS TỰ ĐỘNG TẮT 🔴                  │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
