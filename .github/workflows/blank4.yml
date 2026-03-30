@@ -157,7 +157,7 @@ jobs:
           echo "SSD_SIZE=$SSD_SIZE" >> $GITHUB_ENV
           
       # ============================================
-      # WINDOWS 11 - TẠO VM + BẬT RDP
+      # WINDOWS 11
       # ============================================
       - name: 🪟 DEPLOY WINDOWS 11 + RDP
         if: github.event.inputs.os_type == 'windows11'
@@ -202,7 +202,7 @@ RDPSCRIPT
           echo ""
           
       # ============================================
-      # WINDOWS 10 - TẠO VM + BẬT RDP
+      # WINDOWS 10
       # ============================================
       - name: 🪟 DEPLOY WINDOWS 10 + RDP
         if: github.event.inputs.os_type == 'windows10'
@@ -247,7 +247,7 @@ RDPSCRIPT
           echo ""
           
       # ============================================
-      # UBUNTU DESKTOP - TẠO VM + BẬT RDP
+      # UBUNTU DESKTOP
       # ============================================
       - name: 🐧 DEPLOY UBUNTU DESKTOP + RDP
         if: github.event.inputs.os_type == 'ubuntu-desktop'
@@ -311,51 +311,70 @@ RDPSCRIPT
           echo "║                                                              ║"
           echo "║  📋 THÔNG SỐ HỆ THỐNG                                        ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  $OS_ICON Hệ điều hành │  $OS_NAME" >> vps-info-temp.txt
-          echo "║  │  ⚡ CPU              │  ${{ github.event.inputs.cpu_cores }} vCPUs" >> vps-info-temp.txt
-          echo "║  │  💾 RAM             │  ${{ github.event.inputs.ram_gb }} GB" >> vps-info-temp.txt
-          echo "║  │  💿 SSD             │  ${SSD_SIZE} GB" >> vps-info-temp.txt
+          printf "║  │  $OS_ICON Hệ điều hành │  %-41s │ ║\n" "$OS_NAME"
+          printf "║  │  ⚡ CPU              │  %-41s │ ║\n" "${{ github.event.inputs.cpu_cores }} vCPUs"
+          printf "║  │  💾 RAM             │  %-41s │ ║\n" "${{ github.event.inputs.ram_gb }} GB"
+          printf "║  │  💿 SSD             │  %-41s │ ║\n" "${SSD_SIZE} GB"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
           echo "║  🔐 THÔNG TIN ĐĂNG NHẬP                                      ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  👤 Username    │  ${{ github.event.inputs.username }}" >> vps-info-temp.txt
-          echo "║  │  🔑 Password    │  ${{ github.event.inputs.password }}" >> vps-info-temp.txt
+          printf "║  │  👤 Username    │  %-41s │ ║\n" "${{ github.event.inputs.username }}"
+          printf "║  │  🔑 Password    │  %-41s │ ║\n" "${{ github.event.inputs.password }}"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
           echo "║  🌐 KẾT NỐI TAILSCALE                                       ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  🌐 Host       │  $TAILSCALE_IP" >> vps-info-temp.txt
-          echo "║  │  🔌 Port       │  3389 (RDP)" >> vps-info-temp.txt
+          printf "║  │  🌐 Host       │  %-41s │ ║\n" "$TAILSCALE_IP"
+          echo "║  │  🔌 Port       │  3389 (RDP)                          │ ║"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
           echo "║  🚀 TRẠNG THÁI DỊCH VỤ                                      ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  🔵 Remote Desktop  │  🟢 ĐÃ BẬT (Port 3389)" >> vps-info-temp.txt
-          echo "║  │  🔵 SSH             │  🟢 ĐÃ BẬT (Port 22)" >> vps-info-temp.txt
-          echo "║  │  🔵 Tailscale VPN   │  🟢 ĐÃ KẾT NỐI" >> vps-info-temp.txt
+          echo "║  │  🔵 Remote Desktop  │  🟢 ĐÃ BẬT (Port 3389)          │ ║"
+          echo "║  │  🔵 SSH             │  🟢 ĐÃ BẬT (Port 22)            │ ║"
+          echo "║  │  🔵 Tailscale VPN   │  🟢 ĐÃ KẾT NỐI                  │ ║"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
           echo "║  📱 HƯỚNG DẪN KẾT NỐI (iPhone)                              ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
           echo "║  │  1. Cài Tailscale → Bật VPN                            │ ║"
           echo "║  │  2. Cài Microsoft Remote Desktop từ App Store          │ ║"
-          echo "║  │  3. Add PC → PC name: $TAILSCALE_IP:3389" >> vps-info-temp.txt
-          echo "║  │  4. User: ${{ github.event.inputs.username }} / Pass: ${{ github.event.inputs.password }}" >> vps-info-temp.txt
+          printf "║  │  3. Add PC → PC name: %-40s │ ║\n" "$TAILSCALE_IP:3389"
+          printf "║  │  4. User: %-45s │ ║\n" "${{ github.event.inputs.username }} / Pass: ${{ github.event.inputs.password }}"
           echo "║  │  5. Connect và Enjoy! 🚀                                │ ║"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
           echo "║  ⏱️  THỜI GIAN                                             ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  🕐 Bắt đầu  │  $START_TIME" >> vps-info-temp.txt
-          echo "║  │  🕐 Kết thúc │  $END_TIME" >> vps-info-temp.txt
+          printf "║  │  🕐 Bắt đầu  │  %-41s │ ║\n" "$START_TIME"
+          printf "║  │  🕐 Kết thúc │  %-41s │ ║\n" "$END_TIME"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
-          echo "╚══════════════════════════════════════════════════════════════╝" >> vps-info-temp.txt
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
           
-          # Hiển thị ra console
-          cat vps-info-temp.txt
-          mv vps-info-temp.txt vps-info.txt
+          # Lưu file info
+          {
+            echo "╔══════════════════════════════════════════════════════════════╗"
+            echo "║              🎉 VPS CONNECTION INFORMATION 🎉                 ║"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  🖥️  OS      : $OS_NAME"
+            echo "║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} vCPUs"
+            echo "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB"
+            echo "║  💿 SSD      : ${SSD_SIZE} GB"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  🌐 Host     : $TAILSCALE_IP"
+            echo "║  🔌 Port     : 3389"
+            echo "║  👤 User     : ${{ github.event.inputs.username }}"
+            echo "║  🔑 Pass     : ${{ github.event.inputs.password }}"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  📱 Microsoft Remote Desktop: $TAILSCALE_IP:3389"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  ⏱️  Created : $START_TIME"
+            echo "║  ⏱️  Expires : $END_TIME"
+            echo "╚══════════════════════════════════════════════════════════════╝"
+          } > vps-info.txt
           
       # ============================================
       # UPLOAD FILE THÔNG TIN
@@ -388,7 +407,6 @@ RDPSCRIPT
           echo "└─────────────────────────────────────────────────────────────┘"
           echo ""
           
-          # Timer đẹp
           START_TIME=$(date +%s)
           while true; do
             CURRENT_TIME=$(date +%s)
@@ -412,16 +430,9 @@ RDPSCRIPT
           echo "┌─────────────────────────────────────────────────────────────┐"
           echo "│  🧹 ĐANG DỌN DẸP VPS...                                     │"
           echo "└─────────────────────────────────────────────────────────────┘"
-          
-          # Xóa VM và dọn dẹp
-          echo "  🗑️  Stopping QEMU processes..."
           sudo pkill -f qemu-system-x86_64 2>/dev/null || true
-          
-          echo "  🗑️  Removing disk images..."
           rm -f windows11.qcow2 windows10.qcow2 ubuntu.qcow2 2>/dev/null || true
           rm -f enable-rdp.ps1 2>/dev/null || true
-          
-          echo "  🗑️  Disconnecting Tailscale..."
           sudo tailscale down 2>/dev/null || true
           
           echo ""
