@@ -10,9 +10,8 @@ on:
         type: choice
         options:
           - windows11
+          - windows10
           - ubuntu-server
-          - ubuntu-desktop
-          - fedora-desktop
       username:
         description: 👤 Username
         required: true
@@ -42,15 +41,6 @@ on:
           - '8'
           - '12'
           - '16'
-      connection_mode:
-        description: 🔌 Connection Mode
-        required: true
-        default: rdp
-        type: choice
-        options:
-          - rdp
-          - novnc
-          - both
       duration:
         description: ⏱️ Hours
         required: true
@@ -63,13 +53,13 @@ on:
           - '6'
 
 jobs:
-  windows-vps:
+  windows11-vps:
     runs-on: windows-latest
     if: github.event.inputs.os_type == 'windows11'
     timeout-minutes: 360
     
     steps:
-      - name: SYSTEM INIT
+      - name: 🎯 WINDOWS 11 INIT
         shell: pwsh
         run: |
           Write-Host ""
@@ -79,25 +69,29 @@ jobs:
           Write-Host ""
           Write-Host "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
           Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
-          Write-Host "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
           Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
           Write-Host ""
           
-      - name: Configure RDP
+      - name: 🔧 CONFIGURE RDP
         shell: pwsh
         run: |
-          Write-Host "Configuring Remote Desktop..."
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
           Write-Host "  ✅ RDP configured"
+          Write-Host ""
           
-      - name: Create User
+      - name: 👤 CREATE USER
         shell: pwsh
         run: |
-          Write-Host "Creating user account..."
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           $user = "${{ github.event.inputs.username }}"
           $pass = "${{ github.event.inputs.password }}"
           $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
@@ -108,32 +102,39 @@ jobs:
           Enable-LocalUser -Name $user
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
           Write-Host "  ✅ User created: $user"
+          Write-Host ""
           
-      - name: Install Tailscale
+      - name: 🌐 INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "Installing Tailscale..."
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
+          Write-Host ""
           
-      - name: Connect Tailscale
+      - name: 🔗 CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "Connecting to Tailscale..."
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="windows-vps"
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="win11-vps"
           Start-Sleep -Seconds 5
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip"
+          Write-Host ""
           
-      - name: Display Info
+      - name: 🎉 DISPLAY INFO
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -157,28 +158,162 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $infoLines = @()
-          $infoLines += "╔══════════════════════════════════════════════════════════════╗"
-          $infoLines += "║              🎉 WINDOWS 11 INFO 🎉                             ║"
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🌐 Host     : $ip"
-          $infoLines += "║  🔌 Port     : 3389"
-          $infoLines += "║  👤 User     : $user"
-          $infoLines += "║  🔑 Pass     : $pass"
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🕐 Started : $start"
-          $infoLines += "║  🕐 Expires : $end"
-          $infoLines += "╚══════════════════════════════════════════════════════════════╝"
-          $infoLines | Out-File -FilePath vps-info.txt -Encoding ascii
+          $info = @"
+╔══════════════════════════════════════════════════════════════╗
+║              🎉 WINDOWS 11 INFO 🎉                             ║
+╠══════════════════════════════════════════════════════════════╣
+║  🌐 Host     : $ip
+║  🔌 Port     : 3389
+║  👤 User     : $user
+║  🔑 Pass     : $pass
+╠══════════════════════════════════════════════════════════════╣
+║  🕐 Started : $start
+║  🕐 Expires : $end
+╚══════════════════════════════════════════════════════════════╝
+"@
+          $info | Out-File -FilePath vps-info.txt -Encoding ascii
           
-      - name: Upload Info
+      - name: 📤 UPLOAD INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection
           path: vps-info.txt
           retention-days: 7
           
-      - name: Keep Alive
+      - name: ⏳ KEEP ALIVE
+        shell: pwsh
+        run: |
+          $hours = ${{ github.event.inputs.duration }}
+          Start-Sleep -Seconds ($hours * 3600)
+
+  windows10-vps:
+    runs-on: windows-latest
+    if: github.event.inputs.os_type == 'windows10'
+    timeout-minutes: 360
+    
+    steps:
+      - name: 🎯 WINDOWS 10 INIT
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║          🪟 WINDOWS 10 PRO - PREMIUM EDITION 🪟               ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          Write-Host "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
+          Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
+          Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
+          Write-Host ""
+          
+      - name: 🔧 CONFIGURE RDP
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
+          Set-Service -Name TermService -StartupType Automatic
+          Start-Service -Name TermService
+          Write-Host "  ✅ RDP configured"
+          Write-Host ""
+          
+      - name: 👤 CREATE USER
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $user = "${{ github.event.inputs.username }}"
+          $pass = "${{ github.event.inputs.password }}"
+          $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
+          try { Remove-LocalUser -Name $user -ErrorAction SilentlyContinue } catch {}
+          New-LocalUser -Name $user -Password $secpass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $user
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user
+          Enable-LocalUser -Name $user
+          $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
+          Write-Host "  ✅ User created: $user"
+          Write-Host ""
+          
+      - name: 🌐 INSTALL TAILSCALE
+        shell: pwsh
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $msi = "$env:TEMP\ts.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
+          Remove-Item $msi -Force
+          Write-Host "  ✅ Tailscale installed"
+          Write-Host ""
+          
+      - name: 🔗 CONNECT TAILSCALE
+        shell: pwsh
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="win10-vps"
+          Start-Sleep -Seconds 5
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "TS_IP=$ip" >> $env:GITHUB_ENV
+          Write-Host "  ✅ Connected - IP: $ip"
+          Write-Host ""
+          
+      - name: 🎉 DISPLAY INFO
+        shell: pwsh
+        run: |
+          $pass = Get-Content $env:TEMP\vps_pass.txt
+          $ip = "$env:TS_IP"
+          $user = "${{ github.event.inputs.username }}"
+          $hours = "${{ github.event.inputs.duration }}"
+          $start = (Get-Date).ToString('HH:mm:ss')
+          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+          
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║              🎉 WINDOWS 10 READY 🎉                           ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🌐 Tailscale IP : $ip"
+          Write-Host "║  👤 Username     : $user"
+          Write-Host "║  🔑 Password     : $pass"
+          Write-Host "║  🔌 RDP Port     : 3389"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🕐 Started : $start"
+          Write-Host "║  🕐 Expires : $end"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          
+          $info = @"
+╔══════════════════════════════════════════════════════════════╗
+║              🎉 WINDOWS 10 INFO 🎉                             ║
+╠══════════════════════════════════════════════════════════════╣
+║  🌐 Host     : $ip
+║  🔌 Port     : 3389
+║  👤 User     : $user
+║  🔑 Pass     : $pass
+╠══════════════════════════════════════════════════════════════╣
+║  🕐 Started : $start
+║  🕐 Expires : $end
+╚══════════════════════════════════════════════════════════════╝
+"@
+          $info | Out-File -FilePath vps-info.txt -Encoding ascii
+          
+      - name: 📤 UPLOAD INFO
+        uses: actions/upload-artifact@v4
+        with:
+          name: vps-connection
+          path: vps-info.txt
+          retention-days: 7
+          
+      - name: ⏳ KEEP ALIVE
         shell: pwsh
         run: |
           $hours = ${{ github.event.inputs.duration }}
@@ -190,7 +325,7 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: SYSTEM INIT
+      - name: 🎯 UBUNTU SERVER INIT
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
@@ -199,45 +334,56 @@ jobs:
           echo ""
           echo "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
           echo "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
-          echo "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
           echo "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
           echo ""
           
-      - name: Install SSH
+      - name: 🔧 INSTALL SSH
         run: |
-          echo "Installing SSH..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔧 INSTALLING SSH                                          │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server
           sudo systemctl enable ssh
           sudo systemctl start ssh
           echo "  ✅ SSH installed"
+          echo ""
           
-      - name: Create User
+      - name: 👤 CREATE USER
         run: |
-          echo "Creating user account..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  👤 CREATING USER ACCOUNT                                   │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           echo "  ✅ User created: ${{ github.event.inputs.username }}"
+          echo ""
           
-      - name: Install Tailscale
+      - name: 🌐 INSTALL TAILSCALE
         run: |
-          echo "Installing Tailscale..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🌐 INSTALLING TAILSCALE                                    │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "  ✅ Tailscale installed"
+          echo ""
           
-      - name: Connect Tailscale
+      - name: 🔗 CONNECT TAILSCALE
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "Connecting to Tailscale..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo tailscale up --auth-key="$TS_KEY" --hostname="ubuntu-server"
           sleep 5
           IP=$(sudo tailscale ip -4)
           echo "TS_IP=$IP" >> $GITHUB_ENV
           echo "  ✅ Connected - IP: $IP"
+          echo ""
           
-      - name: Display Info
+      - name: 🎉 DISPLAY INFO
         run: |
           IP="$TS_IP"
           USER="${{ github.event.inputs.username }}"
@@ -274,254 +420,12 @@ jobs:
             echo "╚══════════════════════════════════════════════════════════════╝"
           } > vps-info.txt
           
-      - name: Upload Info
+      - name: 📤 UPLOAD INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection
           path: vps-info.txt
           retention-days: 7
           
-      - name: Keep Alive
-        run: sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
-
-  ubuntu-desktop-vps:
-    runs-on: ubuntu-latest
-    if: github.event.inputs.os_type == 'ubuntu-desktop'
-    timeout-minutes: 360
-    
-    steps:
-      - name: SYSTEM INIT
-        run: |
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║          🐧🖥️ UBUNTU DESKTOP - PREMIUM EDITION 🐧🖥️          ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
-          echo "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
-          echo "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
-          echo "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
-          echo ""
-          
-      - name: Install QEMU
-        run: |
-          echo "Installing QEMU..."
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-utils qemu-system-x86 wget curl
-          echo "  ✅ QEMU installed"
-          
-      - name: Create VM Disk
-        run: |
-          echo "Creating VM disk..."
-          RAM_MB=$(( ${{ github.event.inputs.ram_gb }} * 1024 ))
-          DISK_SIZE=40
-          echo "  📊 CPU: ${{ github.event.inputs.cpu_cores }} cores | RAM: ${RAM_MB}MB | DISK: ${DISK_SIZE}GB"
-          qemu-img create -f qcow2 ubuntu-desktop.qcow2 ${DISK_SIZE}G
-          echo "  ✅ Disk image created"
-          
-      - name: Install xRDP
-        run: |
-          echo "Installing xRDP and LXDE..."
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq xrdp lxde lxde-common lxde-core
-          echo "lxsession -s LXDE -e LXDE" | sudo tee /home/${{ github.event.inputs.username }}/.xsession
-          sudo chown ${{ github.event.inputs.username }}:${{ github.event.inputs.username }} /home/${{ github.event.inputs.username }}/.xsession
-          echo "startlxde" | sudo tee -a /etc/xrdp/startwm.sh
-          sudo systemctl enable xrdp
-          sudo systemctl start xrdp
-          echo "  ✅ xRDP installed on port 3389"
-          
-      - name: Install Tailscale
-        run: |
-          echo "Installing Tailscale..."
-          curl -fsSL https://tailscale.com/install.sh | sh
-          echo "  ✅ Tailscale installed"
-          
-      - name: Connect Tailscale
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          echo "Connecting to Tailscale..."
-          sudo tailscale up --auth-key="$TS_KEY" --hostname="ubuntu-desktop"
-          sleep 5
-          IP=$(sudo tailscale ip -4)
-          echo "TS_IP=$IP" >> $GITHUB_ENV
-          echo "  ✅ Connected - IP: $IP"
-          
-      - name: Start VM
-        run: |
-          echo "Starting Ubuntu Desktop VM..."
-          RAM_MB=$(( ${{ github.event.inputs.ram_gb }} * 1024 ))
-          nohup qemu-system-x86_64 \
-            -drive file=ubuntu-desktop.qcow2,format=qcow2 \
-            -cdrom /tmp/ubuntu.iso \
-            -m ${RAM_MB} \
-            -smp ${{ github.event.inputs.cpu_cores }} \
-            -vga qxl \
-            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
-            -device virtio-net-pci,netdev=net0 \
-            -enable-kvm \
-            -daemonize > /dev/null 2>&1 &
-          echo "  ✅ VM started (RDP port 3389)"
-          
-      - name: Display Info
-        run: |
-          IP="$TS_IP"
-          USER="${{ github.event.inputs.username }}"
-          PASS="${{ github.event.inputs.password }}"
-          HOURS="${{ github.event.inputs.duration }}"
-          START=$(date '+%H:%M:%S')
-          END=$(date -d "+$HOURS hours" '+%H:%M:%S')
-          
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║              🎉 UBUNTU DESKTOP READY 🎉                       ║"
-          echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  🌐 Tailscale IP : $IP"
-          echo "║  👤 Username     : $USER"
-          echo "║  🔑 Password     : $PASS"
-          echo "║  🔌 RDP Port     : 3389"
-          echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  🕐 Started : $START"
-          echo "║  🕐 Expires : $END"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          
-          {
-            echo "╔══════════════════════════════════════════════════════════════╗"
-            echo "║              🎉 UBUNTU DESKTOP INFO 🎉                         ║"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🌐 Host     : $IP"
-            echo "║  🔌 Port     : 3389"
-            echo "║  👤 User     : $USER"
-            echo "║  🔑 Pass     : $PASS"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🕐 Started : $START"
-            echo "║  🕐 Expires : $END"
-            echo "╚══════════════════════════════════════════════════════════════╝"
-          } > vps-info.txt
-          
-      - name: Upload Info
-        uses: actions/upload-artifact@v4
-        with:
-          name: vps-connection
-          path: vps-info.txt
-          retention-days: 7
-          
-      - name: Keep Alive
-        run: sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
-
-  fedora-desktop-vps:
-    runs-on: ubuntu-latest
-    if: github.event.inputs.os_type == 'fedora-desktop'
-    timeout-minutes: 360
-    
-    steps:
-      - name: SYSTEM INIT
-        run: |
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║          🔴🐧 FEDORA WORKSTATION - PREMIUM EDITION 🔴🐧       ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
-          echo "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
-          echo "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
-          echo "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
-          echo ""
-          
-      - name: Install QEMU
-        run: |
-          echo "Installing QEMU..."
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-utils qemu-system-x86 wget curl
-          echo "  ✅ QEMU installed"
-          
-      - name: Create VM Disk
-        run: |
-          echo "Creating VM disk..."
-          RAM_MB=$(( ${{ github.event.inputs.ram_gb }} * 1024 ))
-          DISK_SIZE=40
-          echo "  📊 CPU: ${{ github.event.inputs.cpu_cores }} cores | RAM: ${RAM_MB}MB | DISK: ${DISK_SIZE}GB"
-          qemu-img create -f qcow2 fedora.qcow2 ${DISK_SIZE}G
-          echo "  ✅ Disk image created"
-          
-      - name: Install Tailscale
-        run: |
-          echo "Installing Tailscale..."
-          curl -fsSL https://tailscale.com/install.sh | sh
-          echo "  ✅ Tailscale installed"
-          
-      - name: Connect Tailscale
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          echo "Connecting to Tailscale..."
-          sudo tailscale up --auth-key="$TS_KEY" --hostname="fedora-desktop"
-          sleep 5
-          IP=$(sudo tailscale ip -4)
-          echo "TS_IP=$IP" >> $GITHUB_ENV
-          echo "  ✅ Connected - IP: $IP"
-          
-      - name: Start VM
-        run: |
-          echo "Starting Fedora Workstation VM..."
-          RAM_MB=$(( ${{ github.event.inputs.ram_gb }} * 1024 ))
-          nohup qemu-system-x86_64 \
-            -drive file=fedora.qcow2,format=qcow2 \
-            -cdrom /tmp/fedora.iso \
-            -m ${RAM_MB} \
-            -smp ${{ github.event.inputs.cpu_cores }} \
-            -vga qxl \
-            -netdev user,id=net0,hostfwd=tcp::3389-:3389 \
-            -device virtio-net-pci,netdev=net0 \
-            -enable-kvm \
-            -daemonize > /dev/null 2>&1 &
-          echo "  ✅ VM started (RDP port 3389)"
-          
-      - name: Display Info
-        run: |
-          IP="$TS_IP"
-          USER="${{ github.event.inputs.username }}"
-          PASS="${{ github.event.inputs.password }}"
-          HOURS="${{ github.event.inputs.duration }}"
-          START=$(date '+%H:%M:%S')
-          END=$(date -d "+$HOURS hours" '+%H:%M:%S')
-          
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║              🎉 FEDORA WORKSTATION READY 🎉                   ║"
-          echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  🌐 Tailscale IP : $IP"
-          echo "║  👤 Username     : $USER"
-          echo "║  🔑 Password     : $PASS"
-          echo "║  🔌 RDP Port     : 3389"
-          echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  🕐 Started : $START"
-          echo "║  🕐 Expires : $END"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          
-          {
-            echo "╔══════════════════════════════════════════════════════════════╗"
-            echo "║              🎉 FEDORA WORKSTATION INFO 🎉                     ║"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🌐 Host     : $IP"
-            echo "║  🔌 Port     : 3389"
-            echo "║  👤 User     : $USER"
-            echo "║  🔑 Pass     : $PASS"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🕐 Started : $START"
-            echo "║  🕐 Expires : $END"
-            echo "╚══════════════════════════════════════════════════════════════╝"
-          } > vps-info.txt
-          
-      - name: Upload Info
-        uses: actions/upload-artifact@v4
-        with:
-          name: vps-connection
-          path: vps-info.txt
-          retention-days: 7
-          
-      - name: Keep Alive
+      - name: ⏳ KEEP ALIVE
         run: sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
