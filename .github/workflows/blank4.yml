@@ -58,60 +58,44 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      # ============================================
-      # BANNER CHÀO MỪNG
-      # ============================================
       - name: 🎯 KHỞI ĐỘNG HỆ THỐNG
         shell: pwsh
         run: |
           Write-Host ""
           Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║          🚀 VPS CREATOR PRO - PREMIUM EDITION 🚀             ║" -ForegroundColor Cyan
-          Write-Host "║                ⚡ Powered by Tailscale ⚡                     ║" -ForegroundColor Cyan
-          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-          Write-Host ""
-          Write-Host "  🖥️  OS       : ${{ github.event.inputs.os_type }}" -ForegroundColor Yellow
-          Write-Host "  ⚡ CPU Cores : ${{ github.event.inputs.cpu_cores }} vCPUs" -ForegroundColor Yellow
-          Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB" -ForegroundColor Yellow
-          Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours" -ForegroundColor Yellow
+          Write-Host "🤖 VPS CREATOR PRO PREMIUM RDP SERVER" -ForegroundColor Yellow
+          Write-Host "⚡ Powered by Tailscale" -ForegroundColor Green
+          Write-Host "🕒 Thời gian: ${{ github.event.inputs.duration }} giờ" -ForegroundColor Magenta
           Write-Host ""
           
-          # Hiệu ứng loading
           $frames = @('⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷')
           for($i=0; $i -lt 10; $i++) {
-              Write-Host "`r  🚀 Đang khởi tạo hệ thống... $($frames[$i % 8])" -NoNewline -ForegroundColor Blue
+              Write-Host "`r🚀 Đang khởi tạo hệ thống... $($frames[$i % 8])" -NoNewline -ForegroundColor Blue
               Start-Sleep -Milliseconds 100
           }
-          Write-Host "`r  ✅ Hệ thống đã sẵn sàng!                    " -ForegroundColor Green
-          Write-Host ""
+          Write-Host "`r✅ Hệ thống đã sẵn sàng!                    " -ForegroundColor Green
           
-      # ============================================
-      # CẤU HÌNH RDP (GIỐNG FILE AI STV)
-      # ============================================
-      - name: 🔧 CẤU HÌNH REMOTE DESKTOP
+      - name: 🔧 CẤU HÌNH HỆ THỐNG
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🔧 ĐANG CẤU HÌNH REMOTE DESKTOP                            │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "🛠️  ĐANG CẤU HÌNH HỆ THỐNG" -ForegroundColor Yellow
           
           $steps = @(
               @{Name="Bật Remote Desktop"; Script={ 
                   Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
               }},
-              @{Name="Tắt xác thực mạng (NLA)"; Script={
+              @{Name="Tắt xác thực mạng"; Script={
                   Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
               }},
               @{Name="Cấu hình bảo mật RDP"; Script={
                   Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
               }},
-              @{Name="Mở port 3389 Firewall"; Script={
+              @{Name="Mở port 3389 firewall"; Script={
                   netsh advfirewall firewall add rule name="RDP-Premium" dir=in action=allow protocol=TCP localport=3389 profile=any
                   netsh advfirewall firewall add rule name="RDP-Premium-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
               }},
-              @{Name="Khởi động dịch vụ Remote Desktop"; Script={
+              @{Name="Khởi động dịch vụ"; Script={
                   Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
                   Start-Service -Name TermService -ErrorAction SilentlyContinue
               }}
@@ -125,28 +109,21 @@ jobs:
               } catch {
                   Write-Host "`r│ ⚠️  $($step.Name) - Đã bỏ qua lỗi nhỏ" -ForegroundColor Yellow
               }
-              Start-Sleep -Milliseconds 300
+              Start-Sleep -Milliseconds 500
           }
           
-          Write-Host "  ✅ Cấu hình Remote Desktop hoàn tất!" -ForegroundColor Green
-          Write-Host ""
+          Write-Host "🎯 Cấu hình hoàn tất!" -ForegroundColor Green
           
-      # ============================================
-      # TẠO TÀI KHOẢN PREMIUM
-      # ============================================
       - name: 👤 TẠO TÀI KHOẢN PREMIUM
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  👤 ĐANG TẠO TÀI KHOẢN PREMIUM                              │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "👤 ĐANG TẠO TÀI KHOẢN PREMIUM" -ForegroundColor Yellow
           
           $USERNAME = "${{ github.event.inputs.username }}"
           $PASSWORD = "${{ github.event.inputs.password }}"
           $securePass = ConvertTo-SecureString $PASSWORD -AsPlainText -Force
           
-          # Xóa user cũ nếu tồn tại
           try {
               Remove-LocalUser -Name $USERNAME -ErrorAction SilentlyContinue
               Write-Host "│ ✅ Đã xóa user cũ" -ForegroundColor Green
@@ -154,56 +131,44 @@ jobs:
               Write-Host "│ ℹ️  Không có user cũ để xóa" -ForegroundColor Blue
           }
           
-          # Tạo user mới
           try {
               New-LocalUser -Name $USERNAME -Password $securePass -AccountNeverExpires -Description "Premium Account"
-              Write-Host "│ ✅ Đã tạo user: $USERNAME" -ForegroundColor Green
+              Write-Host "│ ✅ Đã tạo user mới" -ForegroundColor Green
               
-              # Thêm vào các nhóm
               Add-LocalGroupMember -Group "Administrators" -Member $USERNAME -ErrorAction SilentlyContinue
               Add-LocalGroupMember -Group "Remote Desktop Users" -Member $USERNAME -ErrorAction SilentlyContinue
               Add-LocalGroupMember -Group "Users" -Member $USERNAME -ErrorAction SilentlyContinue
               
-              # Kích hoạt user
               Enable-LocalUser -Name $USERNAME
               
-              Write-Host "│ ✅ Đã cấp quyền Administrator & Remote Desktop" -ForegroundColor Green
+              Write-Host "│ ✅ Đã cấp quyền Administrator & RDP" -ForegroundColor Green
               
           } catch {
               Write-Host "│ ❌ Lỗi tạo user: $($_.Exception.Message)" -ForegroundColor Red
               exit 1
           }
           
-          # Lưu thông tin
           echo "RDP_USER=$USERNAME" >> $env:GITHUB_ENV
           echo "RDP_PASS=$PASSWORD" >> $env:GITHUB_ENV
           echo "$PASSWORD" > $env:TEMP\rdp_password.txt
           
-          Write-Host "  ✅ Tài khoản: $USERNAME đã sẵn sàng" -ForegroundColor Green
-          Write-Host ""
+          Write-Host "✅ Tài khoản: $USERNAME đã sẵn sàng" -ForegroundColor Green
           
-      # ============================================
-      # KIỂM TRA QUYỀN HỆ THỐNG
-      # ============================================
       - name: 🔍 KIỂM TRA QUYỀN HỆ THỐNG
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🔍 KIỂM TRA QUYỀN HỆ THỐNG                                 │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "🔍 KIỂM TRA QUYỀN ĐĂNG NHẬP" -ForegroundColor Yellow
           
           $USERNAME = "${{ github.event.inputs.username }}"
-          
-          # Kiểm tra user
           $user = Get-LocalUser -Name $USERNAME -ErrorAction SilentlyContinue
           if ($user) {
               Write-Host "│ ✅ User $USERNAME tồn tại" -ForegroundColor Green
           } else {
               Write-Host "│ ❌ User không tồn tại" -ForegroundColor Red
+              exit 1
           }
           
-          # Kiểm tra quyền Administrator
           $isAdmin = (Get-LocalGroupMember -Group "Administrators" | Where-Object {$_.Name -like "*$USERNAME"}).Count -gt 0
           if ($isAdmin) {
               Write-Host "│ ✅ Có quyền Administrator" -ForegroundColor Green
@@ -211,7 +176,6 @@ jobs:
               Write-Host "│ ❌ Không có quyền Administrator" -ForegroundColor Red
           }
           
-          # Kiểm tra quyền RDP
           $isRDPUser = (Get-LocalGroupMember -Group "Remote Desktop Users" | Where-Object {$_.Name -like "*$USERNAME"}).Count -gt 0
           if ($isRDPUser) {
               Write-Host "│ ✅ Có quyền Remote Desktop" -ForegroundColor Green
@@ -219,7 +183,6 @@ jobs:
               Write-Host "│ ❌ Không có quyền Remote Desktop" -ForegroundColor Red
           }
           
-          # Kiểm tra dịch vụ RDP
           $termService = Get-Service -Name TermService -ErrorAction SilentlyContinue
           if ($termService.Status -eq 'Running') {
               Write-Host "│ ✅ Dịch vụ TermService đang chạy" -ForegroundColor Green
@@ -227,26 +190,18 @@ jobs:
               Write-Host "│ ❌ Dịch vụ TermService không chạy" -ForegroundColor Red
           }
           
-          Write-Host "  ✅ Kiểm tra hoàn tất!" -ForegroundColor Green
-          Write-Host ""
+          Write-Host "🎯 Kiểm tra hoàn tất!" -ForegroundColor Green
           
-      # ============================================
-      # TAILSCALE PREMIUM (GIỐNG FILE AI STV)
-      # ============================================
       - name: 🌐 THIẾT LẬP MẠNG PREMIUM
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🌐 ĐANG THIẾT LẬP KẾT NỐI MẠNG                            │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "🌐 ĐANG THIẾT LẬP KẾT NỐI MẠNG" -ForegroundColor Yellow
           
-          # Cài đặt Tailscale
           try {
-              Write-Host "│ 📦 Đang cài đặt Tailscale..." -ForegroundColor White
-              $msiPath = "$env:TEMP\tailscale.msi"
+              $msiPath = "$env:TEMP\tailscale-premium.msi"
               Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
               Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
               Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
@@ -255,42 +210,35 @@ jobs:
               Write-Host "│ ❌ Lỗi cài đặt Tailscale" -ForegroundColor Red
           }
           
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 10
           
-          # Kết nối Tailscale
           try {
-              Write-Host "│ 🔄 Đang kết nối Tailscale..." -ForegroundColor White
               & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="vps-premium-$env:GITHUB_RUN_ID" --accept-routes --accept-dns
               Write-Host "│ ✅ Kết nối Tailscale thành công" -ForegroundColor Green
           } catch {
               Write-Host "│ ❌ Lỗi kết nối Tailscale" -ForegroundColor Red
           }
           
-          # Lấy IP với retry
-          Write-Host "│ 🔄 Đang lấy địa chỉ IP..." -NoNewline -ForegroundColor White
+          Write-Host "🔄 Đang lấy địa chỉ IP..." -NoNewline -ForegroundColor Blue
           $ip = $null
-          for($i=0; $i -lt 15; $i++) {
+          for($i=0; $i -lt 20; $i++) {
               try {
                   $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>&1
                   if ($ip -and $ip -match '^\d+\.\d+\.\d+\.\d+$') {
                       echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-                      Write-Host "`r│ ✅ Địa chỉ IP: $ip" -ForegroundColor Green
+                      Write-Host "`r✅ Địa chỉ IP: $ip" -ForegroundColor Green
                       break
                   }
               } catch {}
-              Write-Host "`r│ 🔄 Đang lấy địa chỉ IP... $('.' * ($i % 4 + 1))" -NoNewline -ForegroundColor White
-              Start-Sleep -Seconds 2
+              Write-Host "`r🔄 Đang lấy địa chỉ IP... $(@('.', '..', '...')[$i % 3])" -NoNewline -ForegroundColor Blue
+              Start-Sleep -Seconds 3
           }
           
           if (-not $ip -or $ip -notmatch '^\d+\.\d+\.\d+\.\d+$') {
-              Write-Host "`r│ ⚠️  Không thể lấy IP, sử dụng localhost" -ForegroundColor Yellow
+              Write-Host "`r⚠️  Không thể lấy IP, sử dụng localhost" -ForegroundColor Yellow
               echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV
           }
-          Write-Host ""
           
-      # ============================================
-      # HIỂN THỊ GIAO DIỆN ĐẸP (GIỐNG FILE AI STV)
-      # ============================================
       - name: 🎉 THÔNG TIN KẾT NỐI
         shell: pwsh
         run: |
@@ -305,24 +253,22 @@ jobs:
           Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
           Write-Host "│              🎉 KẾT NỐI THÀNH CÔNG! 🎉                     │" -ForegroundColor Cyan
           Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│  🌐  Địa chỉ   : $env:TAILSCALE_IP" -ForegroundColor White
-          Write-Host "│  👤  Tài khoản : ${{ github.event.inputs.username }}" -ForegroundColor White
-          Write-Host "│  🔐  Mật khẩu  : $matKhau" -ForegroundColor White
-          Write-Host "│  ⏰  Thời lượng: $HOURS giờ" -ForegroundColor White
-          Write-Host "│  🕐  Bắt đầu   : $START_TIME" -ForegroundColor White
-          Write-Host "│  🕐  Kết thúc  : $END_TIME" -ForegroundColor White
-          Write-Host "│  📍  Port      : 3389" -ForegroundColor White
+          Write-Host "│ 🌐  Địa chỉ: $env:TAILSCALE_IP" -ForegroundColor White
+          Write-Host "│ 👤  Tài khoản: ${{ github.event.inputs.username }}" -ForegroundColor White
+          Write-Host "│ 🔐  Mật khẩu: $matKhau" -ForegroundColor White
+          Write-Host "│ ⏰  Thời lượng: $HOURS giờ" -ForegroundColor White
+          Write-Host "│ 🕐  Bắt đầu: $START_TIME" -ForegroundColor White
+          Write-Host "│ 🕐  Kết thúc: $END_TIME" -ForegroundColor White
+          Write-Host "│ 📍  Port: 3389" -ForegroundColor White
           Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│  💡  HƯỚNG DẪN KẾT NỐI (iPhone)                           │" -ForegroundColor Cyan
+          Write-Host "│ 💡  HƯỚNG DẪN KẾT NỐI (iPhone)                             │" -ForegroundColor Cyan
           Write-Host "│   1. Cài Tailscale → Bật VPN                               │" -ForegroundColor Yellow
           Write-Host "│   2. Cài Microsoft Remote Desktop từ App Store             │" -ForegroundColor Yellow
           Write-Host "│   3. Add PC → PC name: $env:TAILSCALE_IP:3389" -ForegroundColor Yellow
           Write-Host "│   4. User: ${{ github.event.inputs.username }} | Pass: $matKhau" -ForegroundColor Yellow
           Write-Host "│   5. Enjoy! 🚀                                             │" -ForegroundColor Yellow
           Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
-          Write-Host ""
           
-          # Lưu file
           @"
 ╔══════════════════════════════════════════════════════════════╗
 ║              🎉 VPS CONNECTION INFORMATION 🎉                 ║
@@ -343,9 +289,6 @@ jobs:
 ╚══════════════════════════════════════════════════════════════╝
 "@ | Out-File -FilePath vps-info.txt -Encoding utf8
           
-      # ============================================
-      # UPLOAD CONNECTION INFO
-      # ============================================
       - name: 📤 UPLOAD CONNECTION INFO
         uses: actions/upload-artifact@v4
         with:
@@ -353,9 +296,6 @@ jobs:
           path: vps-info.txt
           retention-days: 7
           
-      # ============================================
-      # DUY TRÌ PHIÊN ỔN ĐỊNH (GIỐNG FILE AI STV)
-      # ============================================
       - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
         shell: pwsh
         run: |
@@ -366,21 +306,15 @@ jobs:
           $END_TIME = $START_TIME.AddHours($HOURS)
           
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🟢 VPS ĐANG CHẠY - KẾT NỐI NGAY! 🟢                       │" -ForegroundColor Yellow
-          Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Yellow
-          Write-Host "│  🌐 Tailscale IP : $env:TAILSCALE_IP" -ForegroundColor White
-          Write-Host "│  🔌 RDP Port     : 3389" -ForegroundColor White
-          Write-Host "│  👤 Username     : ${{ github.event.inputs.username }}" -ForegroundColor White
-          Write-Host "│  🔑 Password     : ${{ github.event.inputs.password }}" -ForegroundColor White
-          Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Yellow
-          Write-Host "│  📱 Microsoft Remote Desktop: $env:TAILSCALE_IP:3389" -ForegroundColor White
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "🔄 BẮT ĐẦU DUY TRÌ PHIÊN LÀM VIỆC..." -ForegroundColor Yellow
+          Write-Host "💎 Phiên: VPS PREMIUM" -ForegroundColor Magenta
+          Write-Host "🔗 Kết nối: $env:TAILSCALE_IP" -ForegroundColor Cyan
+          Write-Host "🕐 Bắt đầu: $($START_TIME.ToString('HH:mm:ss'))" -ForegroundColor Green
+          Write-Host "🕐 Kết thúc: $($END_TIME.ToString('HH:mm:ss'))" -ForegroundColor Green
           Write-Host ""
           
           $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
           $colors = @('Red', 'Yellow', 'Green', 'Cyan', 'Blue', 'Magenta')
-          
           $startTime = Get-Date
           
           do {
@@ -396,26 +330,20 @@ jobs:
               $frame = $frames[([int]((Get-Date) - $startTime).TotalSeconds) % $frames.Length]
               $color = $colors[([int]((Get-Date) - $startTime).TotalMinutes) % $colors.Length]
               
-              Write-Host "`r$frame Thời gian còn lại: $hours giờ $minutes phút $seconds giây" -NoNewline -ForegroundColor $color
+              Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Thời gian còn lại: $hours giờ $minutes phút $seconds giây" -NoNewline -ForegroundColor $color
               Start-Sleep -Seconds 5
               
           } while ($true)
           
           Write-Host ""
-          Write-Host ""
           Write-Host "🎯 ĐÃ HẾT THỜI GIAN - TỰ ĐỘNG DỪNG!" -ForegroundColor Red
           
-      # ============================================
-      # DỌN DẸP CHUYÊN NGHIỆP (GIỐNG FILE AI STV)
-      # ============================================
       - name: 🧹 DỌN DẸP HỆ THỐNG
         if: always()
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🧹 ĐANG DỌN DẸP HỆ THỐNG                                   │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+          Write-Host "🧹 ĐANG DỌN DẸP HỆ THỐNG..." -ForegroundColor Yellow
           
           $cleanupSteps = @(
               @{Name="Xóa file password"; Script={
@@ -426,7 +354,7 @@ jobs:
               }},
               @{Name="Đóng kết nối mạng"; Script={
                   & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 3
+                  Start-Sleep -Seconds 5
               }},
               @{Name="Xóa rule firewall"; Script={
                   netsh advfirewall firewall delete rule name="RDP-Premium" dir=in -ErrorAction SilentlyContinue
@@ -446,7 +374,7 @@ jobs:
               } catch {
                   Write-Host "`r│ ⚠️  $($step.Name) - Đã xử lý an toàn" -ForegroundColor Yellow
               }
-              Start-Sleep -Milliseconds 200
+              Start-Sleep -Milliseconds 300
           }
           
           Write-Host ""
