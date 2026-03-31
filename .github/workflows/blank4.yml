@@ -26,9 +26,9 @@ on:
         default: us
         type: choice
         options:
-          - us (USA)
-          - eu (Europe)
-          - asia (Asia Pacific)
+          - us
+          - eu
+          - asia
       instances:
         description: 🔢 Number of VPS instances
         required: true
@@ -64,7 +64,7 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: 🎯 INSTANCE ${{ matrix.instance }} - SYSTEM INIT
+      - name: SYSTEM INIT
         shell: pwsh
         run: |
           $os = "${{ github.event.inputs.os_type }}"
@@ -73,9 +73,9 @@ jobs:
           else { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
           
           $regionName = switch($region) {
-            "us" { "🇺🇸 USA (Virginia)" }
-            "eu" { "🇪🇺 Europe (Frankfurt)" }
-            "asia" { "🌏 Asia Pacific (Singapore)" }
+            "us" { "USA (Virginia)" }
+            "eu" { "Europe (Frankfurt)" }
+            "asia" { "Asia Pacific (Singapore)" }
           }
           
           Write-Host ""
@@ -88,7 +88,7 @@ jobs:
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: CONFIGURE RDP
         shell: pwsh
         run: |
           Write-Host "Configuring Remote Desktop..."
@@ -99,7 +99,7 @@ jobs:
           Start-Service -Name TermService
           Write-Host "  ✅ RDP configured"
           
-      - name: 👤 CREATE USER
+      - name: CREATE USER
         shell: pwsh
         run: |
           Write-Host "Creating user account..."
@@ -114,7 +114,7 @@ jobs:
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
           Write-Host "  ✅ User created: $user"
           
-      - name: 🖼️ SET CUSTOM WALLPAPER
+      - name: SET CUSTOM WALLPAPER
         if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
@@ -122,8 +122,6 @@ jobs:
           $url = "${{ github.event.inputs.wallpaper_url }}"
           $wallpaperPath = "$env:TEMP\wallpaper.jpg"
           Invoke-WebRequest -Uri $url -OutFile $wallpaperPath
-          
-          # Set wallpaper for current user
           Add-Type -AssemblyName System.Drawing
           $img = [System.Drawing.Image]::FromFile($wallpaperPath)
           $regPath = "HKCU:\Control Panel\Desktop"
@@ -132,13 +130,12 @@ jobs:
           Set-ItemProperty -Path $regPath -Name TileWallpaper -Value 0
           Write-Host "  ✅ Custom wallpaper applied"
           
-      - name: 📸 CAPTURE SCREENSHOT
+      - name: CAPTURE SCREENSHOT
         shell: pwsh
         run: |
           Write-Host "Capturing screenshot..."
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          
           $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -148,7 +145,7 @@ jobs:
           $bitmap.Dispose()
           Write-Host "  ✅ Screenshot captured"
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -160,7 +157,7 @@ jobs:
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -175,7 +172,7 @@ jobs:
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip | Hostname: $hostname"
           
-      - name: 📊 RESOURCE MONITOR
+      - name: RESOURCE MONITOR
         shell: pwsh
         run: |
           Write-Host "Gathering resource information..."
@@ -206,16 +203,14 @@ jobs:
           Write-Host "└─────────────────────────────────────────────────────────────┘"
           Write-Host ""
           
-          # Lưu resource data
-          $resourceData = @"
-CPU: $cpu%
-RAM: $ramUsed/$ramTotal GB ($ramPercent%)
-DISK: $diskUsed/$diskTotal GB ($diskPercent%)
-UPTIME: $($uptime.Days)d $($uptime.Hours)h
-"@
-          $resourceData | Out-File -FilePath $env:TEMP\resource.txt -Encoding ascii
+          $resourceLines = @()
+          $resourceLines += "CPU: $cpu%"
+          $resourceLines += "RAM: $ramUsed/$ramTotal GB ($ramPercent%)"
+          $resourceLines += "DISK: $diskUsed/$diskTotal GB ($diskPercent%)"
+          $resourceLines += "UPTIME: $($uptime.Days)d $($uptime.Hours)h"
+          $resourceLines | Out-File -FilePath $env:TEMP\resource.txt -Encoding ascii
           
-      - name: 🎉 DISPLAY INFO
+      - name: DISPLAY INFO
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -242,47 +237,47 @@ UPTIME: $($uptime.Days)d $($uptime.Hours)h
           if ($wallpaper -ne '') { Write-Host "║  🖼️ Wallpaper     : Applied" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           Write-Host "║  📊 RESOURCES:"
-          $resource.Split("`n") | ForEach-Object { Write-Host "║     $_" }
+          foreach ($line in $resource) { Write-Host "║     $line" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           Write-Host "║  🕐 Started : $start"
           Write-Host "║  🕐 Expires : $end"
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @()
-          $info += "╔══════════════════════════════════════════════════════════════╗"
-          $info += "║              🎉 VPS INFO - INSTANCE $instance 🎉                    ║"
-          $info += "╠══════════════════════════════════════════════════════════════╣"
-          $info += "║  🌐 Host     : $ip"
-          $info += "║  🔌 Port     : 3389"
-          $info += "║  👤 User     : $user"
-          $info += "║  🔑 Pass     : $pass"
-          $info += "║  🌍 Region   : $region"
-          if ($wallpaper -ne '') { $info += "║  🖼️ Wallpaper  : Applied" }
-          $info += "╠══════════════════════════════════════════════════════════════╣"
-          $info += "║  📊 RESOURCES:"
-          $resource.Split("`n") | ForEach-Object { $info += "║     $_" }
-          $info += "╠══════════════════════════════════════════════════════════════╣"
-          $info += "║  🕐 Started : $start"
-          $info += "║  🕐 Expires : $end"
-          $info += "╚══════════════════════════════════════════════════════════════╝"
-          $info | Out-File -FilePath vps-info-$instance.txt -Encoding ascii
+          $infoLines = @()
+          $infoLines += "╔══════════════════════════════════════════════════════════════╗"
+          $infoLines += "║              🎉 VPS INFO - INSTANCE $instance 🎉                    ║"
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  🌐 Host     : $ip"
+          $infoLines += "║  🔌 Port     : 3389"
+          $infoLines += "║  👤 User     : $user"
+          $infoLines += "║  🔑 Pass     : $pass"
+          $infoLines += "║  🌍 Region   : $region"
+          if ($wallpaper -ne '') { $infoLines += "║  🖼️ Wallpaper  : Applied" }
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  📊 RESOURCES:"
+          foreach ($line in $resource) { $infoLines += "║     $line" }
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  🕐 Started : $start"
+          $infoLines += "║  🕐 Expires : $end"
+          $infoLines += "╚══════════════════════════════════════════════════════════════╝"
+          $infoLines | Out-File -FilePath vps-info-$instance.txt -Encoding ascii
           
-      - name: 📸 UPLOAD SCREENSHOT
+      - name: UPLOAD SCREENSHOT
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-instance-${{ matrix.instance }}
           path: $env:TEMP\screenshot.png
           retention-days: 7
           
-      - name: 📤 UPLOAD INFO
+      - name: UPLOAD INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection-instance-${{ matrix.instance }}
           path: vps-info-$instance.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
+      - name: KEEP ALIVE
         shell: pwsh
         run: |
           $hours = ${{ github.event.inputs.duration }}
