@@ -55,409 +55,7 @@ on:
 
 jobs:
   # ============================================
-  # WINDOWS 11
-  # ============================================
-  windows11-vps:
-    runs-on: windows-latest
-    if: github.event.inputs.os_type == 'windows11'
-    timeout-minutes: 360
-    strategy:
-      matrix:
-        instance: [1, 2, 3]
-      max-parallel: 3
-    steps:
-      - name: Init
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════╗"
-          Write-Host "║  🪟✨ WINDOWS 11 PRO - INSTANCE ${{ matrix.instance }} 🪟✨          ║"
-          Write-Host "╚════════════════════════════════════════════════════╝"
-          Write-Host "  🌍 Region : ${{ github.event.inputs.region }}"
-          Write-Host "  👤 User   : ${{ github.event.inputs.username }}"
-          Write-Host "  ⏱️ Hours  : ${{ github.event.inputs.duration }}"
-          Write-Host ""
-          
-      - name: Configure RDP
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host "> Configuring RDP..."
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
-          Write-Host "  ✅ RDP ready"
-          
-      - name: Create User
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host "> Creating user..."
-          $u = "${{ github.event.inputs.username }}"
-          $p = "${{ github.event.inputs.password }}"
-          $sec = ConvertTo-SecureString $p -AsPlainText -Force
-          try { Remove-LocalUser -Name $u -ErrorAction SilentlyContinue } catch {}
-          New-LocalUser -Name $u -Password $sec -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $u
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
-          Enable-LocalUser -Name $u
-          $p | Out-File -FilePath $env:TEMP\pass.txt
-          Write-Host "  ✅ User: $u"
-          
-      - name: Set Wallpaper
-        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
-        shell: pwsh
-        run: |
-          Write-Host "> Setting wallpaper..."
-          $url = "${{ github.event.inputs.wallpaper_url }}"
-          $img = "$env:TEMP\wall.jpg"
-          Invoke-WebRequest -Uri $url -OutFile $img
-          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
-          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
-          Write-Host "  ✅ Wallpaper applied"
-          
-      - name: Screenshot
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host "> Capturing screenshot..."
-          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-          $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
-          $bmp.Save("$env:TEMP\screen.png")
-          $g.Dispose(); $bmp.Dispose()
-          Write-Host "  ✅ Screenshot saved"
-          
-      - name: Install Tailscale
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        env:
-          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          Write-Host "> Installing Tailscale..."
-          $msi = "$env:TEMP\ts.msi"
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msi -Force
-          Write-Host "  ✅ Tailscale installed"
-          
-      - name: Connect Tailscale
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        env:
-          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          Write-Host "> Connecting to Tailscale..."
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win11-${{ matrix.instance }}"
-          Start-Sleep -Seconds 5
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "IP=$ip" >> $env:GITHUB_ENV
-          Write-Host "  ✅ Connected - IP: $ip"
-          
-      - name: Benchmark
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host "> Running benchmark..."
-          $c = Get-Date
-          $s = 0
-          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
-          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
-          $m = Get-Date
-          $arr = New-Object System.Collections.ArrayList
-          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
-          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
-          $d = Get-Date
-          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
-          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
-          Remove-Item "$env:TEMP\disk.tmp" -Force
-          $bench = @()
-          $bench += "CPU: $cpu ops/sec"
-          $bench += "Memory: $mem ops/sec"
-          $bench += "Disk: $disk MB/s"
-          $bench | Out-File "$env:TEMP\bench.txt"
-          Write-Host "  ✅ Benchmark done"
-          
-      - name: Monitor
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host "> Collecting resource data..."
-          $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
-          $ram = Get-WmiObject Win32_OperatingSystem
-          $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
-          $ramT = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
-          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
-          $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
-          $diskT = [math]::Round($disk.Size / 1GB, 2)
-          $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-          $res = @()
-          $res += "CPU: $cpu%"
-          $res += "RAM: $ramU/$ramT GB"
-          $res += "DISK: $diskU/$diskT GB"
-          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
-          $res | Out-File "$env:TEMP\res.txt"
-          Write-Host "  ✅ Data collected"
-          
-      - name: Display Info
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $pass = Get-Content "$env:TEMP\pass.txt"
-          $bench = Get-Content "$env:TEMP\bench.txt"
-          $res = Get-Content "$env:TEMP\res.txt"
-          $ip = "$env:IP"
-          $user = "${{ github.event.inputs.username }}"
-          $hours = "${{ github.event.inputs.duration }}"
-          $start = (Get-Date).ToString('HH:mm:ss')
-          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════╗"
-          Write-Host "║  🎉 WINDOWS 11 READY - INSTANCE ${{ matrix.instance }} 🎉           ║"
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 RDP IP   : $ip"
-          Write-Host "║  👤 Username : $user"
-          Write-Host "║  🔑 Password : $pass"
-          Write-Host "║  🔌 Port     : 3389"
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 BENCHMARK:"
-          foreach ($l in $bench) { Write-Host "║     $l" }
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 RESOURCES:"
-          foreach ($l in $res) { Write-Host "║     $l" }
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  🕐 Started : $start"
-          Write-Host "║  🕐 Expires : $end"
-          Write-Host "╚════════════════════════════════════════════════════╝"
-          Write-Host ""
-          
-          $info = @()
-          $info += "Host: $ip"
-          $info += "Port: 3389"
-          $info += "User: $user"
-          $info += "Pass: $pass"
-          $info | Out-File vps-info.txt -Encoding ascii
-          
-      - name: Upload
-        if: github.event.inputs.instances >= matrix.instance
-        uses: actions/upload-artifact@v4
-        with:
-          name: win11-instance-${{ matrix.instance }}
-          path: |
-            vps-info.txt
-            ${{ env.TEMP }}\screen.png
-            ${{ env.TEMP }}\bench.txt
-            ${{ env.TEMP }}\res.txt
-          retention-days: 7
-          
-      - name: Keep Alive
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $h = ${{ github.event.inputs.duration }}
-          Write-Host "🟢 Windows 11 instance ${{ matrix.instance }} running for $h hours"
-          Start-Sleep -Seconds ($h * 3600)
-
-  # ============================================
-  # WINDOWS 10
-  # ============================================
-  windows10-vps:
-    runs-on: windows-latest
-    if: github.event.inputs.os_type == 'windows10'
-    timeout-minutes: 360
-    strategy:
-      matrix:
-        instance: [1, 2, 3]
-      max-parallel: 3
-    steps:
-      - name: Init
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════╗"
-          Write-Host "║  🪟 WINDOWS 10 PRO - INSTANCE ${{ matrix.instance }} 🪟                 ║"
-          Write-Host "╚════════════════════════════════════════════════════╝"
-          Write-Host "  🌍 Region : ${{ github.event.inputs.region }}"
-          Write-Host "  👤 User   : ${{ github.event.inputs.username }}"
-          Write-Host "  ⏱️ Hours  : ${{ github.event.inputs.duration }}"
-          Write-Host ""
-          
-      - name: Configure RDP
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
-          
-      - name: Create User
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $u = "${{ github.event.inputs.username }}"
-          $p = "${{ github.event.inputs.password }}"
-          $sec = ConvertTo-SecureString $p -AsPlainText -Force
-          try { Remove-LocalUser -Name $u -ErrorAction SilentlyContinue } catch {}
-          New-LocalUser -Name $u -Password $sec -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $u
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
-          Enable-LocalUser -Name $u
-          $p | Out-File -FilePath $env:TEMP\pass.txt
-          
-      - name: Set Wallpaper
-        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
-        shell: pwsh
-        run: |
-          $url = "${{ github.event.inputs.wallpaper_url }}"
-          $img = "$env:TEMP\wall.jpg"
-          Invoke-WebRequest -Uri $url -OutFile $img
-          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
-          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
-          
-      - name: Screenshot
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-          $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
-          $bmp.Save("$env:TEMP\screen.png")
-          $g.Dispose(); $bmp.Dispose()
-          
-      - name: Install Tailscale
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        env:
-          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          $msi = "$env:TEMP\ts.msi"
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msi -Force
-          
-      - name: Connect Tailscale
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        env:
-          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win10-${{ matrix.instance }}"
-          Start-Sleep -Seconds 5
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "IP=$ip" >> $env:GITHUB_ENV
-          
-      - name: Benchmark
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $c = Get-Date
-          $s = 0
-          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
-          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
-          $m = Get-Date
-          $arr = New-Object System.Collections.ArrayList
-          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
-          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
-          $d = Get-Date
-          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
-          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
-          Remove-Item "$env:TEMP\disk.tmp" -Force
-          $bench = @()
-          $bench += "CPU: $cpu ops/sec"
-          $bench += "Memory: $mem ops/sec"
-          $bench += "Disk: $disk MB/s"
-          $bench | Out-File "$env:TEMP\bench.txt"
-          
-      - name: Monitor
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
-          $ram = Get-WmiObject Win32_OperatingSystem
-          $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
-          $ramT = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
-          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
-          $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
-          $diskT = [math]::Round($disk.Size / 1GB, 2)
-          $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-          $res = @()
-          $res += "CPU: $cpu%"
-          $res += "RAM: $ramU/$ramT GB"
-          $res += "DISK: $diskU/$diskT GB"
-          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
-          $res | Out-File "$env:TEMP\res.txt"
-          
-      - name: Display Info
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $pass = Get-Content "$env:TEMP\pass.txt"
-          $bench = Get-Content "$env:TEMP\bench.txt"
-          $res = Get-Content "$env:TEMP\res.txt"
-          $ip = "$env:IP"
-          $user = "${{ github.event.inputs.username }}"
-          $hours = "${{ github.event.inputs.duration }}"
-          $start = (Get-Date).ToString('HH:mm:ss')
-          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════╗"
-          Write-Host "║  🎉 WINDOWS 10 READY - INSTANCE ${{ matrix.instance }} 🎉           ║"
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 RDP IP   : $ip"
-          Write-Host "║  👤 Username : $user"
-          Write-Host "║  🔑 Password : $pass"
-          Write-Host "║  🔌 Port     : 3389"
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 BENCHMARK:"
-          foreach ($l in $bench) { Write-Host "║     $l" }
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 RESOURCES:"
-          foreach ($l in $res) { Write-Host "║     $l" }
-          Write-Host "╠════════════════════════════════════════════════════╣"
-          Write-Host "║  🕐 Started : $start"
-          Write-Host "║  🕐 Expires : $end"
-          Write-Host "╚════════════════════════════════════════════════════╝"
-          Write-Host ""
-          
-          $info = @()
-          $info += "Host: $ip"
-          $info += "Port: 3389"
-          $info += "User: $user"
-          $info += "Pass: $pass"
-          $info | Out-File vps-info.txt -Encoding ascii
-          
-      - name: Upload
-        if: github.event.inputs.instances >= matrix.instance
-        uses: actions/upload-artifact@v4
-        with:
-          name: win10-instance-${{ matrix.instance }}
-          path: |
-            vps-info.txt
-            ${{ env.TEMP }}\screen.png
-            ${{ env.TEMP }}\bench.txt
-            ${{ env.TEMP }}\res.txt
-          retention-days: 7
-          
-      - name: Keep Alive
-        if: github.event.inputs.instances >= matrix.instance
-        shell: pwsh
-        run: |
-          $h = ${{ github.event.inputs.duration }}
-          Write-Host "🟢 Windows 10 instance ${{ matrix.instance }} running for $h hours"
-          Start-Sleep -Seconds ($h * 3600)
-
-  # ============================================
-  # UBUNTU SERVER
+  # UBUNTU SERVER - GIAO DIỆN ĐẸP
   # ============================================
   ubuntu-server-vps:
     runs-on: ubuntu-latest
@@ -468,97 +66,126 @@ jobs:
         instance: [1, 2, 3]
       max-parallel: 3
     steps:
-      - name: Init
+      - name: 🎯 SYSTEM INIT
         if: github.event.inputs.instances >= matrix.instance
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════╗"
-          echo "║  🐧⚡ UBUNTU SERVER - INSTANCE ${{ matrix.instance }} 🐧⚡            ║"
-          echo "╚════════════════════════════════════════════════════╝"
-          echo "  🌍 Region : ${{ github.event.inputs.region }}"
-          echo "  👤 User   : ${{ github.event.inputs.username }}"
-          echo "  ⏱️ Hours  : ${{ github.event.inputs.duration }}"
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║          🐧⚡ UBUNTU SERVER - INSTANCE ${{ matrix.instance }} 🐧⚡            ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "  🌍 Region     : ${{ github.event.inputs.region }}"
+          echo "  👤 Username   : ${{ github.event.inputs.username }}"
+          echo "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
           echo ""
           
-      - name: Install SSH
+      - name: 🔧 INSTALL SSH
         if: github.event.inputs.instances >= matrix.instance
         run: |
-          echo "> Installing SSH..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔧 INSTALLING SSH                                          │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          echo "  ✅ SSH ready"
+          echo "  ✅ SSH service started (port 22)"
+          echo ""
           
-      - name: Create User
+      - name: 👤 CREATE USER
         if: github.event.inputs.instances >= matrix.instance
         run: |
-          echo "> Creating user..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  👤 CREATING USER ACCOUNT                                   │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           echo "${{ github.event.inputs.password}}" > /tmp/pass.txt
-          echo "  ✅ User: ${{ github.event.inputs.username }}"
+          echo "  ✅ User: ${{ github.event.inputs.username }} created"
+          echo ""
           
-      - name: Install Tailscale
+      - name: 🌐 INSTALL TAILSCALE
         if: github.event.inputs.instances >= matrix.instance
         run: |
-          echo "> Installing Tailscale..."
-          curl -fsSL https://tailscale.com/install.sh | sh
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🌐 INSTALLING TAILSCALE                                    │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          curl -fsSL https://tailscale.com/install.sh | sh > /dev/null 2>&1
           echo "  ✅ Tailscale installed"
+          echo ""
           
-      - name: Connect Tailscale
+      - name: 🔗 CONNECT TAILSCALE
         if: github.event.inputs.instances >= matrix.instance
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "> Connecting to Tailscale..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          echo "└─────────────────────────────────────────────────────────────┘"
           sudo tailscale up --auth-key="$KEY" --hostname="ubuntu-${{ matrix.instance }}"
           sleep 5
           IP=$(sudo tailscale ip -4)
           echo "IP=$IP" >> $GITHUB_ENV
           echo "  ✅ Connected - IP: $IP"
+          echo ""
           
-      - name: Benchmark
+      - name: 📊 PERFORMANCE BENCHMARK
         if: github.event.inputs.instances >= matrix.instance
         run: |
-          echo "> Running benchmark..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  📊 PERFORMANCE BENCHMARK                                    │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
           start=$(date +%s%N)
           for i in {1..1000000}; do :; done
           end=$(date +%s%N)
           cpu=$(echo "scale=2; 1000000 / (($end - $start) / 1000000000)" | bc)
+          echo "  🔵 CPU Score: $cpu ops/sec"
           
           start=$(date +%s%N)
           arr=()
           for i in {1..500000}; do arr+=($i); done
           end=$(date +%s%N)
           mem=$(echo "scale=2; 500000 / (($end - $start) / 1000000000)" | bc)
+          echo "  🟢 Memory Score: $mem ops/sec"
           
+          start=$(date +%s%N)
           dd if=/dev/zero of=/tmp/disk.tmp bs=1M count=10 2>/dev/null
-          disk=$(echo "scale=2; 10 / $(date +%s.%N -d "now" - $start)" | bc)
+          end=$(date +%s%N)
+          disk=$(echo "scale=2; 10 / (($end - $start) / 1000000000)" | bc)
           rm -f /tmp/disk.tmp
+          echo "  💾 Disk Score: $disk MB/s"
+          echo ""
           
           echo "CPU: $cpu ops/sec" > /tmp/bench.txt
           echo "Memory: $mem ops/sec" >> /tmp/bench.txt
           echo "Disk: $disk MB/s" >> /tmp/bench.txt
-          echo "  ✅ Benchmark done"
           
-      - name: Monitor
+      - name: 📈 RESOURCE MONITOR
         if: github.event.inputs.instances >= matrix.instance
         run: |
-          echo "> Collecting resource data..."
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  📈 RESOURCE MONITOR                                        │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
           cpu=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
           ram=$(free -h | awk '/^Mem:/ {print $3 "/" $2}')
           disk=$(df -h / | awk 'NR==2 {print $3 "/" $2}')
           uptime=$(uptime -p)
           
+          echo "  🔵 CPU  : $cpu%"
+          echo "  🟢 RAM  : $ram"
+          echo "  💾 DISK : $disk"
+          echo "  ⏱️  UPTIME: $uptime"
+          echo ""
+          
           echo "CPU: $cpu%" > /tmp/res.txt
           echo "RAM: $ram" >> /tmp/res.txt
           echo "DISK: $disk" >> /tmp/res.txt
           echo "UPTIME: $uptime" >> /tmp/res.txt
-          echo "  ✅ Data collected"
           
-      - name: Display Info
+      - name: 🎉 DISPLAY CONNECTION INFO
         if: github.event.inputs.instances >= matrix.instance
         run: |
           pass=$(cat /tmp/pass.txt)
@@ -571,33 +198,75 @@ jobs:
           end=$(date -d "+$hours hours" '+%H:%M:%S')
           
           echo ""
-          echo "╔════════════════════════════════════════════════════╗"
-          echo "║  🎉 UBUNTU SERVER READY - INSTANCE ${{ matrix.instance }} 🎉         ║"
-          echo "╠════════════════════════════════════════════════════╣"
-          echo "║  🌐 SSH IP    : $ip"
-          echo "║  👤 Username  : $user"
-          echo "║  🔑 Password  : $pass"
-          echo "║  🔌 Port      : 22"
-          echo "╠════════════════════════════════════════════════════╣"
-          echo "║  📊 BENCHMARK:"
-          echo "$bench" | while read line; do echo "║     $line"; done
-          echo "╠════════════════════════════════════════════════════╣"
-          echo "║  📊 RESOURCES:"
-          echo "$res" | while read line; do echo "║     $line"; done
-          echo "╠════════════════════════════════════════════════════╣"
-          echo "║  🕐 Started : $start"
-          echo "║  🕐 Expires : $end"
-          echo "╚════════════════════════════════════════════════════╝"
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║              🎉 UBUNTU SERVER READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║                                                              ║"
+          echo "║  🔐 SSH CONNECTION                                           ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  🌐 Host     │  $ip"
+          echo "║  │  🔌 Port     │  22"
+          echo "║  │  👤 User     │  $user"
+          echo "║  │  🔑 Password │  $pass"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  📊 BENCHMARK SCORES                                         ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          while IFS= read -r line; do
+            echo "║  │  $line"
+          done <<< "$bench"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  📈 CURRENT RESOURCES                                        ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          while IFS= read -r line; do
+            echo "║  │  $line"
+          done <<< "$res"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  ⏱️  TIME INFORMATION                                        ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  🕐 Started  │  $start"
+          echo "║  │  🕐 Expires  │  $end"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "║  💡 QUICK CONNECT (iPhone)                                   ║"
+          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+          echo "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
+          echo "║  │  2. Install Termius / Shelly from App Store            │ ║"
+          echo "║  │  3. Add new host → Host: $ip, Port: 22                 │ ║"
+          echo "║  │  4. Username: $user, Password: $pass                   │ ║"
+          echo "║  │  5. Connect and enjoy! 🚀                              │ ║"
+          echo "║  └────────────────────────────────────────────────────────┘ ║"
+          echo "║                                                              ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
           echo ""
           
           {
-            echo "Host: $ip"
-            echo "Port: 22"
-            echo "User: $user"
-            echo "Pass: $pass"
+            echo "╔══════════════════════════════════════════════════════════════╗"
+            echo "║              🎉 UBUNTU SERVER CONNECTION INFO 🎉               ║"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  🌐 Host     : $ip"
+            echo "║  🔌 Port     : 22"
+            echo "║  👤 User     : $user"
+            echo "║  🔑 Pass     : $pass"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  📊 BENCHMARK:"
+            while IFS= read -r line; do
+              echo "║     $line"
+            done <<< "$bench"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  📈 RESOURCES:"
+            while IFS= read -r line; do
+              echo "║     $line"
+            done <<< "$res"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║  🕐 Started : $start"
+            echo "║  🕐 Expires : $end"
+            echo "╚══════════════════════════════════════════════════════════════╝"
           } > vps-info.txt
           
-      - name: Upload
+      - name: 📤 UPLOAD CONNECTION INFO
         if: github.event.inputs.instances >= matrix.instance
         uses: actions/upload-artifact@v4
         with:
@@ -608,9 +277,564 @@ jobs:
             /tmp/res.txt
           retention-days: 7
           
-      - name: Keep Alive
+      - name: ⏳ KEEP ALIVE
         if: github.event.inputs.instances >= matrix.instance
         run: |
           h=${{ github.event.inputs.duration }}
-          echo "🟢 Ubuntu Server instance ${{ matrix.instance }} running for $h hours"
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║  🟢 UBUNTU SERVER INSTANCE ${{ matrix.instance }} RUNNING 🟢                ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║  🌐 SSH : ssh ${{ github.event.inputs.username }}@$IP -p 22"
+          echo "║  ⏱️  Will shutdown after $h hours"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
           sleep $((h * 3600))
+
+  # ============================================
+  # WINDOWS 11 - GIỮ NGUYÊN GIAO DIỆN ĐẸP
+  # ============================================
+  windows11-vps:
+    runs-on: windows-latest
+    if: github.event.inputs.os_type == 'windows11'
+    timeout-minutes: 360
+    strategy:
+      matrix:
+        instance: [1, 2, 3]
+      max-parallel: 3
+    steps:
+      - name: 🎯 SYSTEM INIT
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║          🪟✨ WINDOWS 11 PRO - INSTANCE ${{ matrix.instance }} 🪟✨          ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
+          Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
+          Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          Write-Host ""
+          
+      - name: 🔧 CONFIGURE RDP
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
+          Set-Service -Name TermService -StartupType Automatic
+          Start-Service -Name TermService
+          Write-Host "  ✅ RDP configured"
+          Write-Host ""
+          
+      - name: 👤 CREATE USER
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $u = "${{ github.event.inputs.username }}"
+          $p = "${{ github.event.inputs.password }}"
+          $sec = ConvertTo-SecureString $p -AsPlainText -Force
+          try { Remove-LocalUser -Name $u -ErrorAction SilentlyContinue } catch {}
+          New-LocalUser -Name $u -Password $sec -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $u
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+          Enable-LocalUser -Name $u
+          $p | Out-File -FilePath $env:TEMP\pass.txt
+          Write-Host "  ✅ User: $u created"
+          Write-Host ""
+          
+      - name: 🖼️ SET WALLPAPER
+        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🖼️ SETTING CUSTOM WALLPAPER                                │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $url = "${{ github.event.inputs.wallpaper_url }}"
+          $img = "$env:TEMP\wall.jpg"
+          Invoke-WebRequest -Uri $url -OutFile $img
+          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
+          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
+          Write-Host "  ✅ Wallpaper applied"
+          Write-Host ""
+          
+      - name: 📸 CAPTURE SCREENSHOT
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📸 CAPTURING SCREENSHOT                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
+          $bmp.Save("$env:TEMP\screen.png")
+          $g.Dispose(); $bmp.Dispose()
+          Write-Host "  ✅ Screenshot saved"
+          Write-Host ""
+          
+      - name: 🌐 INSTALL TAILSCALE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $msi = "$env:TEMP\ts.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
+          Remove-Item $msi -Force
+          Write-Host "  ✅ Tailscale installed"
+          Write-Host ""
+          
+      - name: 🔗 CONNECT TAILSCALE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win11-${{ matrix.instance }}"
+          Start-Sleep -Seconds 5
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "IP=$ip" >> $env:GITHUB_ENV
+          Write-Host "  ✅ Connected - IP: $ip"
+          Write-Host ""
+          
+      - name: 📊 PERFORMANCE BENCHMARK
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📊 PERFORMANCE BENCHMARK                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          
+          $c = Get-Date
+          $s = 0
+          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
+          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
+          Write-Host "  🔵 CPU Score: $cpu ops/sec"
+          
+          $m = Get-Date
+          $arr = New-Object System.Collections.ArrayList
+          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
+          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
+          Write-Host "  🟢 Memory Score: $mem ops/sec"
+          
+          $d = Get-Date
+          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
+          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
+          Remove-Item "$env:TEMP\disk.tmp" -Force
+          Write-Host "  💾 Disk Score: $disk MB/s"
+          Write-Host ""
+          
+          $bench = @()
+          $bench += "CPU: $cpu ops/sec"
+          $bench += "Memory: $mem ops/sec"
+          $bench += "Disk: $disk MB/s"
+          $bench | Out-File "$env:TEMP\bench.txt"
+          
+      - name: 📈 RESOURCE MONITOR
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📈 RESOURCE MONITOR                                        │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          
+          $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
+          $ram = Get-WmiObject Win32_OperatingSystem
+          $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
+          $ramT = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
+          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
+          $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
+          $diskT = [math]::Round($disk.Size / 1GB, 2)
+          $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+          
+          Write-Host "  🔵 CPU  : $cpu%"
+          Write-Host "  🟢 RAM  : $ramU/$ramT GB"
+          Write-Host "  💾 DISK : $diskU/$diskT GB"
+          Write-Host "  ⏱️  UPTIME: $($up.Days)d $($up.Hours)h"
+          Write-Host ""
+          
+          $res = @()
+          $res += "CPU: $cpu%"
+          $res += "RAM: $ramU/$ramT GB"
+          $res += "DISK: $diskU/$diskT GB"
+          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
+          $res | Out-File "$env:TEMP\res.txt"
+          
+      - name: 🎉 DISPLAY CONNECTION INFO
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          $pass = Get-Content "$env:TEMP\pass.txt"
+          $bench = Get-Content "$env:TEMP\bench.txt"
+          $res = Get-Content "$env:TEMP\res.txt"
+          $ip = "$env:IP"
+          $user = "${{ github.event.inputs.username }}"
+          $hours = "${{ github.event.inputs.duration }}"
+          $start = (Get-Date).ToString('HH:mm:ss')
+          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+          
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║              🎉 WINDOWS 11 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║                                                              ║"
+          Write-Host "║  🔐 RDP CONNECTION                                           ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  🌐 Host     │  $ip"
+          Write-Host "║  │  🔌 Port     │  3389"
+          Write-Host "║  │  👤 User     │  $user"
+          Write-Host "║  │  🔑 Password │  $pass"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  📊 BENCHMARK SCORES                                         ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          foreach ($l in $bench) { Write-Host "║  │  $l" }
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  📈 CURRENT RESOURCES                                        ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          foreach ($l in $res) { Write-Host "║  │  $l" }
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  ⏱️  TIME INFORMATION                                        ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  🕐 Started  │  $start"
+          Write-Host "║  │  🕐 Expires  │  $end"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  💡 QUICK CONNECT (iPhone)                                   ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
+          Write-Host "║  │  2. Install Microsoft Remote Desktop from App Store    │ ║"
+          Write-Host "║  │  3. Add PC → PC name: $ip:3389                         │ ║"
+          Write-Host "║  │  4. Username: $user, Password: $pass                   │ ║"
+          Write-Host "║  │  5. Connect and enjoy! 🚀                              │ ║"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          
+          $info = @()
+          $info += "Host: $ip"
+          $info += "Port: 3389"
+          $info += "User: $user"
+          $info += "Pass: $pass"
+          $info | Out-File vps-info.txt -Encoding ascii
+          
+      - name: 📤 UPLOAD CONNECTION INFO
+        if: github.event.inputs.instances >= matrix.instance
+        uses: actions/upload-artifact@v4
+        with:
+          name: win11-instance-${{ matrix.instance }}
+          path: |
+            vps-info.txt
+            ${{ env.TEMP }}\screen.png
+            ${{ env.TEMP }}\bench.txt
+            ${{ env.TEMP }}\res.txt
+          retention-days: 7
+          
+      - name: ⏳ KEEP ALIVE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          $h = ${{ github.event.inputs.duration }}
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║  🟢 WINDOWS 11 INSTANCE ${{ matrix.instance }} RUNNING 🟢                    ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🌐 RDP : $env:IP:3389"
+          Write-Host "║  ⏱️  Will shutdown after $h hours"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          Start-Sleep -Seconds ($h * 3600)
+
+  # ============================================
+  # WINDOWS 10 - GIỮ NGUYÊN GIAO DIỆN ĐẸP
+  # ============================================
+  windows10-vps:
+    runs-on: windows-latest
+    if: github.event.inputs.os_type == 'windows10'
+    timeout-minutes: 360
+    strategy:
+      matrix:
+        instance: [1, 2, 3]
+      max-parallel: 3
+    steps:
+      - name: 🎯 SYSTEM INIT
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║          🪟 WINDOWS 10 PRO - INSTANCE ${{ matrix.instance }} 🪟                 ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
+          Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
+          Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          Write-Host ""
+          
+      - name: 🔧 CONFIGURE RDP
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
+          Set-Service -Name TermService -StartupType Automatic
+          Start-Service -Name TermService
+          Write-Host "  ✅ RDP configured"
+          Write-Host ""
+          
+      - name: 👤 CREATE USER
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $u = "${{ github.event.inputs.username }}"
+          $p = "${{ github.event.inputs.password }}"
+          $sec = ConvertTo-SecureString $p -AsPlainText -Force
+          try { Remove-LocalUser -Name $u -ErrorAction SilentlyContinue } catch {}
+          New-LocalUser -Name $u -Password $sec -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $u
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+          Enable-LocalUser -Name $u
+          $p | Out-File -FilePath $env:TEMP\pass.txt
+          Write-Host "  ✅ User: $u created"
+          Write-Host ""
+          
+      - name: 🖼️ SET WALLPAPER
+        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🖼️ SETTING CUSTOM WALLPAPER                                │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $url = "${{ github.event.inputs.wallpaper_url }}"
+          $img = "$env:TEMP\wall.jpg"
+          Invoke-WebRequest -Uri $url -OutFile $img
+          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
+          Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
+          Write-Host "  ✅ Wallpaper applied"
+          Write-Host ""
+          
+      - name: 📸 CAPTURE SCREENSHOT
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📸 CAPTURING SCREENSHOT                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
+          $bmp.Save("$env:TEMP\screen.png")
+          $g.Dispose(); $bmp.Dispose()
+          Write-Host "  ✅ Screenshot saved"
+          Write-Host ""
+          
+      - name: 🌐 INSTALL TAILSCALE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $msi = "$env:TEMP\ts.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
+          Remove-Item $msi -Force
+          Write-Host "  ✅ Tailscale installed"
+          Write-Host ""
+          
+      - name: 🔗 CONNECT TAILSCALE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win10-${{ matrix.instance }}"
+          Start-Sleep -Seconds 5
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "IP=$ip" >> $env:GITHUB_ENV
+          Write-Host "  ✅ Connected - IP: $ip"
+          Write-Host ""
+          
+      - name: 📊 PERFORMANCE BENCHMARK
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📊 PERFORMANCE BENCHMARK                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          
+          $c = Get-Date
+          $s = 0
+          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
+          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
+          Write-Host "  🔵 CPU Score: $cpu ops/sec"
+          
+          $m = Get-Date
+          $arr = New-Object System.Collections.ArrayList
+          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
+          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
+          Write-Host "  🟢 Memory Score: $mem ops/sec"
+          
+          $d = Get-Date
+          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
+          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
+          Remove-Item "$env:TEMP\disk.tmp" -Force
+          Write-Host "  💾 Disk Score: $disk MB/s"
+          Write-Host ""
+          
+          $bench = @()
+          $bench += "CPU: $cpu ops/sec"
+          $bench += "Memory: $mem ops/sec"
+          $bench += "Disk: $disk MB/s"
+          $bench | Out-File "$env:TEMP\bench.txt"
+          
+      - name: 📈 RESOURCE MONITOR
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📈 RESOURCE MONITOR                                        │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          
+          $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
+          $ram = Get-WmiObject Win32_OperatingSystem
+          $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
+          $ramT = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
+          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
+          $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
+          $diskT = [math]::Round($disk.Size / 1GB, 2)
+          $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+          
+          Write-Host "  🔵 CPU  : $cpu%"
+          Write-Host "  🟢 RAM  : $ramU/$ramT GB"
+          Write-Host "  💾 DISK : $diskU/$diskT GB"
+          Write-Host "  ⏱️  UPTIME: $($up.Days)d $($up.Hours)h"
+          Write-Host ""
+          
+          $res = @()
+          $res += "CPU: $cpu%"
+          $res += "RAM: $ramU/$ramT GB"
+          $res += "DISK: $diskU/$diskT GB"
+          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
+          $res | Out-File "$env:TEMP\res.txt"
+          
+      - name: 🎉 DISPLAY CONNECTION INFO
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          $pass = Get-Content "$env:TEMP\pass.txt"
+          $bench = Get-Content "$env:TEMP\bench.txt"
+          $res = Get-Content "$env:TEMP\res.txt"
+          $ip = "$env:IP"
+          $user = "${{ github.event.inputs.username }}"
+          $hours = "${{ github.event.inputs.duration }}"
+          $start = (Get-Date).ToString('HH:mm:ss')
+          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+          
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║              🎉 WINDOWS 10 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║                                                              ║"
+          Write-Host "║  🔐 RDP CONNECTION                                           ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  🌐 Host     │  $ip"
+          Write-Host "║  │  🔌 Port     │  3389"
+          Write-Host "║  │  👤 User     │  $user"
+          Write-Host "║  │  🔑 Password │  $pass"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  📊 BENCHMARK SCORES                                         ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          foreach ($l in $bench) { Write-Host "║  │  $l" }
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  📈 CURRENT RESOURCES                                        ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          foreach ($l in $res) { Write-Host "║  │  $l" }
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  ⏱️  TIME INFORMATION                                        ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  🕐 Started  │  $start"
+          Write-Host "║  │  🕐 Expires  │  $end"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "║  💡 QUICK CONNECT (iPhone)                                   ║"
+          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+          Write-Host "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
+          Write-Host "║  │  2. Install Microsoft Remote Desktop from App Store    │ ║"
+          Write-Host "║  │  3. Add PC → PC name: $ip:3389                         │ ║"
+          Write-Host "║  │  4. Username: $user, Password: $pass                   │ ║"
+          Write-Host "║  │  5. Connect and enjoy! 🚀                              │ ║"
+          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+          Write-Host "║                                                              ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          
+          $info = @()
+          $info += "Host: $ip"
+          $info += "Port: 3389"
+          $info += "User: $user"
+          $info += "Pass: $pass"
+          $info | Out-File vps-info.txt -Encoding ascii
+          
+      - name: 📤 UPLOAD CONNECTION INFO
+        if: github.event.inputs.instances >= matrix.instance
+        uses: actions/upload-artifact@v4
+        with:
+          name: win10-instance-${{ matrix.instance }}
+          path: |
+            vps-info.txt
+            ${{ env.TEMP }}\screen.png
+            ${{ env.TEMP }}\bench.txt
+            ${{ env.TEMP }}\res.txt
+          retention-days: 7
+          
+      - name: ⏳ KEEP ALIVE
+        if: github.event.inputs.instances >= matrix.instance
+        shell: pwsh
+        run: |
+          $h = ${{ github.event.inputs.duration }}
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║  🟢 WINDOWS 10 INSTANCE ${{ matrix.instance }} RUNNING 🟢                    ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🌐 RDP : $env:IP:3389"
+          Write-Host "║  ⏱️  Will shutdown after $h hours"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          Start-Sleep -Seconds ($h * 3600)
