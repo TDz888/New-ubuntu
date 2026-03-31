@@ -53,14 +53,11 @@ on:
           - '4'
           - '6'
       subdomain:
-        description: 🌐 Custom subdomain (optional, e.g., myvps)
+        description: 🌐 Custom subdomain (optional)
         required: false
         default: ''
 
 jobs:
-  # ============================================
-  # UBUNTU SERVER - VỚI DASHBOARD + SUBDOMAIN
-  # ============================================
   ubuntu-server-vps:
     runs-on: ubuntu-latest
     if: github.event.inputs.os_type == 'ubuntu-server'
@@ -74,7 +71,7 @@ jobs:
         if: github.event.inputs.instances < matrix.instance
         run: exit 0
           
-      - name: 🎯 SYSTEM INIT
+      - name: System Init
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
@@ -84,83 +81,65 @@ jobs:
           echo "  🌍 Region     : ${{ github.event.inputs.region }}"
           echo "  👤 Username   : ${{ github.event.inputs.username }}"
           echo "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
-          echo "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
           echo ""
           
-      - name: 🔧 INSTALL SSH & TOOLS
+      - name: Install SSH & Tools
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🔧 INSTALLING SSH & WEB TOOLS                               │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "> Installing SSH and tools..."
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server python3 python3-pip nginx
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          echo "  ✅ SSH service started (port 22)"
-          echo ""
+          echo "  ✅ SSH ready"
           
-      - name: 👤 CREATE USER
+      - name: Create User
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  👤 CREATING USER ACCOUNT                                   │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "> Creating user..."
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           echo "${{ github.event.inputs.password}}" > /tmp/pass.txt
-          echo "  ✅ User: ${{ github.event.inputs.username }} created"
-          echo ""
+          echo "  ✅ User: ${{ github.event.inputs.username }}"
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: Install Tailscale
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🌐 INSTALLING TAILSCALE                                    │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "> Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh > /dev/null 2>&1
           echo "  ✅ Tailscale installed"
-          echo ""
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: Connect Tailscale
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "> Connecting to Tailscale..."
           sudo tailscale up --auth-key="$KEY" --hostname="ubuntu-${{ matrix.instance }}"
           sleep 5
           IP=$(sudo tailscale ip -4)
           echo "IP=$IP" >> $GITHUB_ENV
           echo "  ✅ Connected - IP: $IP"
-          echo ""
           
-      - name: 🌐 SETUP SUBDOMAIN (Pinggy)
+      - name: Setup Subdomain
         if: github.event.inputs.subdomain != ''
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🌐 SETUP SUBDOMAIN TUNNEL                                   │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "> Setting up subdomain tunnel..."
           SUB="${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
           ssh -R 80:localhost:22 $SUB@pinggy.io > /tmp/sub.log 2>&1 &
           sleep 8
           SUB_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' /tmp/sub.log | head -1)
           echo "SUB_URL=$SUB_URL" >> $GITHUB_ENV
           echo "  ✅ Subdomain: $SUB_URL"
-          echo ""
           
-      - name: 🖥️ CREATE REAL-TIME DASHBOARD
+      - name: Create Dashboard HTML
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🖥️ CREATING REAL-TIME DASHBOARD                            │"
-          echo "└─────────────────────────────────────────────────────────────┘"
-          
-          cat > /tmp/dashboard.html << 'DASHBOARD'
+          echo "> Creating real-time dashboard..."
+          sudo mkdir -p /var/www/html
+          sudo tee /var/www/html/index.html > /dev/null << 'HTML'
           <!DOCTYPE html>
           <html>
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>VPS Dashboard - Realtime</title>
+              <title>VPS Dashboard</title>
               <style>
                   * { margin: 0; padding: 0; box-sizing: border-box; }
                   body {
@@ -188,19 +167,9 @@ jobs:
                       border: 1px solid #0f0;
                       border-radius: 10px;
                       padding: 20px;
-                      box-shadow: 0 0 20px rgba(0,255,0,0.1);
                   }
-                  .card h3 {
-                      color: #0f0;
-                      margin-bottom: 15px;
-                      border-bottom: 1px solid #0f0;
-                      display: inline-block;
-                  }
-                  .metric {
-                      font-size: 2rem;
-                      font-weight: bold;
-                      margin: 10px 0;
-                  }
+                  .card h3 { color: #0f0; margin-bottom: 15px; border-bottom: 1px solid #0f0; display: inline-block; }
+                  .metric { font-size: 2rem; font-weight: bold; margin: 10px 0; }
                   .progress-bar {
                       width: 100%;
                       height: 20px;
@@ -209,235 +178,123 @@ jobs:
                       overflow: hidden;
                       margin: 10px 0;
                   }
-                  .progress-fill {
-                      height: 100%;
-                      background: linear-gradient(90deg, #0f0, #0f0);
-                      width: 0%;
-                      transition: width 0.5s ease;
-                  }
-                  .status {
-                      color: #0f0;
-                      animation: blink 1s infinite;
-                  }
-                  @keyframes blink {
-                      0%, 100% { opacity: 1; }
-                      50% { opacity: 0.5; }
-                  }
-                  .footer {
-                      text-align: center;
-                      margin-top: 30px;
-                      color: #0f0;
-                      font-size: 0.8rem;
-                  }
+                  .progress-fill { height: 100%; background: #0f0; width: 0%; transition: width 0.5s ease; }
+                  .status { color: #0f0; animation: blink 1s infinite; }
+                  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+                  .footer { text-align: center; margin-top: 30px; color: #0f0; font-size: 0.8rem; }
                   pre {
                       background: #000;
                       padding: 10px;
                       border-radius: 5px;
                       overflow-x: auto;
+                      height: 200px;
+                      overflow-y: auto;
                   }
               </style>
           </head>
           <body>
               <div class="container">
                   <div class="header">
-                      <h1>🔧 VPS DASHBOARD [REALTIME]</h1>
+                      <h1>🔧 VPS DASHBOARD</h1>
                       <p class="status">🟢 SYSTEM ONLINE</p>
                   </div>
-                  
                   <div class="grid">
-                      <div class="card">
-                          <h3>📊 CPU USAGE</h3>
-                          <div class="metric" id="cpu">--%</div>
-                          <div class="progress-bar"><div class="progress-fill" id="cpu-bar"></div></div>
-                      </div>
-                      
-                      <div class="card">
-                          <h3>💾 RAM USAGE</h3>
-                          <div class="metric" id="ram">-- / -- GB</div>
-                          <div class="progress-bar"><div class="progress-fill" id="ram-bar"></div></div>
-                      </div>
-                      
-                      <div class="card">
-                          <h3>💿 DISK USAGE</h3>
-                          <div class="metric" id="disk">-- / -- GB</div>
-                          <div class="progress-bar"><div class="progress-fill" id="disk-bar"></div></div>
-                      </div>
+                      <div class="card"><h3>📊 CPU USAGE</h3><div class="metric" id="cpu">--%</div><div class="progress-bar"><div class="progress-fill" id="cpu-bar"></div></div></div>
+                      <div class="card"><h3>💾 RAM USAGE</h3><div class="metric" id="ram">-- / -- GB</div><div class="progress-bar"><div class="progress-fill" id="ram-bar"></div></div></div>
+                      <div class="card"><h3>💿 DISK USAGE</h3><div class="metric" id="disk">-- / -- GB</div><div class="progress-bar"><div class="progress-fill" id="disk-bar"></div></div></div>
                   </div>
-                  
                   <div class="grid">
-                      <div class="card">
-                          <h3>⏱️ UPTIME</h3>
-                          <div class="metric" id="uptime">--</div>
-                      </div>
-                      
-                      <div class="card">
-                          <h3>🌐 NETWORK</h3>
-                          <div class="metric" id="network">-- / --</div>
-                      </div>
-                      
-                      <div class="card">
-                          <h3>🔌 ACTIVE CONNECTIONS</h3>
-                          <div class="metric" id="connections">--</div>
-                      </div>
+                      <div class="card"><h3>⏱️ UPTIME</h3><div class="metric" id="uptime">--</div></div>
+                      <div class="card"><h3>🌐 NETWORK</h3><div class="metric" id="network">-- / --</div></div>
+                      <div class="card"><h3>🔌 CONNECTIONS</h3><div class="metric" id="connections">--</div></div>
                   </div>
-                  
-                  <div class="card">
-                      <h3>📋 LIVE LOG</h3>
-                      <pre id="log">Waiting for data...</pre>
-                  </div>
-                  
-                  <div class="footer">
-                      <p>VPS Dashboard v2.0 | Realtime via WebSocket | Powered by Tailscale</p>
-                  </div>
+                  <div class="card"><h3>📋 LIVE LOG</h3><pre id="log">Waiting for data...</pre></div>
+                  <div class="footer"><p>VPS Dashboard | Realtime via WebSocket</p></div>
               </div>
-              
               <script>
-                  const ws = new WebSocket(`ws://${window.location.hostname}:8080`);
-                  const logElement = document.getElementById('log');
-                  
-                  ws.onmessage = (event) => {
-                      const data = JSON.parse(event.data);
-                      
-                      document.getElementById('cpu').innerText = `${data.cpu}%`;
-                      document.getElementById('cpu-bar').style.width = `${data.cpu}%`;
-                      
-                      document.getElementById('ram').innerText = `${data.ram_used}/${data.ram_total} GB`;
-                      document.getElementById('ram-bar').style.width = `${data.ram_percent}%`;
-                      
-                      document.getElementById('disk').innerText = `${data.disk_used}/${data.disk_total} GB`;
-                      document.getElementById('disk-bar').style.width = `${data.disk_percent}%`;
-                      
-                      document.getElementById('uptime').innerText = data.uptime;
-                      document.getElementById('network').innerText = `${data.network_rx}/${data.network_tx}`;
-                      document.getElementById('connections').innerText = data.connections;
-                      
-                      const timestamp = new Date().toLocaleTimeString();
-                      logElement.innerHTML = `[${timestamp}] CPU: ${data.cpu}% | RAM: ${data.ram_percent}% | DISK: ${data.disk_percent}%\n` + logElement.innerHTML;
-                      if (logElement.innerHTML.split('\n').length > 20) {
-                          logElement.innerHTML = logElement.innerHTML.split('\n').slice(0, 20).join('\n');
-                      }
-                  };
-                  
-                  ws.onerror = () => { logElement.innerHTML = '⚠️ WebSocket connection error'; };
+                  let ws;
+                  function connect() {
+                      ws = new WebSocket(`ws://${window.location.hostname}:8080`);
+                      ws.onmessage = (e) => {
+                          const d = JSON.parse(e.data);
+                          document.getElementById('cpu').innerText = d.cpu + '%';
+                          document.getElementById('cpu-bar').style.width = d.cpu + '%';
+                          document.getElementById('ram').innerText = d.ram_used + '/' + d.ram_total + ' GB';
+                          document.getElementById('ram-bar').style.width = d.ram_percent + '%';
+                          document.getElementById('disk').innerText = d.disk_used + '/' + d.disk_total + ' GB';
+                          document.getElementById('disk-bar').style.width = d.disk_percent + '%';
+                          document.getElementById('uptime').innerText = d.uptime;
+                          document.getElementById('network').innerText = d.network_rx + '/' + d.network_tx;
+                          document.getElementById('connections').innerText = d.connections;
+                          const log = document.getElementById('log');
+                          const time = new Date().toLocaleTimeString();
+                          log.innerHTML = `[${time}] CPU:${d.cpu}% RAM:${d.ram_percent}% DISK:${d.disk_percent}%\n` + log.innerHTML;
+                          if (log.innerHTML.split('\n').length > 20) log.innerHTML = log.innerHTML.split('\n').slice(0,20).join('\n');
+                      };
+                      ws.onerror = () => { setTimeout(connect, 3000); };
+                      ws.onclose = () => { setTimeout(connect, 3000); };
+                  }
+                  connect();
               </script>
           </body>
           </html>
-DASHBOARD
+HTML
+          echo "  ✅ Dashboard created"
           
-          sudo cp /tmp/dashboard.html /var/www/html/index.html
-          echo "  ✅ Dashboard created at /var/www/html/index.html"
-          echo ""
-          
-      - name: 🚀 START WEBSOCKET SERVER
+      - name: Start WebSocket Server
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🚀 STARTING WEBSOCKET SERVER                               │"
-          echo "└─────────────────────────────────────────────────────────────┘"
-          
-          cat > /tmp/ws_server.py << 'PYTHON'
-          import asyncio
-          import websockets
-          import json
-          import psutil
-          import subprocess
-          import time
-          
-          async def get_stats():
-              cpu = psutil.cpu_percent()
-              ram = psutil.virtual_memory()
-              disk = psutil.disk_usage('/')
-              net = psutil.net_io_counters()
-              conn = len(psutil.net_connections())
-              uptime = int(time.time() - psutil.boot_time())
-              hours = uptime // 3600
-              minutes = (uptime % 3600) // 60
-              
-              return {
-                  'cpu': cpu,
-                  'ram_used': round(ram.used / (1024**3), 1),
-                  'ram_total': round(ram.total / (1024**3), 1),
-                  'ram_percent': ram.percent,
-                  'disk_used': round(disk.used / (1024**3), 1),
-                  'disk_total': round(disk.total / (1024**3), 1),
-                  'disk_percent': disk.percent,
-                  'uptime': f'{hours}h {minutes}m',
-                  'network_rx': f'{round(net.bytes_recv / (1024**2), 1)} MB',
-                  'network_tx': f'{round(net.bytes_sent / (1024**2), 1)} MB',
-                  'connections': conn
-              }
-          
-          async def handler(websocket):
+          echo "> Starting WebSocket server..."
+          sudo pip3 install websockets psutil > /dev/null 2>&1
+          sudo tee /tmp/ws_server.py > /dev/null << 'PYTHON'
+          import asyncio, websockets, json, psutil, time
+          async def handler(ws):
               while True:
-                  stats = await get_stats()
-                  await websocket.send(json.dumps(stats))
+                  cpu = psutil.cpu_percent()
+                  mem = psutil.virtual_memory()
+                  disk = psutil.disk_usage('/')
+                  net = psutil.net_io_counters()
+                  uptime = int(time.time() - psutil.boot_time())
+                  await ws.send(json.dumps({
+                      'cpu': cpu, 'ram_used': round(mem.used/1e9,1), 'ram_total': round(mem.total/1e9,1),
+                      'ram_percent': mem.percent, 'disk_used': round(disk.used/1e9,1), 'disk_total': round(disk.total/1e9,1),
+                      'disk_percent': disk.percent, 'uptime': f"{uptime//3600}h {(uptime%3600)//60}m",
+                      'network_rx': f"{round(net.bytes_recv/1e6,1)}MB", 'network_tx': f"{round(net.bytes_sent/1e6,1)}MB",
+                      'connections': len(psutil.net_connections())
+                  }))
                   await asyncio.sleep(2)
-          
           async def main():
               async with websockets.serve(handler, "0.0.0.0", 8080):
                   await asyncio.Future()
-          
           asyncio.run(main())
 PYTHON
-          
-          sudo pip3 install websockets psutil > /dev/null 2>&1
           nohup python3 /tmp/ws_server.py > /tmp/ws.log 2>&1 &
-          echo "  ✅ WebSocket server running on port 8080"
-          echo ""
+          echo "  ✅ WebSocket server running"
           
-      - name: 📊 PERFORMANCE BENCHMARK
+      - name: Benchmark
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  📊 PERFORMANCE BENCHMARK                                    │"
-          echo "└─────────────────────────────────────────────────────────────┘"
-          
-          start=$(date +%s%N)
-          for i in {1..1000000}; do :; done
-          end=$(date +%s%N)
-          cpu=$(echo "scale=2; 1000000 / (($end - $start) / 1000000000)" | bc)
-          echo "  🔵 CPU Score: $cpu ops/sec"
-          
-          start=$(date +%s%N)
-          arr=()
-          for i in {1..500000}; do arr+=($i); done
-          end=$(date +%s%N)
-          mem=$(echo "scale=2; 500000 / (($end - $start) / 1000000000)" | bc)
-          echo "  🟢 Memory Score: $mem ops/sec"
-          
-          start=$(date +%s%N)
-          dd if=/dev/zero of=/tmp/disk.tmp bs=1M count=10 2>/dev/null
-          end=$(date +%s%N)
-          disk=$(echo "scale=2; 10 / (($end - $start) / 1000000000)" | bc)
-          rm -f /tmp/disk.tmp
-          echo "  💾 Disk Score: $disk MB/s"
-          echo ""
-          
+          echo "> Running benchmark..."
+          start=$(date +%s%N); for i in {1..1000000}; do :; done; end=$(date +%s%N); cpu=$(echo "scale=2; 1000000 / (($end - $start) / 1000000000)" | bc)
+          start=$(date +%s%N); arr=(); for i in {1..500000}; do arr+=($i); done; end=$(date +%s%N); mem=$(echo "scale=2; 500000 / (($end - $start) / 1000000000)" | bc)
+          start=$(date +%s%N); dd if=/dev/zero of=/tmp/disk.tmp bs=1M count=10 2>/dev/null; end=$(date +%s%N); disk=$(echo "scale=2; 10 / (($end - $start) / 1000000000)" | bc); rm -f /tmp/disk.tmp
           echo "CPU: $cpu ops/sec" > /tmp/bench.txt
           echo "Memory: $mem ops/sec" >> /tmp/bench.txt
           echo "Disk: $disk MB/s" >> /tmp/bench.txt
+          echo "  ✅ Benchmark done"
           
-      - name: 📈 RESOURCE MONITOR
+      - name: Monitor
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  📈 RESOURCE MONITOR                                        │"
-          echo "└─────────────────────────────────────────────────────────────┘"
-          
+          echo "> Collecting resource data..."
           cpu=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
           ram=$(free -h | awk '/^Mem:/ {print $3 "/" $2}')
           disk=$(df -h / | awk 'NR==2 {print $3 "/" $2}')
           uptime=$(uptime -p)
-          
-          echo "  🔵 CPU  : $cpu%"
-          echo "  🟢 RAM  : $ram"
-          echo "  💾 DISK : $disk"
-          echo "  ⏱️  UPTIME: $uptime"
-          echo ""
-          
           echo "CPU: $cpu%" > /tmp/res.txt
           echo "RAM: $ram" >> /tmp/res.txt
           echo "DISK: $disk" >> /tmp/res.txt
           echo "UPTIME: $uptime" >> /tmp/res.txt
+          echo "  ✅ Data collected"
           
-      - name: 🎉 DISPLAY CONNECTION INFO
+      - name: Display Info
         run: |
           pass=$(cat /tmp/pass.txt)
           bench=$(cat /tmp/bench.txt)
@@ -453,54 +310,14 @@ PYTHON
           echo "╔══════════════════════════════════════════════════════════════╗"
           echo "║              🎉 UBUNTU SERVER READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║                                                              ║"
-          echo "║  🔐 SSH CONNECTION                                           ║"
-          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  🌐 Host     │  $ip"
-          echo "║  │  🔌 Port     │  22"
-          echo "║  │  👤 User     │  $user"
-          echo "║  │  🔑 Password │  $pass"
-          echo "║  └────────────────────────────────────────────────────────┘ ║"
-          echo "║                                                              ║"
-          
-          if [ -n "$sub" ]; then
-            echo "║  🌐 SUBDOMAIN ACCESS                                        ║"
-            echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-            echo "║  │  🔗 Public URL │  $sub"
-            echo "║  │  📊 Dashboard  │  $sub:8080/dashboard.html"
-            echo "║  └────────────────────────────────────────────────────────┘ ║"
-            echo "║                                                              ║"
-          fi
-          
-          echo "║  📊 BENCHMARK SCORES                                         ║"
-          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          while IFS= read -r line; do
-            echo "║  │  $line"
-          done <<< "$bench"
-          echo "║  └────────────────────────────────────────────────────────┘ ║"
-          echo "║                                                              ║"
-          echo "║  📈 CURRENT RESOURCES                                        ║"
-          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          while IFS= read -r line; do
-            echo "║  │  $line"
-          done <<< "$res"
-          echo "║  └────────────────────────────────────────────────────────┘ ║"
-          echo "║                                                              ║"
-          echo "║  ⏱️  TIME INFORMATION                                        ║"
-          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  🕐 Started  │  $start"
-          echo "║  │  🕐 Expires  │  $end"
-          echo "║  └────────────────────────────────────────────────────────┘ ║"
-          echo "║                                                              ║"
-          echo "║  💡 QUICK CONNECT (iPhone)                                   ║"
-          echo "║  ┌────────────────────────────────────────────────────────┐ ║"
-          echo "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
-          echo "║  │  2. Install Termius / Shelly from App Store            │ ║"
-          echo "║  │  3. Add new host → Host: $ip, Port: 22                 │ ║"
-          echo "║  │  4. Username: $user, Password: $pass                   │ ║"
-          echo "║  │  5. Connect and enjoy! 🚀                              │ ║"
-          echo "║  └────────────────────────────────────────────────────────┘ ║"
-          echo "║                                                              ║"
+          echo "║  🔐 SSH: ssh $user@$ip -p 22"
+          echo "║  🔑 Pass: $pass"
+          if [ -n "$sub" ]; then echo "║  🌐 Dashboard: $sub"; fi
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          while IFS= read -r line; do echo "║  📊 $line"; done <<< "$bench"
+          while IFS= read -r line; do echo "║  📈 $line"; done <<< "$res"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║  🕐 Started: $start | Expires: $end"
           echo "╚══════════════════════════════════════════════════════════════╝"
           echo ""
           
@@ -509,41 +326,19 @@ PYTHON
             echo "Port: 22"
             echo "User: $user"
             echo "Pass: $pass"
-            if [ -n "$sub" ]; then
-              echo "Subdomain: $sub"
-              echo "Dashboard: $sub:8080"
-            fi
+            if [ -n "$sub" ]; then echo "Dashboard: $sub"; fi
           } > vps-info.txt
           
-      - name: 📤 UPLOAD CONNECTION INFO
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-instance-${{ matrix.instance }}
-          path: |
-            vps-info.txt
-            /tmp/bench.txt
-            /tmp/res.txt
+          path: vps-info.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
-        run: |
-          h=${{ github.event.inputs.duration }}
-          echo ""
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║  🟢 UBUNTU SERVER INSTANCE ${{ matrix.instance }} RUNNING 🟢                ║"
-          echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  🌐 SSH : ssh ${{ github.event.inputs.username }}@$IP -p 22"
-          if [ -n "$SUB_URL" ]; then
-            echo "║  🌐 Web  : $SUB_URL"
-          fi
-          echo "║  ⏱️  Will shutdown after $h hours"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          sleep $((h * 3600))
+      - name: Keep Alive
+        run: sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
 
-  # ============================================
-  # WINDOWS 11 - VỚI DASHBOARD + SUBDOMAIN
-  # ============================================
   windows11-vps:
     runs-on: windows-latest
     if: github.event.inputs.os_type == 'windows11'
@@ -558,7 +353,7 @@ PYTHON
         shell: pwsh
         run: exit 0
           
-      - name: 🎯 SYSTEM INIT
+      - name: System Init
         shell: pwsh
         run: |
           Write-Host ""
@@ -569,31 +364,23 @@ PYTHON
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
-          if ("${{ github.event.inputs.subdomain }}" -ne '') {
-            Write-Host "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
-          }
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: Configure RDP
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Configuring RDP..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          Write-Host "  ✅ RDP configured"
-          Write-Host ""
+          Write-Host "  ✅ RDP ready"
           
-      - name: 👤 CREATE USER
+      - name: Create User
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Creating user..."
           $u = "${{ github.event.inputs.username }}"
           $p = "${{ github.event.inputs.password }}"
           $sec = ConvertTo-SecureString $p -AsPlainText -Force
@@ -603,30 +390,24 @@ PYTHON
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
           Enable-LocalUser -Name $u
           $p | Out-File -FilePath $env:TEMP\pass.txt
-          Write-Host "  ✅ User: $u created"
-          Write-Host ""
+          Write-Host "  ✅ User: $u"
           
-      - name: 🖼️ SET WALLPAPER
+      - name: Set Wallpaper
         if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🖼️ SETTING CUSTOM WALLPAPER                                │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Setting wallpaper..."
           $url = "${{ github.event.inputs.wallpaper_url }}"
           $img = "$env:TEMP\wall.jpg"
           Invoke-WebRequest -Uri $url -OutFile $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
           Write-Host "  ✅ Wallpaper applied"
-          Write-Host ""
           
-      - name: 📸 CAPTURE SCREENSHOT
+      - name: Screenshot
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📸 CAPTURING SCREENSHOT                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Capturing screenshot..."
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing
           $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -634,89 +415,51 @@ PYTHON
           $bmp.Save("$env:TEMP\screen.png")
           $g.Dispose(); $bmp.Dispose()
           Write-Host "  ✅ Screenshot saved"
-          Write-Host ""
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: Install Tailscale
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Installing Tailscale..."
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
-          Write-Host ""
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: Connect Tailscale
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Connecting to Tailscale..."
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win11-${{ matrix.instance }}"
           Start-Sleep -Seconds 5
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip"
-          Write-Host ""
           
-      - name: 🌐 SETUP SUBDOMAIN TUNNEL (Windows)
+      - name: Subdomain Info
         if: github.event.inputs.subdomain != ''
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 SETUP SUBDOMAIN TUNNEL                                  │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
-          $SUB = "${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
-          # Sử dụng plink để tạo tunnel
-          Write-Host "  ✅ Subdomain configured: $SUB"
-          Write-Host ""
+          Write-Host "> Subdomain configured: ${{ github.event.inputs.subdomain }}-${{ matrix.instance }}.pinggy.io"
           
-      - name: 📊 PERFORMANCE BENCHMARK
+      - name: Benchmark
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📊 PERFORMANCE BENCHMARK                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Running benchmark..."
+          $c = Get-Date; $s = 0; for ($i=0; $i -lt 1000000; $i++) { $s += $i }; $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
+          $m = Get-Date; $arr = New-Object System.Collections.ArrayList; for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }; $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
+          $d = Get-Date; "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"; $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2); Remove-Item "$env:TEMP\disk.tmp" -Force
+          $bench = @(); $bench += "CPU: $cpu ops/sec"; $bench += "Memory: $mem ops/sec"; $bench += "Disk: $disk MB/s"; $bench | Out-File "$env:TEMP\bench.txt"
+          Write-Host "  ✅ Benchmark done"
           
-          $c = Get-Date
-          $s = 0
-          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
-          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
-          Write-Host "  🔵 CPU Score: $cpu ops/sec"
-          
-          $m = Get-Date
-          $arr = New-Object System.Collections.ArrayList
-          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
-          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
-          Write-Host "  🟢 Memory Score: $mem ops/sec"
-          
-          $d = Get-Date
-          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
-          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
-          Remove-Item "$env:TEMP\disk.tmp" -Force
-          Write-Host "  💾 Disk Score: $disk MB/s"
-          Write-Host ""
-          
-          $bench = @()
-          $bench += "CPU: $cpu ops/sec"
-          $bench += "Memory: $mem ops/sec"
-          $bench += "Disk: $disk MB/s"
-          $bench | Out-File "$env:TEMP\bench.txt"
-          
-      - name: 📈 RESOURCE MONITOR
+      - name: Monitor
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📈 RESOURCE MONITOR                                        │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
-          
+          Write-Host "> Collecting resource data..."
           $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
           $ram = Get-WmiObject Win32_OperatingSystem
           $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
@@ -725,21 +468,11 @@ PYTHON
           $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
           $diskT = [math]::Round($disk.Size / 1GB, 2)
           $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-          
-          Write-Host "  🔵 CPU  : $cpu%"
-          Write-Host "  🟢 RAM  : $ramU/$ramT GB"
-          Write-Host "  💾 DISK : $diskU/$diskT GB"
-          Write-Host "  ⏱️  UPTIME: $($up.Days)d $($up.Hours)h"
-          Write-Host ""
-          
-          $res = @()
-          $res += "CPU: $cpu%"
-          $res += "RAM: $ramU/$ramT GB"
-          $res += "DISK: $diskU/$diskT GB"
-          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
+          $res = @(); $res += "CPU: $cpu%"; $res += "RAM: $ramU/$ramT GB"; $res += "DISK: $diskU/$diskT GB"; $res += "UPTIME: $($up.Days)d $($up.Hours)h"
           $res | Out-File "$env:TEMP\res.txt"
+          Write-Host "  ✅ Data collected"
           
-      - name: 🎉 DISPLAY CONNECTION INFO
+      - name: Display Info
         shell: pwsh
         run: |
           $pass = Get-Content "$env:TEMP\pass.txt"
@@ -756,61 +489,22 @@ PYTHON
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🎉 WINDOWS 11 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║                                                              ║"
-          Write-Host "║  🔐 RDP CONNECTION                                           ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  🌐 Host     │  $ip"
-          Write-Host "║  │  🔌 Port     │  3389"
-          Write-Host "║  │  👤 User     │  $user"
-          Write-Host "║  │  🔑 Password │  $pass"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          
-          if ($sub -ne '') {
-            Write-Host "║  🌐 SUBDOMAIN                                                ║"
-            Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-            Write-Host "║  │  🔗 Public URL │  https://$sub.pinggy.io"
-            Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-            Write-Host "║                                                              ║"
-          }
-          
-          Write-Host "║  📊 BENCHMARK SCORES                                         ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          foreach ($l in $bench) { Write-Host "║  │  $l" }
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  📈 CURRENT RESOURCES                                        ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          foreach ($l in $res) { Write-Host "║  │  $l" }
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  ⏱️  TIME INFORMATION                                        ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  🕐 Started  │  $start"
-          Write-Host "║  │  🕐 Expires  │  $end"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  💡 QUICK CONNECT (iPhone)                                   ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
-          Write-Host "║  │  2. Install Microsoft Remote Desktop from App Store    │ ║"
-          Write-Host "║  │  3. Add PC → PC name: $ip:3389                         │ ║"
-          Write-Host "║  │  4. Username: $user, Password: $pass                   │ ║"
-          Write-Host "║  │  5. Connect and enjoy! 🚀                              │ ║"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
+          Write-Host "║  🔐 RDP: $ip`:3389"
+          Write-Host "║  👤 User: $user | 🔑 Pass: $pass"
+          if ($sub -ne '') { Write-Host "║  🌐 Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          foreach ($l in $bench) { Write-Host "║  📊 $l" }
+          foreach ($l in $res) { Write-Host "║  📈 $l" }
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🕐 Started: $start | Expires: $end"
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @()
-          $info += "Host: $ip"
-          $info += "Port: 3389"
-          $info += "User: $user"
-          $info += "Pass: $pass"
-          if ($sub -ne '') { $info += "Subdomain: https://$sub.pinggy.io" }
+          $info = @(); $info += "Host: $ip"; $info += "Port: 3389"; $info += "User: $user"; $info += "Pass: $pass"
+          if ($sub -ne '') { $info += "Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
           
-      - name: 📤 UPLOAD CONNECTION INFO
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: win11-instance-${{ matrix.instance }}
@@ -821,23 +515,10 @@ PYTHON
             ${{ env.TEMP }}\res.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
+      - name: Keep Alive
         shell: pwsh
-        run: |
-          $h = ${{ github.event.inputs.duration }}
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║  🟢 WINDOWS 11 INSTANCE ${{ matrix.instance }} RUNNING 🟢                    ║"
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 RDP : $env:IP:3389"
-          Write-Host "║  ⏱️  Will shutdown after $h hours"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          Start-Sleep -Seconds ($h * 3600)
+        run: Start-Sleep -Seconds (${{ github.event.inputs.duration }} * 3600)
 
-  # ============================================
-  # WINDOWS 10 - VỚI DASHBOARD + SUBDOMAIN
-  # ============================================
   windows10-vps:
     runs-on: windows-latest
     if: github.event.inputs.os_type == 'windows10'
@@ -852,7 +533,7 @@ PYTHON
         shell: pwsh
         run: exit 0
           
-      - name: 🎯 SYSTEM INIT
+      - name: System Init
         shell: pwsh
         run: |
           Write-Host ""
@@ -863,31 +544,23 @@ PYTHON
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
-          if ("${{ github.event.inputs.subdomain }}" -ne '') {
-            Write-Host "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
-          }
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: Configure RDP
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Configuring RDP..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          Write-Host "  ✅ RDP configured"
-          Write-Host ""
+          Write-Host "  ✅ RDP ready"
           
-      - name: 👤 CREATE USER
+      - name: Create User
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Creating user..."
           $u = "${{ github.event.inputs.username }}"
           $p = "${{ github.event.inputs.password }}"
           $sec = ConvertTo-SecureString $p -AsPlainText -Force
@@ -897,30 +570,24 @@ PYTHON
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
           Enable-LocalUser -Name $u
           $p | Out-File -FilePath $env:TEMP\pass.txt
-          Write-Host "  ✅ User: $u created"
-          Write-Host ""
+          Write-Host "  ✅ User: $u"
           
-      - name: 🖼️ SET WALLPAPER
+      - name: Set Wallpaper
         if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🖼️ SETTING CUSTOM WALLPAPER                                │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Setting wallpaper..."
           $url = "${{ github.event.inputs.wallpaper_url }}"
           $img = "$env:TEMP\wall.jpg"
           Invoke-WebRequest -Uri $url -OutFile $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
           Write-Host "  ✅ Wallpaper applied"
-          Write-Host ""
           
-      - name: 📸 CAPTURE SCREENSHOT
+      - name: Screenshot
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📸 CAPTURING SCREENSHOT                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Capturing screenshot..."
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing
           $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -928,88 +595,51 @@ PYTHON
           $bmp.Save("$env:TEMP\screen.png")
           $g.Dispose(); $bmp.Dispose()
           Write-Host "  ✅ Screenshot saved"
-          Write-Host ""
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: Install Tailscale
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Installing Tailscale..."
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
-          Write-Host ""
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: Connect Tailscale
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Connecting to Tailscale..."
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:KEY --hostname="win10-${{ matrix.instance }}"
           Start-Sleep -Seconds 5
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip"
-          Write-Host ""
           
-      - name: 🌐 SETUP SUBDOMAIN TUNNEL (Windows)
+      - name: Subdomain Info
         if: github.event.inputs.subdomain != ''
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 SETUP SUBDOMAIN TUNNEL                                  │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
-          $SUB = "${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
-          Write-Host "  ✅ Subdomain configured: $SUB"
-          Write-Host ""
+          Write-Host "> Subdomain configured: ${{ github.event.inputs.subdomain }}-${{ matrix.instance }}.pinggy.io"
           
-      - name: 📊 PERFORMANCE BENCHMARK
+      - name: Benchmark
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📊 PERFORMANCE BENCHMARK                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "> Running benchmark..."
+          $c = Get-Date; $s = 0; for ($i=0; $i -lt 1000000; $i++) { $s += $i }; $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
+          $m = Get-Date; $arr = New-Object System.Collections.ArrayList; for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }; $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
+          $d = Get-Date; "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"; $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2); Remove-Item "$env:TEMP\disk.tmp" -Force
+          $bench = @(); $bench += "CPU: $cpu ops/sec"; $bench += "Memory: $mem ops/sec"; $bench += "Disk: $disk MB/s"; $bench | Out-File "$env:TEMP\bench.txt"
+          Write-Host "  ✅ Benchmark done"
           
-          $c = Get-Date
-          $s = 0
-          for ($i=0; $i -lt 1000000; $i++) { $s += $i }
-          $cpu = [math]::Round(1000000 / (Get-Date).Subtract($c).TotalMilliseconds * 100, 2)
-          Write-Host "  🔵 CPU Score: $cpu ops/sec"
-          
-          $m = Get-Date
-          $arr = New-Object System.Collections.ArrayList
-          for ($i=0; $i -lt 500000; $i++) { $arr.Add($i) | Out-Null }
-          $mem = [math]::Round(500000 / (Get-Date).Subtract($m).TotalMilliseconds * 100, 2)
-          Write-Host "  🟢 Memory Score: $mem ops/sec"
-          
-          $d = Get-Date
-          "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"
-          $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2)
-          Remove-Item "$env:TEMP\disk.tmp" -Force
-          Write-Host "  💾 Disk Score: $disk MB/s"
-          Write-Host ""
-          
-          $bench = @()
-          $bench += "CPU: $cpu ops/sec"
-          $bench += "Memory: $mem ops/sec"
-          $bench += "Disk: $disk MB/s"
-          $bench | Out-File "$env:TEMP\bench.txt"
-          
-      - name: 📈 RESOURCE MONITOR
+      - name: Monitor
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📈 RESOURCE MONITOR                                        │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
-          
+          Write-Host "> Collecting resource data..."
           $cpu = (Get-WmiObject Win32_Processor).LoadPercentage
           $ram = Get-WmiObject Win32_OperatingSystem
           $ramU = [math]::Round(($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / 1MB, 2)
@@ -1018,21 +648,11 @@ PYTHON
           $diskU = [math]::Round(($disk.Size - $disk.FreeSpace) / 1GB, 2)
           $diskT = [math]::Round($disk.Size / 1GB, 2)
           $up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-          
-          Write-Host "  🔵 CPU  : $cpu%"
-          Write-Host "  🟢 RAM  : $ramU/$ramT GB"
-          Write-Host "  💾 DISK : $diskU/$diskT GB"
-          Write-Host "  ⏱️  UPTIME: $($up.Days)d $($up.Hours)h"
-          Write-Host ""
-          
-          $res = @()
-          $res += "CPU: $cpu%"
-          $res += "RAM: $ramU/$ramT GB"
-          $res += "DISK: $diskU/$diskT GB"
-          $res += "UPTIME: $($up.Days)d $($up.Hours)h"
+          $res = @(); $res += "CPU: $cpu%"; $res += "RAM: $ramU/$ramT GB"; $res += "DISK: $diskU/$diskT GB"; $res += "UPTIME: $($up.Days)d $($up.Hours)h"
           $res | Out-File "$env:TEMP\res.txt"
+          Write-Host "  ✅ Data collected"
           
-      - name: 🎉 DISPLAY CONNECTION INFO
+      - name: Display Info
         shell: pwsh
         run: |
           $pass = Get-Content "$env:TEMP\pass.txt"
@@ -1049,61 +669,22 @@ PYTHON
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🎉 WINDOWS 10 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║                                                              ║"
-          Write-Host "║  🔐 RDP CONNECTION                                           ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  🌐 Host     │  $ip"
-          Write-Host "║  │  🔌 Port     │  3389"
-          Write-Host "║  │  👤 User     │  $user"
-          Write-Host "║  │  🔑 Password │  $pass"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          
-          if ($sub -ne '') {
-            Write-Host "║  🌐 SUBDOMAIN                                                ║"
-            Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-            Write-Host "║  │  🔗 Public URL │  https://$sub.pinggy.io"
-            Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-            Write-Host "║                                                              ║"
-          }
-          
-          Write-Host "║  📊 BENCHMARK SCORES                                         ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          foreach ($l in $bench) { Write-Host "║  │  $l" }
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  📈 CURRENT RESOURCES                                        ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          foreach ($l in $res) { Write-Host "║  │  $l" }
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  ⏱️  TIME INFORMATION                                        ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  🕐 Started  │  $start"
-          Write-Host "║  │  🕐 Expires  │  $end"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
-          Write-Host "║  💡 QUICK CONNECT (iPhone)                                   ║"
-          Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
-          Write-Host "║  │  1. Install Tailscale → Turn ON VPN                    │ ║"
-          Write-Host "║  │  2. Install Microsoft Remote Desktop from App Store    │ ║"
-          Write-Host "║  │  3. Add PC → PC name: $ip:3389                         │ ║"
-          Write-Host "║  │  4. Username: $user, Password: $pass                   │ ║"
-          Write-Host "║  │  5. Connect and enjoy! 🚀                              │ ║"
-          Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
-          Write-Host "║                                                              ║"
+          Write-Host "║  🔐 RDP: $ip`:3389"
+          Write-Host "║  👤 User: $user | 🔑 Pass: $pass"
+          if ($sub -ne '') { Write-Host "║  🌐 Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          foreach ($l in $bench) { Write-Host "║  📊 $l" }
+          foreach ($l in $res) { Write-Host "║  📈 $l" }
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🕐 Started: $start | Expires: $end"
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @()
-          $info += "Host: $ip"
-          $info += "Port: 3389"
-          $info += "User: $user"
-          $info += "Pass: $pass"
-          if ($sub -ne '') { $info += "Subdomain: https://$sub.pinggy.io" }
+          $info = @(); $info += "Host: $ip"; $info += "Port: 3389"; $info += "User: $user"; $info += "Pass: $pass"
+          if ($sub -ne '') { $info += "Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
           
-      - name: 📤 UPLOAD CONNECTION INFO
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: win10-instance-${{ matrix.instance }}
@@ -1114,16 +695,6 @@ PYTHON
             ${{ env.TEMP }}\res.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
+      - name: Keep Alive
         shell: pwsh
-        run: |
-          $h = ${{ github.event.inputs.duration }}
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║  🟢 WINDOWS 10 INSTANCE ${{ matrix.instance }} RUNNING 🟢                    ║"
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 RDP : $env:IP:3389"
-          Write-Host "║  ⏱️  Will shutdown after $h hours"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          Start-Sleep -Seconds ($h * 3600)
+        run: Start-Sleep -Seconds (${{ github.event.inputs.duration }} * 3600)
