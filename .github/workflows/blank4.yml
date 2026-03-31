@@ -67,146 +67,101 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: 🎯 SYSTEM INIT
+      - name: System Init
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║          🚀 VPS CREATOR PRO - PREMIUM EDITION 🚀             ║" -ForegroundColor Cyan
-          Write-Host "║                ⚡ Powered by Tailscale ⚡                     ║" -ForegroundColor Cyan
-          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║          🚀 VPS CREATOR PRO - PREMIUM EDITION 🚀             ║"
+          Write-Host "║                ⚡ Powered by Tailscale ⚡                     ║"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
-          Write-Host "  🖥️  OS        : ${{ github.event.inputs.os_type }}" -ForegroundColor Yellow
-          Write-Host "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores" -ForegroundColor Yellow
-          Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB" -ForegroundColor Yellow
-          Write-Host "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}" -ForegroundColor Yellow
-          Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours" -ForegroundColor Yellow
+          Write-Host "  🖥️  OS        : ${{ github.event.inputs.os_type }}"
+          Write-Host "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
+          Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
+          Write-Host "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
+          Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: Configure RDP
         shell: pwsh
         run: |
-          Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🔧 ĐANG CẤU HÌNH REMOTE DESKTOP                            │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
-          Write-Host "  📋 Bật Remote Desktop..." -ForegroundColor White
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Write-Host "  ✅ Registry configured" -ForegroundColor Green
-          
-          Write-Host "  📋 Tắt NLA..." -ForegroundColor White
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          Write-Host "  ✅ NLA disabled" -ForegroundColor Green
-          
-          Write-Host "  📋 Mở Firewall port 3389..." -ForegroundColor White
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Write-Host "  ✅ Firewall configured" -ForegroundColor Green
-          
-          Write-Host "  📋 Khởi động dịch vụ RDP..." -ForegroundColor White
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          Write-Host "  ✅ TermService started" -ForegroundColor Green
+          Write-Host "  ✅ RDP configured"
           Write-Host ""
           
-      - name: 👤 CREATE USER
+      - name: Create User
         shell: pwsh
         run: |
-          Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  👤 ĐANG TẠO TÀI KHOẢN PREMIUM                              │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           $user = "${{ github.event.inputs.username }}"
           $pass = "${{ github.event.inputs.password }}"
           $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
-          
-          Write-Host "  📋 Xóa user cũ (nếu có)..." -ForegroundColor White
           try { Remove-LocalUser -Name $user -ErrorAction SilentlyContinue } catch {}
-          Write-Host "  ✅ Cleaned" -ForegroundColor Green
-          
-          Write-Host "  📋 Tạo user mới: $user..." -ForegroundColor White
           New-LocalUser -Name $user -Password $secpass -AccountNeverExpires
-          Write-Host "  ✅ User created" -ForegroundColor Green
-          
-          Write-Host "  📋 Cấp quyền Administrator..." -ForegroundColor White
           Add-LocalGroupMember -Group "Administrators" -Member $user
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user
-          Write-Host "  ✅ Permissions granted" -ForegroundColor Green
-          
-          Write-Host "  📋 Kích hoạt user..." -ForegroundColor White
           Enable-LocalUser -Name $user
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
-          Write-Host "  ✅ User activated" -ForegroundColor Green
+          Write-Host "  ✅ User created: $user"
           Write-Host ""
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: Install Tailscale
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🌐 ĐANG CÀI ĐẶT TAILSCALE                                  │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
-          Write-Host "  📋 Tải Tailscale MSI..." -ForegroundColor White
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Write-Host "  ✅ Downloaded" -ForegroundColor Green
-          
-          Write-Host "  📋 Cài đặt Tailscale..." -ForegroundColor White
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
-          Write-Host "  ✅ Installed" -ForegroundColor Green
+          Write-Host "  ✅ Tailscale installed"
           Write-Host ""
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: Connect Tailscale
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🔗 ĐANG KẾT NỐI TAILSCALE                                  │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
-          Write-Host "  📋 Kết nối vào mạng Tailscale..." -ForegroundColor White
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="vps-pro"
           Start-Sleep -Seconds 5
-          
-          Write-Host "  📋 Lấy địa chỉ IP..." -ForegroundColor White
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
-          Write-Host "  ✅ Connected - IP: $ip" -ForegroundColor Green
+          Write-Host "  ✅ Connected - IP: $ip"
           Write-Host ""
           
-      - name: 🖥️ SETUP NOVNC
+      - name: Setup noVNC
         if: github.event.inputs.connection_mode == 'novnc' || github.event.inputs.connection_mode == 'both'
         shell: pwsh
         run: |
-          Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🖥️ ĐANG CÀI ĐẶT NOVNC                                     │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
-          Write-Host "  📋 Cài đặt Python và dependencies..." -ForegroundColor White
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🖥️ SETTING UP NOVNC                                        │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           choco install python3 -y
           pip install numpy websockify
-          Write-Host "  ✅ Dependencies installed" -ForegroundColor Green
-          
-          Write-Host "  📋 Tải noVNC..." -ForegroundColor White
           Invoke-WebRequest -Uri "https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.zip" -OutFile "$env:TEMP\novnc.zip"
           Expand-Archive -Path "$env:TEMP\novnc.zip" -DestinationPath "C:\novnc" -Force
           Remove-Item "$env:TEMP\novnc.zip"
-          Write-Host "  ✅ noVNC installed" -ForegroundColor Green
-          
-          Write-Host "  📋 Khởi động websockify..." -ForegroundColor White
           Start-Process -NoNewWindow -FilePath "websockify" -ArgumentList "--web=C:\novnc\noVNC-1.4.0", "6080", "localhost:3389"
-          Write-Host "  ✅ noVNC ready on port 6080" -ForegroundColor Green
+          Write-Host "  ✅ noVNC ready on port 6080"
           Write-Host ""
           
-      - name: 🎉 DISPLAY INFO
+      - name: Display Info
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -218,140 +173,104 @@ jobs:
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
           
           Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║              🎉 KẾT NỐI THÀNH CÔNG! 🎉                       ║" -ForegroundColor Cyan
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║                                                              ║" -ForegroundColor Cyan
-          Write-Host "║  🌐 TAILSCALE IP     : $ip" -ForegroundColor White
-          Write-Host "║  👤 USERNAME         : $user" -ForegroundColor White
-          Write-Host "║  🔑 PASSWORD         : $pass" -ForegroundColor White
-          Write-Host "║                                                              ║" -ForegroundColor Cyan
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║              🎉 CONNECTION SUCCESS 🎉                         ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🌐 Tailscale IP : $ip"
+          Write-Host "║  👤 Username     : $user"
+          Write-Host "║  🔑 Password     : $pass"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
           
           if ($mode -eq 'rdp' -or $mode -eq 'both') {
-            Write-Host "║  🔌 RDP CONNECTION    : $ip`:3389" -ForegroundColor Green
-            Write-Host "║     Microsoft Remote Desktop" -ForegroundColor White
-            Write-Host "║                                                              ║" -ForegroundColor Cyan
+            Write-Host "║  🔌 RDP          : $ip`:3389"
           }
           
           if ($mode -eq 'novnc' -or $mode -eq 'both') {
-            Write-Host "║  🌐 noVNC CONNECTION  : http://$ip`:6080/vnc.html?host=$ip&port=6080" -ForegroundColor Green
-            Write-Host "║     Web Browser Access" -ForegroundColor White
-            Write-Host "║                                                              ║" -ForegroundColor Cyan
+            Write-Host "║  🌐 noVNC        : http://$ip`:6080/vnc.html"
           }
           
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║  ⏱️  STARTED : $start" -ForegroundColor Yellow
-          Write-Host "║  ⏱️  EXPIRES : $end" -ForegroundColor Yellow
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║  💡 HƯỚNG DẪN KẾT NỐI (iPhone)                              ║" -ForegroundColor Cyan
-          Write-Host "║   1. Cài Tailscale → Bật VPN                                 ║" -ForegroundColor White
-          
-          if ($mode -eq 'rdp' -or $mode -eq 'both') {
-            Write-Host "║   2. Cài Microsoft Remote Desktop từ App Store             ║" -ForegroundColor White
-            Write-Host "║   3. Add PC → PC name: $ip`:3389                            ║" -ForegroundColor White
-            Write-Host "║   4. User: $user | Pass: $pass                              ║" -ForegroundColor White
-          }
-          
-          if ($mode -eq 'novnc' -or $mode -eq 'both') {
-            Write-Host "║   2. Mở Safari → truy cập: http://$ip`:6080/vnc.html       ║" -ForegroundColor White
-            Write-Host "║   3. Kết nối với localhost:3389, user/pass như trên        ║" -ForegroundColor White
-          }
-          
-          Write-Host "║   5. Enjoy! 🚀                                             ║" -ForegroundColor White
-          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🕐 Started : $start"
+          Write-Host "║  🕐 Expires : $end"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @"
-╔══════════════════════════════════════════════════════════════╗
-║              🎉 VPS CONNECTION INFORMATION 🎉                 ║
-╠══════════════════════════════════════════════════════════════╣
-║  🖥️  OS      : ${{ github.event.inputs.os_type }}
-║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} cores
-║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB
-╠══════════════════════════════════════════════════════════════╣
-║  🌐 Host     : $ip
-║  👤 User     : $user
-║  🔑 Pass     : $pass
-╠══════════════════════════════════════════════════════════════╣
-"@
+          $infoLines = @()
+          $infoLines += "╔══════════════════════════════════════════════════════════════╗"
+          $infoLines += "║              🎉 VPS CONNECTION INFO 🎉                         ║"
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  🖥️  OS      : ${{ github.event.inputs.os_type }}"
+          $infoLines += "║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} cores"
+          $infoLines += "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB"
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  🌐 Host     : $ip"
+          $infoLines += "║  👤 User     : $user"
+          $infoLines += "║  🔑 Pass     : $pass"
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          
           if ($mode -eq 'rdp' -or $mode -eq 'both') {
-            $info += "║  🔌 RDP      : $ip`:3389`n"
+            $infoLines += "║  🔌 RDP      : $ip`:3389"
           }
           if ($mode -eq 'novnc' -or $mode -eq 'both') {
-            $info += "║  🌐 noVNC    : http://$ip`:6080/vnc.html?host=$ip&port=6080`n"
+            $infoLines += "║  🌐 noVNC    : http://$ip`:6080/vnc.html"
           }
-          $info += @"
-╠══════════════════════════════════════════════════════════════╣
-║  🕐 Started  : $start
-║  🕐 Expires  : $end
-╚══════════════════════════════════════════════════════════════╝
-"@
-          $info | Out-File -FilePath vps-info.txt -Encoding ascii
           
-      - name: 📤 UPLOAD INFO
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  🕐 Started : $start"
+          $infoLines += "║  🕐 Expires : $end"
+          $infoLines += "╚══════════════════════════════════════════════════════════════╝"
+          
+          $infoLines | Out-File -FilePath vps-info.txt -Encoding ascii
+          
+      - name: Upload Info
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection
           path: vps-info.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
+      - name: Keep Alive
         shell: pwsh
         run: |
           $hours = ${{ github.event.inputs.duration }}
           $end = (Get-Date).AddHours($hours)
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════╗"
+          Write-Host "║              🟢 VPS IS RUNNING 🟢                             ║"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  🌐 Tailscale IP : $env:TS_IP"
+          Write-Host "║  👤 Username     : ${{ github.event.inputs.username }}"
+          Write-Host "║  🔑 Password     : ${{ github.event.inputs.password }}"
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  ⏱️  Auto shutdown at: $($end.ToString('HH:mm:ss'))"
+          Write-Host "╚══════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+          
           $frames = @('⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷')
           $i = 0
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║              🟢 VPS ĐANG CHẠY - KẾT NỐI NGAY! 🟢             ║" -ForegroundColor Green
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Green
-          Write-Host "║  🌐 Tailscale IP : $env:TS_IP" -ForegroundColor White
-          Write-Host "║  🔌 RDP Port     : 3389" -ForegroundColor White
-          Write-Host "║  👤 Username     : ${{ github.event.inputs.username }}" -ForegroundColor White
-          Write-Host "║  🔑 Password     : ${{ github.event.inputs.password }}" -ForegroundColor White
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Green
-          Write-Host "║  ⏱️  Tự động tắt lúc: $($end.ToString('HH:mm:ss'))" -ForegroundColor Yellow
-          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
-          Write-Host ""
-          
           while ((Get-Date) -lt $end) {
             $remaining = $end - (Get-Date)
             $h = [math]::Floor($remaining.TotalHours)
             $m = [math]::Floor($remaining.TotalMinutes % 60)
             $s = [math]::Floor($remaining.TotalSeconds % 60)
             $frame = $frames[$i % $frames.Length]
-            Write-Host "`r  $frame Thời gian còn lại: $h`:$m`:$s" -NoNewline -ForegroundColor Cyan
+            Write-Host "`r  $frame Time remaining: $h`:$m`:$s" -NoNewline
             $i++
             Start-Sleep -Seconds 1
           }
-          Write-Host "`r  ✅ ĐÃ HẾT THỜI GIAN - TỰ ĐỘNG DỪNG!    " -ForegroundColor Red
+          Write-Host "`r  ✅ Time expired - Shutting down    "
           
-      - name: 🧹 CLEANUP
+      - name: Cleanup
         if: always()
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-          Write-Host "│  🧹 ĐANG DỌN DẸP HỆ THỐNG                                   │" -ForegroundColor Yellow
-          Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-          
-          Write-Host "  🗑️  Xóa file password..." -ForegroundColor White
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🧹 CLEANING UP                                              │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
           Remove-Item $env:TEMP\vps_pass.txt -ErrorAction SilentlyContinue
-          Write-Host "  ✅ Removed" -ForegroundColor Green
-          
-          Write-Host "  🗑️  Ngắt kết nối Tailscale..." -ForegroundColor White
           & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all -ErrorAction SilentlyContinue
-          Write-Host "  ✅ Disconnected" -ForegroundColor Green
-          
-          Write-Host "  🗑️  Xóa Firewall rule..." -ForegroundColor White
           netsh advfirewall firewall delete rule name="RDP-In" -ErrorAction SilentlyContinue
-          Write-Host "  ✅ Removed" -ForegroundColor Green
-          
-          Write-Host "  🗑️  Khôi phục cài đặt RDP..." -ForegroundColor White
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force
-          Write-Host "  ✅ Restored" -ForegroundColor Green
-          
+          Write-Host "  ✅ Cleanup completed"
           Write-Host ""
-          Write-Host "🎉 Dọn dẹp hoàn tất! Hẹn gặp lại! 👋" -ForegroundColor Green
