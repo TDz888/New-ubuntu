@@ -10,8 +10,9 @@ on:
         type: choice
         options:
           - windows11
-          - windows10
           - ubuntu-desktop
+          - ubuntu-server
+          - linux-desktop
       username:
         description: 👤 Username
         required: true
@@ -71,9 +72,10 @@ jobs:
         shell: pwsh
         run: |
           $os = "${{ github.event.inputs.os_type }}"
-          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
-          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
-          else { $osIcon = "🐧" ; $osName = "Ubuntu Desktop" }
+          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" ; $osPort = "3389" ; $osType = "rdp" }
+          elseif ($os -eq "ubuntu-desktop") { $osIcon = "🐧🖥️" ; $osName = "Ubuntu Desktop" ; $osPort = "3389" ; $osType = "rdp" }
+          elseif ($os -eq "ubuntu-server") { $osIcon = "🐧⚡" ; $osName = "Ubuntu Server" ; $osPort = "22" ; $osType = "ssh" }
+          elseif ($os -eq "linux-desktop") { $osIcon = "🔴🐧" ; $osName = "Fedora Workstation" ; $osPort = "3389" ; $osType = "rdp" }
           
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
@@ -86,20 +88,36 @@ jobs:
           Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
           Write-Host "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
           Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
+          Write-Host "  📡 Protocol  : $osType (Port $osPort)"
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: 🔧 CONFIGURE SERVICES
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
+          Write-Host "│  🔧 CONFIGURING SERVICES                                     │"
           Write-Host "└─────────────────────────────────────────────────────────────┘"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
-          Write-Host "  ✅ RDP configured"
+          
+          $os = "${{ github.event.inputs.os_type }}"
+          
+          # Cấu hình RDP cho các OS có desktop
+          if ($os -ne "ubuntu-server") {
+            Write-Host "  📋 Configuring RDP..."
+            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+            netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
+            Set-Service -Name TermService -StartupType Automatic
+            Start-Service -Name TermService
+            Write-Host "  ✅ RDP configured"
+          }
+          
+          # Cấu hình SSH cho tất cả
+          Write-Host "  📋 Configuring SSH..."
+          Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+          Set-Service -Name sshd -StartupType Automatic
+          Start-Service sshd
+          New-NetFirewallRule -Name "SSH-In" -DisplayName "SSH Inbound" -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow
+          Write-Host "  ✅ SSH configured"
           Write-Host ""
           
       - name: 👤 CREATE USER
@@ -176,9 +194,10 @@ jobs:
           $hours = "${{ github.event.inputs.duration }}"
           $os = "${{ github.event.inputs.os_type }}"
           
-          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
-          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
-          else { $osIcon = "🐧" ; $osName = "Ubuntu Desktop" }
+          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" ; $osPort = "3389" ; $osProto = "RDP" }
+          elseif ($os -eq "ubuntu-desktop") { $osIcon = "🐧🖥️" ; $osName = "Ubuntu Desktop" ; $osPort = "3389" ; $osProto = "RDP" }
+          elseif ($os -eq "ubuntu-server") { $osIcon = "🐧⚡" ; $osName = "Ubuntu Server" ; $osPort = "22" ; $osProto = "SSH" }
+          elseif ($os -eq "linux-desktop") { $osIcon = "🔴🐧" ; $osName = "Fedora Workstation" ; $osPort = "3389" ; $osProto = "RDP" }
           
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
@@ -191,10 +210,11 @@ jobs:
           Write-Host "║  🌐 Tailscale IP : $ip"
           Write-Host "║  👤 Username     : $user"
           Write-Host "║  🔑 Password     : $pass"
+          Write-Host "║  📡 Protocol     : $osProto (Port $osPort)"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           
           if ($mode -eq 'rdp' -or $mode -eq 'both') {
-            Write-Host "║  🔌 RDP          : $ip`:3389"
+            Write-Host "║  🔌 RDP/SSH      : $ip`:$osPort"
           }
           if ($mode -eq 'novnc' -or $mode -eq 'both') {
             Write-Host "║  🌐 noVNC        : http://$ip`:6080/vnc.html"
@@ -215,15 +235,16 @@ jobs:
           $infoLines += "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB"
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
           $infoLines += "║  🌐 Host     : $ip"
+          $infoLines += "║  🔌 Port     : $osPort ($osProto)"
           $infoLines += "║  👤 User     : $user"
           $infoLines += "║  🔑 Pass     : $pass"
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
           
           if ($mode -eq 'rdp' -or $mode -eq 'both') {
-            $infoLines += "║  🔌 RDP      : $ip`:3389"
+            $infoLines += "║  🔌 Connect   : $ip`:$osPort"
           }
           if ($mode -eq 'novnc' -or $mode -eq 'both') {
-            $infoLines += "║  🌐 noVNC    : http://$ip`:6080/vnc.html"
+            $infoLines += "║  🌐 noVNC     : http://$ip`:6080/vnc.html"
           }
           
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
@@ -246,9 +267,11 @@ jobs:
           $hours = ${{ github.event.inputs.duration }}
           $end = (Get-Date).AddHours($hours)
           $os = "${{ github.event.inputs.os_type }}"
+          
           if ($os -eq "windows11") { $osIcon = "🪟✨" }
-          elseif ($os -eq "windows10") { $osIcon = "🪟" }
-          else { $osIcon = "🐧" }
+          elseif ($os -eq "ubuntu-desktop") { $osIcon = "🐧🖥️" }
+          elseif ($os -eq "ubuntu-server") { $osIcon = "🐧⚡" }
+          elseif ($os -eq "linux-desktop") { $osIcon = "🔴🐧" }
           
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
@@ -288,6 +311,7 @@ jobs:
           Remove-Item $env:TEMP\vps_pass.txt -ErrorAction SilentlyContinue
           & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all -ErrorAction SilentlyContinue
           netsh advfirewall firewall delete rule name="RDP-In" -ErrorAction SilentlyContinue
+          netsh advfirewall firewall delete rule name="SSH-In" -ErrorAction SilentlyContinue
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force
           Write-Host "  ✅ Cleanup completed"
           Write-Host ""
