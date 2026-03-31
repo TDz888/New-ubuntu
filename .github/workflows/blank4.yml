@@ -75,23 +75,18 @@ jobs:
       - name: 🔧 CONFIGURE RDP
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Configuring Remote Desktop..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
           Write-Host "  ✅ RDP configured"
-          Write-Host ""
           
       - name: 👤 CREATE USER
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Creating user account..."
           $user = "${{ github.event.inputs.username }}"
           $pass = "${{ github.event.inputs.password }}"
           $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
@@ -102,37 +97,30 @@ jobs:
           Enable-LocalUser -Name $user
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
           Write-Host "  ✅ User created: $user"
-          Write-Host ""
           
       - name: 🌐 INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Installing Tailscale..."
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
-          Write-Host ""
           
       - name: 🔗 CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Connecting to Tailscale..."
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="win11-vps"
           Start-Sleep -Seconds 5
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip"
-          Write-Host ""
           
       - name: 🎉 DISPLAY INFO
         shell: pwsh
@@ -158,19 +146,18 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @"
-╔══════════════════════════════════════════════════════════════╗
-║              🎉 WINDOWS 11 INFO 🎉                             ║
-╠══════════════════════════════════════════════════════════════╣
-║  🌐 Host     : $ip
-║  🔌 Port     : 3389
-║  👤 User     : $user
-║  🔑 Pass     : $pass
-╠══════════════════════════════════════════════════════════════╣
-║  🕐 Started : $start
-║  🕐 Expires : $end
-╚══════════════════════════════════════════════════════════════╝
-"@
+          $info = @()
+          $info += "╔══════════════════════════════════════════════════════════════╗"
+          $info += "║              🎉 WINDOWS 11 INFO 🎉                             ║"
+          $info += "╠══════════════════════════════════════════════════════════════╣"
+          $info += "║  🌐 Host     : $ip"
+          $info += "║  🔌 Port     : 3389"
+          $info += "║  👤 User     : $user"
+          $info += "║  🔑 Pass     : $pass"
+          $info += "╠══════════════════════════════════════════════════════════════╣"
+          $info += "║  🕐 Started : $start"
+          $info += "║  🕐 Expires : $end"
+          $info += "╚══════════════════════════════════════════════════════════════╝"
           $info | Out-File -FilePath vps-info.txt -Encoding ascii
           
       - name: 📤 UPLOAD INFO
@@ -208,23 +195,18 @@ jobs:
       - name: 🔧 CONFIGURE RDP
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Configuring Remote Desktop..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
           Write-Host "  ✅ RDP configured"
-          Write-Host ""
           
       - name: 👤 CREATE USER
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Creating user account..."
           $user = "${{ github.event.inputs.username }}"
           $pass = "${{ github.event.inputs.password }}"
           $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
@@ -235,37 +217,30 @@ jobs:
           Enable-LocalUser -Name $user
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
           Write-Host "  ✅ User created: $user"
-          Write-Host ""
           
       - name: 🌐 INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Installing Tailscale..."
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
-          Write-Host ""
           
       - name: 🔗 CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Connecting to Tailscale..."
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname="win10-vps"
           Start-Sleep -Seconds 5
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip"
-          Write-Host ""
           
       - name: 🎉 DISPLAY INFO
         shell: pwsh
@@ -291,19 +266,18 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           
-          $info = @"
-╔══════════════════════════════════════════════════════════════╗
-║              🎉 WINDOWS 10 INFO 🎉                             ║
-╠══════════════════════════════════════════════════════════════╣
-║  🌐 Host     : $ip
-║  🔌 Port     : 3389
-║  👤 User     : $user
-║  🔑 Pass     : $pass
-╠══════════════════════════════════════════════════════════════╣
-║  🕐 Started : $start
-║  🕐 Expires : $end
-╚══════════════════════════════════════════════════════════════╝
-"@
+          $info = @()
+          $info += "╔══════════════════════════════════════════════════════════════╗"
+          $info += "║              🎉 WINDOWS 10 INFO 🎉                             ║"
+          $info += "╠══════════════════════════════════════════════════════════════╣"
+          $info += "║  🌐 Host     : $ip"
+          $info += "║  🔌 Port     : 3389"
+          $info += "║  👤 User     : $user"
+          $info += "║  🔑 Pass     : $pass"
+          $info += "╠══════════════════════════════════════════════════════════════╣"
+          $info += "║  🕐 Started : $start"
+          $info += "║  🕐 Expires : $end"
+          $info += "╚══════════════════════════════════════════════════════════════╝"
           $info | Out-File -FilePath vps-info.txt -Encoding ascii
           
       - name: 📤 UPLOAD INFO
@@ -339,49 +313,37 @@ jobs:
           
       - name: 🔧 INSTALL SSH
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🔧 INSTALLING SSH                                          │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "Installing SSH..."
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server
           sudo systemctl enable ssh
           sudo systemctl start ssh
           echo "  ✅ SSH installed"
-          echo ""
           
       - name: 👤 CREATE USER
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  👤 CREATING USER ACCOUNT                                   │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "Creating user account..."
           sudo useradd -m -s /bin/bash "${{ github.event.inputs.username }}" 2>/dev/null || true
           echo "${{ github.event.inputs.username}}:${{ github.event.inputs.password}}" | sudo chpasswd
           sudo usermod -aG sudo "${{ github.event.inputs.username }}"
           echo "  ✅ User created: ${{ github.event.inputs.username }}"
-          echo ""
           
       - name: 🌐 INSTALL TAILSCALE
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🌐 INSTALLING TAILSCALE                                    │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "  ✅ Tailscale installed"
-          echo ""
           
       - name: 🔗 CONNECT TAILSCALE
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          echo "└─────────────────────────────────────────────────────────────┘"
+          echo "Connecting to Tailscale..."
           sudo tailscale up --auth-key="$TS_KEY" --hostname="ubuntu-server"
           sleep 5
           IP=$(sudo tailscale ip -4)
           echo "TS_IP=$IP" >> $GITHUB_ENV
           echo "  ✅ Connected - IP: $IP"
-          echo ""
           
       - name: 🎉 DISPLAY INFO
         run: |
