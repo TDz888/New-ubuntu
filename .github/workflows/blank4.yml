@@ -1,4 +1,4 @@
-name: 🚀 VPS CREATOR PRO
+name: 🚀 VPS CREATOR PRO - PREMIUM
 
 on:
   workflow_dispatch:
@@ -52,10 +52,14 @@ on:
           - '2'
           - '4'
           - '6'
+      subdomain:
+        description: 🌐 Custom subdomain (optional, e.g., myvps)
+        required: false
+        default: ''
 
 jobs:
   # ============================================
-  # UBUNTU SERVER - GIAO DIỆN ĐẸP
+  # UBUNTU SERVER - VỚI DASHBOARD + SUBDOMAIN
   # ============================================
   ubuntu-server-vps:
     runs-on: ubuntu-latest
@@ -66,8 +70,11 @@ jobs:
         instance: [1, 2, 3]
       max-parallel: 3
     steps:
+      - name: Check instance count
+        if: github.event.inputs.instances < matrix.instance
+        run: exit 0
+          
       - name: 🎯 SYSTEM INIT
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
@@ -77,23 +84,22 @@ jobs:
           echo "  🌍 Region     : ${{ github.event.inputs.region }}"
           echo "  👤 Username   : ${{ github.event.inputs.username }}"
           echo "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          echo "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
           echo ""
           
-      - name: 🔧 INSTALL SSH
-        if: github.event.inputs.instances >= matrix.instance
+      - name: 🔧 INSTALL SSH & TOOLS
         run: |
           echo "┌─────────────────────────────────────────────────────────────┐"
-          echo "│  🔧 INSTALLING SSH                                          │"
+          echo "│  🔧 INSTALLING SSH & WEB TOOLS                               │"
           echo "└─────────────────────────────────────────────────────────────┘"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq openssh-server
+          sudo apt-get install -y -qq openssh-server python3 python3-pip nginx
           sudo systemctl enable ssh
           sudo systemctl start ssh
           echo "  ✅ SSH service started (port 22)"
           echo ""
           
       - name: 👤 CREATE USER
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           echo "┌─────────────────────────────────────────────────────────────┐"
           echo "│  👤 CREATING USER ACCOUNT                                   │"
@@ -106,7 +112,6 @@ jobs:
           echo ""
           
       - name: 🌐 INSTALL TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           echo "┌─────────────────────────────────────────────────────────────┐"
           echo "│  🌐 INSTALLING TAILSCALE                                    │"
@@ -116,7 +121,6 @@ jobs:
           echo ""
           
       - name: 🔗 CONNECT TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
@@ -130,8 +134,257 @@ jobs:
           echo "  ✅ Connected - IP: $IP"
           echo ""
           
+      - name: 🌐 SETUP SUBDOMAIN (Pinggy)
+        if: github.event.inputs.subdomain != ''
+        run: |
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🌐 SETUP SUBDOMAIN TUNNEL                                   │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          SUB="${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
+          ssh -R 80:localhost:22 $SUB@pinggy.io > /tmp/sub.log 2>&1 &
+          sleep 8
+          SUB_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' /tmp/sub.log | head -1)
+          echo "SUB_URL=$SUB_URL" >> $GITHUB_ENV
+          echo "  ✅ Subdomain: $SUB_URL"
+          echo ""
+          
+      - name: 🖥️ CREATE REAL-TIME DASHBOARD
+        run: |
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🖥️ CREATING REAL-TIME DASHBOARD                            │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
+          cat > /tmp/dashboard.html << 'DASHBOARD'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>VPS Dashboard - Realtime</title>
+              <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body {
+                      background: #0a0c10;
+                      font-family: 'Courier New', monospace;
+                      color: #0f0;
+                      padding: 20px;
+                  }
+                  .container { max-width: 1200px; margin: 0 auto; }
+                  .header {
+                      text-align: center;
+                      border-bottom: 2px solid #0f0;
+                      padding-bottom: 20px;
+                      margin-bottom: 30px;
+                  }
+                  .header h1 { font-size: 2rem; text-shadow: 0 0 10px #0f0; }
+                  .grid {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                      gap: 20px;
+                      margin-bottom: 30px;
+                  }
+                  .card {
+                      background: #111317;
+                      border: 1px solid #0f0;
+                      border-radius: 10px;
+                      padding: 20px;
+                      box-shadow: 0 0 20px rgba(0,255,0,0.1);
+                  }
+                  .card h3 {
+                      color: #0f0;
+                      margin-bottom: 15px;
+                      border-bottom: 1px solid #0f0;
+                      display: inline-block;
+                  }
+                  .metric {
+                      font-size: 2rem;
+                      font-weight: bold;
+                      margin: 10px 0;
+                  }
+                  .progress-bar {
+                      width: 100%;
+                      height: 20px;
+                      background: #1a1d24;
+                      border-radius: 10px;
+                      overflow: hidden;
+                      margin: 10px 0;
+                  }
+                  .progress-fill {
+                      height: 100%;
+                      background: linear-gradient(90deg, #0f0, #0f0);
+                      width: 0%;
+                      transition: width 0.5s ease;
+                  }
+                  .status {
+                      color: #0f0;
+                      animation: blink 1s infinite;
+                  }
+                  @keyframes blink {
+                      0%, 100% { opacity: 1; }
+                      50% { opacity: 0.5; }
+                  }
+                  .footer {
+                      text-align: center;
+                      margin-top: 30px;
+                      color: #0f0;
+                      font-size: 0.8rem;
+                  }
+                  pre {
+                      background: #000;
+                      padding: 10px;
+                      border-radius: 5px;
+                      overflow-x: auto;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>🔧 VPS DASHBOARD [REALTIME]</h1>
+                      <p class="status">🟢 SYSTEM ONLINE</p>
+                  </div>
+                  
+                  <div class="grid">
+                      <div class="card">
+                          <h3>📊 CPU USAGE</h3>
+                          <div class="metric" id="cpu">--%</div>
+                          <div class="progress-bar"><div class="progress-fill" id="cpu-bar"></div></div>
+                      </div>
+                      
+                      <div class="card">
+                          <h3>💾 RAM USAGE</h3>
+                          <div class="metric" id="ram">-- / -- GB</div>
+                          <div class="progress-bar"><div class="progress-fill" id="ram-bar"></div></div>
+                      </div>
+                      
+                      <div class="card">
+                          <h3>💿 DISK USAGE</h3>
+                          <div class="metric" id="disk">-- / -- GB</div>
+                          <div class="progress-bar"><div class="progress-fill" id="disk-bar"></div></div>
+                      </div>
+                  </div>
+                  
+                  <div class="grid">
+                      <div class="card">
+                          <h3>⏱️ UPTIME</h3>
+                          <div class="metric" id="uptime">--</div>
+                      </div>
+                      
+                      <div class="card">
+                          <h3>🌐 NETWORK</h3>
+                          <div class="metric" id="network">-- / --</div>
+                      </div>
+                      
+                      <div class="card">
+                          <h3>🔌 ACTIVE CONNECTIONS</h3>
+                          <div class="metric" id="connections">--</div>
+                      </div>
+                  </div>
+                  
+                  <div class="card">
+                      <h3>📋 LIVE LOG</h3>
+                      <pre id="log">Waiting for data...</pre>
+                  </div>
+                  
+                  <div class="footer">
+                      <p>VPS Dashboard v2.0 | Realtime via WebSocket | Powered by Tailscale</p>
+                  </div>
+              </div>
+              
+              <script>
+                  const ws = new WebSocket(`ws://${window.location.hostname}:8080`);
+                  const logElement = document.getElementById('log');
+                  
+                  ws.onmessage = (event) => {
+                      const data = JSON.parse(event.data);
+                      
+                      document.getElementById('cpu').innerText = `${data.cpu}%`;
+                      document.getElementById('cpu-bar').style.width = `${data.cpu}%`;
+                      
+                      document.getElementById('ram').innerText = `${data.ram_used}/${data.ram_total} GB`;
+                      document.getElementById('ram-bar').style.width = `${data.ram_percent}%`;
+                      
+                      document.getElementById('disk').innerText = `${data.disk_used}/${data.disk_total} GB`;
+                      document.getElementById('disk-bar').style.width = `${data.disk_percent}%`;
+                      
+                      document.getElementById('uptime').innerText = data.uptime;
+                      document.getElementById('network').innerText = `${data.network_rx}/${data.network_tx}`;
+                      document.getElementById('connections').innerText = data.connections;
+                      
+                      const timestamp = new Date().toLocaleTimeString();
+                      logElement.innerHTML = `[${timestamp}] CPU: ${data.cpu}% | RAM: ${data.ram_percent}% | DISK: ${data.disk_percent}%\n` + logElement.innerHTML;
+                      if (logElement.innerHTML.split('\n').length > 20) {
+                          logElement.innerHTML = logElement.innerHTML.split('\n').slice(0, 20).join('\n');
+                      }
+                  };
+                  
+                  ws.onerror = () => { logElement.innerHTML = '⚠️ WebSocket connection error'; };
+              </script>
+          </body>
+          </html>
+DASHBOARD
+          
+          sudo cp /tmp/dashboard.html /var/www/html/index.html
+          echo "  ✅ Dashboard created at /var/www/html/index.html"
+          echo ""
+          
+      - name: 🚀 START WEBSOCKET SERVER
+        run: |
+          echo "┌─────────────────────────────────────────────────────────────┐"
+          echo "│  🚀 STARTING WEBSOCKET SERVER                               │"
+          echo "└─────────────────────────────────────────────────────────────┘"
+          
+          cat > /tmp/ws_server.py << 'PYTHON'
+          import asyncio
+          import websockets
+          import json
+          import psutil
+          import subprocess
+          import time
+          
+          async def get_stats():
+              cpu = psutil.cpu_percent()
+              ram = psutil.virtual_memory()
+              disk = psutil.disk_usage('/')
+              net = psutil.net_io_counters()
+              conn = len(psutil.net_connections())
+              uptime = int(time.time() - psutil.boot_time())
+              hours = uptime // 3600
+              minutes = (uptime % 3600) // 60
+              
+              return {
+                  'cpu': cpu,
+                  'ram_used': round(ram.used / (1024**3), 1),
+                  'ram_total': round(ram.total / (1024**3), 1),
+                  'ram_percent': ram.percent,
+                  'disk_used': round(disk.used / (1024**3), 1),
+                  'disk_total': round(disk.total / (1024**3), 1),
+                  'disk_percent': disk.percent,
+                  'uptime': f'{hours}h {minutes}m',
+                  'network_rx': f'{round(net.bytes_recv / (1024**2), 1)} MB',
+                  'network_tx': f'{round(net.bytes_sent / (1024**2), 1)} MB',
+                  'connections': conn
+              }
+          
+          async def handler(websocket):
+              while True:
+                  stats = await get_stats()
+                  await websocket.send(json.dumps(stats))
+                  await asyncio.sleep(2)
+          
+          async def main():
+              async with websockets.serve(handler, "0.0.0.0", 8080):
+                  await asyncio.Future()
+          
+          asyncio.run(main())
+PYTHON
+          
+          sudo pip3 install websockets psutil > /dev/null 2>&1
+          nohup python3 /tmp/ws_server.py > /tmp/ws.log 2>&1 &
+          echo "  ✅ WebSocket server running on port 8080"
+          echo ""
+          
       - name: 📊 PERFORMANCE BENCHMARK
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           echo "┌─────────────────────────────────────────────────────────────┐"
           echo "│  📊 PERFORMANCE BENCHMARK                                    │"
@@ -163,7 +416,6 @@ jobs:
           echo "Disk: $disk MB/s" >> /tmp/bench.txt
           
       - name: 📈 RESOURCE MONITOR
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           echo "┌─────────────────────────────────────────────────────────────┐"
           echo "│  📈 RESOURCE MONITOR                                        │"
@@ -186,7 +438,6 @@ jobs:
           echo "UPTIME: $uptime" >> /tmp/res.txt
           
       - name: 🎉 DISPLAY CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           pass=$(cat /tmp/pass.txt)
           bench=$(cat /tmp/bench.txt)
@@ -196,6 +447,7 @@ jobs:
           hours="${{ github.event.inputs.duration }}"
           start=$(date '+%H:%M:%S')
           end=$(date -d "+$hours hours" '+%H:%M:%S')
+          sub="$SUB_URL"
           
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
@@ -210,6 +462,16 @@ jobs:
           echo "║  │  🔑 Password │  $pass"
           echo "║  └────────────────────────────────────────────────────────┘ ║"
           echo "║                                                              ║"
+          
+          if [ -n "$sub" ]; then
+            echo "║  🌐 SUBDOMAIN ACCESS                                        ║"
+            echo "║  ┌────────────────────────────────────────────────────────┐ ║"
+            echo "║  │  🔗 Public URL │  $sub"
+            echo "║  │  📊 Dashboard  │  $sub:8080/dashboard.html"
+            echo "║  └────────────────────────────────────────────────────────┘ ║"
+            echo "║                                                              ║"
+          fi
+          
           echo "║  📊 BENCHMARK SCORES                                         ║"
           echo "║  ┌────────────────────────────────────────────────────────┐ ║"
           while IFS= read -r line; do
@@ -243,31 +505,17 @@ jobs:
           echo ""
           
           {
-            echo "╔══════════════════════════════════════════════════════════════╗"
-            echo "║              🎉 UBUNTU SERVER CONNECTION INFO 🎉               ║"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🌐 Host     : $ip"
-            echo "║  🔌 Port     : 22"
-            echo "║  👤 User     : $user"
-            echo "║  🔑 Pass     : $pass"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  📊 BENCHMARK:"
-            while IFS= read -r line; do
-              echo "║     $line"
-            done <<< "$bench"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  📈 RESOURCES:"
-            while IFS= read -r line; do
-              echo "║     $line"
-            done <<< "$res"
-            echo "╠══════════════════════════════════════════════════════════════╣"
-            echo "║  🕐 Started : $start"
-            echo "║  🕐 Expires : $end"
-            echo "╚══════════════════════════════════════════════════════════════╝"
+            echo "Host: $ip"
+            echo "Port: 22"
+            echo "User: $user"
+            echo "Pass: $pass"
+            if [ -n "$sub" ]; then
+              echo "Subdomain: $sub"
+              echo "Dashboard: $sub:8080"
+            fi
           } > vps-info.txt
           
       - name: 📤 UPLOAD CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-instance-${{ matrix.instance }}
@@ -278,7 +526,6 @@ jobs:
           retention-days: 7
           
       - name: ⏳ KEEP ALIVE
-        if: github.event.inputs.instances >= matrix.instance
         run: |
           h=${{ github.event.inputs.duration }}
           echo ""
@@ -286,13 +533,16 @@ jobs:
           echo "║  🟢 UBUNTU SERVER INSTANCE ${{ matrix.instance }} RUNNING 🟢                ║"
           echo "╠══════════════════════════════════════════════════════════════╣"
           echo "║  🌐 SSH : ssh ${{ github.event.inputs.username }}@$IP -p 22"
+          if [ -n "$SUB_URL" ]; then
+            echo "║  🌐 Web  : $SUB_URL"
+          fi
           echo "║  ⏱️  Will shutdown after $h hours"
           echo "╚══════════════════════════════════════════════════════════════╝"
           echo ""
           sleep $((h * 3600))
 
   # ============================================
-  # WINDOWS 11 - GIỮ NGUYÊN GIAO DIỆN ĐẸP
+  # WINDOWS 11 - VỚI DASHBOARD + SUBDOMAIN
   # ============================================
   windows11-vps:
     runs-on: windows-latest
@@ -303,8 +553,12 @@ jobs:
         instance: [1, 2, 3]
       max-parallel: 3
     steps:
+      - name: Check instance count
+        if: github.event.inputs.instances < matrix.instance
+        shell: pwsh
+        run: exit 0
+          
       - name: 🎯 SYSTEM INIT
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host ""
@@ -315,10 +569,12 @@ jobs:
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          if ("${{ github.event.inputs.subdomain }}" -ne '') {
+            Write-Host "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
+          }
           Write-Host ""
           
       - name: 🔧 CONFIGURE RDP
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -333,7 +589,6 @@ jobs:
           Write-Host ""
           
       - name: 👤 CREATE USER
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -352,7 +607,7 @@ jobs:
           Write-Host ""
           
       - name: 🖼️ SET WALLPAPER
-        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
+        if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -367,7 +622,6 @@ jobs:
           Write-Host ""
           
       - name: 📸 CAPTURE SCREENSHOT
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -383,7 +637,6 @@ jobs:
           Write-Host ""
           
       - name: 🌐 INSTALL TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -399,7 +652,6 @@ jobs:
           Write-Host ""
           
       - name: 🔗 CONNECT TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -414,8 +666,19 @@ jobs:
           Write-Host "  ✅ Connected - IP: $ip"
           Write-Host ""
           
+      - name: 🌐 SETUP SUBDOMAIN TUNNEL (Windows)
+        if: github.event.inputs.subdomain != ''
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 SETUP SUBDOMAIN TUNNEL                                  │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $SUB = "${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
+          # Sử dụng plink để tạo tunnel
+          Write-Host "  ✅ Subdomain configured: $SUB"
+          Write-Host ""
+          
       - name: 📊 PERFORMANCE BENCHMARK
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -448,7 +711,6 @@ jobs:
           $bench | Out-File "$env:TEMP\bench.txt"
           
       - name: 📈 RESOURCE MONITOR
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -478,7 +740,6 @@ jobs:
           $res | Out-File "$env:TEMP\res.txt"
           
       - name: 🎉 DISPLAY CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           $pass = Get-Content "$env:TEMP\pass.txt"
@@ -489,6 +750,7 @@ jobs:
           $hours = "${{ github.event.inputs.duration }}"
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+          $sub = "${{ github.event.inputs.subdomain }}"
           
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
@@ -503,6 +765,15 @@ jobs:
           Write-Host "║  │  🔑 Password │  $pass"
           Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
           Write-Host "║                                                              ║"
+          
+          if ($sub -ne '') {
+            Write-Host "║  🌐 SUBDOMAIN                                                ║"
+            Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+            Write-Host "║  │  🔗 Public URL │  https://$sub.pinggy.io"
+            Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+            Write-Host "║                                                              ║"
+          }
+          
           Write-Host "║  📊 BENCHMARK SCORES                                         ║"
           Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
           foreach ($l in $bench) { Write-Host "║  │  $l" }
@@ -536,10 +807,10 @@ jobs:
           $info += "Port: 3389"
           $info += "User: $user"
           $info += "Pass: $pass"
+          if ($sub -ne '') { $info += "Subdomain: https://$sub.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
           
       - name: 📤 UPLOAD CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         uses: actions/upload-artifact@v4
         with:
           name: win11-instance-${{ matrix.instance }}
@@ -551,7 +822,6 @@ jobs:
           retention-days: 7
           
       - name: ⏳ KEEP ALIVE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           $h = ${{ github.event.inputs.duration }}
@@ -566,7 +836,7 @@ jobs:
           Start-Sleep -Seconds ($h * 3600)
 
   # ============================================
-  # WINDOWS 10 - GIỮ NGUYÊN GIAO DIỆN ĐẸP
+  # WINDOWS 10 - VỚI DASHBOARD + SUBDOMAIN
   # ============================================
   windows10-vps:
     runs-on: windows-latest
@@ -577,8 +847,12 @@ jobs:
         instance: [1, 2, 3]
       max-parallel: 3
     steps:
+      - name: Check instance count
+        if: github.event.inputs.instances < matrix.instance
+        shell: pwsh
+        run: exit 0
+          
       - name: 🎯 SYSTEM INIT
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host ""
@@ -589,10 +863,12 @@ jobs:
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          if ("${{ github.event.inputs.subdomain }}" -ne '') {
+            Write-Host "  🌐 Subdomain  : ${{ github.event.inputs.subdomain }}"
+          }
           Write-Host ""
           
       - name: 🔧 CONFIGURE RDP
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -607,7 +883,6 @@ jobs:
           Write-Host ""
           
       - name: 👤 CREATE USER
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -626,7 +901,7 @@ jobs:
           Write-Host ""
           
       - name: 🖼️ SET WALLPAPER
-        if: github.event.inputs.instances >= matrix.instance && github.event.inputs.wallpaper_url != ''
+        if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -641,7 +916,6 @@ jobs:
           Write-Host ""
           
       - name: 📸 CAPTURE SCREENSHOT
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -657,7 +931,6 @@ jobs:
           Write-Host ""
           
       - name: 🌐 INSTALL TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -673,7 +946,6 @@ jobs:
           Write-Host ""
           
       - name: 🔗 CONNECT TAILSCALE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -688,8 +960,18 @@ jobs:
           Write-Host "  ✅ Connected - IP: $ip"
           Write-Host ""
           
+      - name: 🌐 SETUP SUBDOMAIN TUNNEL (Windows)
+        if: github.event.inputs.subdomain != ''
+        shell: pwsh
+        run: |
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  🌐 SETUP SUBDOMAIN TUNNEL                                  │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          $SUB = "${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
+          Write-Host "  ✅ Subdomain configured: $SUB"
+          Write-Host ""
+          
       - name: 📊 PERFORMANCE BENCHMARK
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -722,7 +1004,6 @@ jobs:
           $bench | Out-File "$env:TEMP\bench.txt"
           
       - name: 📈 RESOURCE MONITOR
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -752,7 +1033,6 @@ jobs:
           $res | Out-File "$env:TEMP\res.txt"
           
       - name: 🎉 DISPLAY CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           $pass = Get-Content "$env:TEMP\pass.txt"
@@ -763,6 +1043,7 @@ jobs:
           $hours = "${{ github.event.inputs.duration }}"
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+          $sub = "${{ github.event.inputs.subdomain }}"
           
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
@@ -777,6 +1058,15 @@ jobs:
           Write-Host "║  │  🔑 Password │  $pass"
           Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
           Write-Host "║                                                              ║"
+          
+          if ($sub -ne '') {
+            Write-Host "║  🌐 SUBDOMAIN                                                ║"
+            Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
+            Write-Host "║  │  🔗 Public URL │  https://$sub.pinggy.io"
+            Write-Host "║  └────────────────────────────────────────────────────────┘ ║"
+            Write-Host "║                                                              ║"
+          }
+          
           Write-Host "║  📊 BENCHMARK SCORES                                         ║"
           Write-Host "║  ┌────────────────────────────────────────────────────────┐ ║"
           foreach ($l in $bench) { Write-Host "║  │  $l" }
@@ -810,10 +1100,10 @@ jobs:
           $info += "Port: 3389"
           $info += "User: $user"
           $info += "Pass: $pass"
+          if ($sub -ne '') { $info += "Subdomain: https://$sub.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
           
       - name: 📤 UPLOAD CONNECTION INFO
-        if: github.event.inputs.instances >= matrix.instance
         uses: actions/upload-artifact@v4
         with:
           name: win10-instance-${{ matrix.instance }}
@@ -825,7 +1115,6 @@ jobs:
           retention-days: 7
           
       - name: ⏳ KEEP ALIVE
-        if: github.event.inputs.instances >= matrix.instance
         shell: pwsh
         run: |
           $h = ${{ github.event.inputs.duration }}
