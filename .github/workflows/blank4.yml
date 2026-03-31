@@ -67,23 +67,28 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: System Init
+      - name: 🎯 SYSTEM INIT
         shell: pwsh
         run: |
+          $os = "${{ github.event.inputs.os_type }}"
+          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
+          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
+          else { $osIcon = "🐧" ; $osName = "Ubuntu Desktop" }
+          
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║          🚀 VPS CREATOR PRO - PREMIUM EDITION 🚀             ║"
           Write-Host "║                ⚡ Powered by Tailscale ⚡                     ║"
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
-          Write-Host "  🖥️  OS        : ${{ github.event.inputs.os_type }}"
+          Write-Host "  $osIcon $osName"
           Write-Host "  ⚡ CPU       : ${{ github.event.inputs.cpu_cores }} cores"
           Write-Host "  💾 RAM       : ${{ github.event.inputs.ram_gb }} GB"
           Write-Host "  🔌 Mode      : ${{ github.event.inputs.connection_mode }}"
           Write-Host "  ⏱️  Duration  : ${{ github.event.inputs.duration }} hours"
           Write-Host ""
           
-      - name: Configure RDP
+      - name: 🔧 CONFIGURE RDP
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -97,7 +102,7 @@ jobs:
           Write-Host "  ✅ RDP configured"
           Write-Host ""
           
-      - name: Create User
+      - name: 👤 CREATE USER
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
@@ -115,7 +120,7 @@ jobs:
           Write-Host "  ✅ User created: $user"
           Write-Host ""
           
-      - name: Install Tailscale
+      - name: 🌐 INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -130,7 +135,7 @@ jobs:
           Write-Host "  ✅ Tailscale installed"
           Write-Host ""
           
-      - name: Connect Tailscale
+      - name: 🔗 CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -145,7 +150,7 @@ jobs:
           Write-Host "  ✅ Connected - IP: $ip"
           Write-Host ""
           
-      - name: Setup noVNC
+      - name: 🖥️ SETUP NOVNC
         if: github.event.inputs.connection_mode == 'novnc' || github.event.inputs.connection_mode == 'both'
         shell: pwsh
         run: |
@@ -161,7 +166,7 @@ jobs:
           Write-Host "  ✅ noVNC ready on port 6080"
           Write-Host ""
           
-      - name: Display Info
+      - name: 🎉 DISPLAY INFO
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -169,6 +174,12 @@ jobs:
           $ip = "$env:TS_IP"
           $user = "${{ github.event.inputs.username }}"
           $hours = "${{ github.event.inputs.duration }}"
+          $os = "${{ github.event.inputs.os_type }}"
+          
+          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
+          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
+          else { $osIcon = "🐧" ; $osName = "Ubuntu Desktop" }
+          
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
           
@@ -176,6 +187,7 @@ jobs:
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🎉 CONNECTION SUCCESS 🎉                         ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  $osIcon $osName"
           Write-Host "║  🌐 Tailscale IP : $ip"
           Write-Host "║  👤 Username     : $user"
           Write-Host "║  🔑 Password     : $pass"
@@ -184,7 +196,6 @@ jobs:
           if ($mode -eq 'rdp' -or $mode -eq 'both') {
             Write-Host "║  🔌 RDP          : $ip`:3389"
           }
-          
           if ($mode -eq 'novnc' -or $mode -eq 'both') {
             Write-Host "║  🌐 noVNC        : http://$ip`:6080/vnc.html"
           }
@@ -199,7 +210,7 @@ jobs:
           $infoLines += "╔══════════════════════════════════════════════════════════════╗"
           $infoLines += "║              🎉 VPS CONNECTION INFO 🎉                         ║"
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🖥️  OS      : ${{ github.event.inputs.os_type }}"
+          $infoLines += "║  $osIcon OS      : $osName"
           $infoLines += "║  ⚡ CPU      : ${{ github.event.inputs.cpu_cores }} cores"
           $infoLines += "║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB"
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
@@ -222,22 +233,28 @@ jobs:
           
           $infoLines | Out-File -FilePath vps-info.txt -Encoding ascii
           
-      - name: Upload Info
+      - name: 📤 UPLOAD INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection
           path: vps-info.txt
           retention-days: 7
           
-      - name: Keep Alive
+      - name: ⏳ KEEP ALIVE
         shell: pwsh
         run: |
           $hours = ${{ github.event.inputs.duration }}
           $end = (Get-Date).AddHours($hours)
+          $os = "${{ github.event.inputs.os_type }}"
+          if ($os -eq "windows11") { $osIcon = "🪟✨" }
+          elseif ($os -eq "windows10") { $osIcon = "🪟" }
+          else { $osIcon = "🐧" }
+          
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🟢 VPS IS RUNNING 🟢                             ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  $osIcon $os"
           Write-Host "║  🌐 Tailscale IP : $env:TS_IP"
           Write-Host "║  👤 Username     : ${{ github.event.inputs.username }}"
           Write-Host "║  🔑 Password     : ${{ github.event.inputs.password }}"
@@ -260,7 +277,7 @@ jobs:
           }
           Write-Host "`r  ✅ Time expired - Shutting down    "
           
-      - name: Cleanup
+      - name: 🧹 CLEANUP
         if: always()
         shell: pwsh
         run: |
