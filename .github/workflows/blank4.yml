@@ -39,7 +39,7 @@ on:
           - '2'
           - '3'
       wallpaper_url:
-        description: 🖼️ Wallpaper URL
+        description: 🖼️ Wallpaper URL (Windows only)
         required: false
         default: ''
       duration:
@@ -52,12 +52,19 @@ on:
           - '2'
           - '4'
           - '6'
-      subdomain:
-        description: 🌐 Custom subdomain
-        required: false
-        default: ''
+      telegram_notify:
+        description: 📱 Telegram Notification
+        required: true
+        default: 'yes'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
 
 jobs:
+  # ============================================
+  # UBUNTU SERVER
+  # ============================================
   ubuntu-server-vps:
     runs-on: ubuntu-latest
     if: github.event.inputs.os_type == 'ubuntu-server'
@@ -81,6 +88,7 @@ jobs:
           echo "  🌍 Region     : ${{ github.event.inputs.region }}"
           echo "  👤 Username   : ${{ github.event.inputs.username }}"
           echo "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          echo "  📱 Telegram   : ${{ github.event.inputs.telegram_notify }}"
           echo ""
           
       - name: Install SSH
@@ -109,14 +117,6 @@ jobs:
           sleep 5
           echo "IP=$(sudo tailscale ip -4)" >> $GITHUB_ENV
           
-      - name: Subdomain
-        if: github.event.inputs.subdomain != ''
-        run: |
-          SUB="${{ github.event.inputs.subdomain }}-${{ matrix.instance }}"
-          ssh -R 80:localhost:22 $SUB@pinggy.io > /tmp/sub.log 2>&1 &
-          sleep 8
-          echo "SUB_URL=$(grep -o 'https://[a-z0-9.-]*\.pinggy\.io' /tmp/sub.log | head -1)" >> $GITHUB_ENV
-          
       - name: Benchmark
         run: |
           start=$(date +%s%N); for i in {1..1000000}; do :; done; end=$(date +%s%N); cpu=$(echo "scale=2; 1000000 / (($end - $start) / 1000000000)" | bc)
@@ -143,14 +143,12 @@ jobs:
           ip="$IP"
           user="${{ github.event.inputs.username }}"
           hours="${{ github.event.inputs.duration }}"
-          sub="$SUB_URL"
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
           echo "║              🎉 UBUNTU SERVER READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           echo "╠══════════════════════════════════════════════════════════════╣"
           echo "║  🔐 SSH : ssh $user@$ip -p 22"
           echo "║  🔑 Pass: $pass"
-          if [ -n "$sub" ]; then echo "║  🌐 URL  : $sub"; fi
           echo "╠══════════════════════════════════════════════════════════════╣"
           cat /tmp/bench.txt | while read l; do echo "║  📊 $l"; done
           cat /tmp/res.txt | while read l; do echo "║  📈 $l"; done
@@ -160,7 +158,31 @@ jobs:
           echo "Port: 22" >> vps-info.txt
           echo "User: $user" >> vps-info.txt
           echo "Pass: $pass" >> vps-info.txt
-          [ -n "$sub" ] && echo "URL: $sub" >> vps-info.txt
+          
+      - name: Telegram Notification
+        if: github.event.inputs.telegram_notify == 'yes'
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+            MESSAGE="🚀 *VPS READY!*%0A%0A"
+            MESSAGE="${MESSAGE}🖥️ *OS:* Ubuntu Server%0A"
+            MESSAGE="${MESSAGE}🌍 *Region:* ${{ github.event.inputs.region }}%0A"
+            MESSAGE="${MESSAGE}🔐 *SSH:* ssh ${{ github.event.inputs.username }}@$IP -p 22%0A"
+            MESSAGE="${MESSAGE}🔑 *Pass:* ${{ github.event.inputs.password }}%0A"
+            MESSAGE="${MESSAGE}⏱️ *Expires:* $(date -d "+${{ github.event.inputs.duration }} hours" '+%H:%M:%S')%0A"
+            MESSAGE="${MESSAGE}📊 *CPU:* $(cat /tmp/bench.txt | head -1 | cut -d: -f2)%0A"
+            MESSAGE="${MESSAGE}💾 *RAM:* $(cat /tmp/bench.txt | head -2 | tail -1 | cut -d: -f2)%0A"
+            
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+              -d chat_id="$CHAT_ID" \
+              -d text="$MESSAGE" \
+              -d parse_mode="Markdown" > /dev/null 2>&1
+            echo "  ✅ Telegram notification sent"
+          else
+            echo "  ⚠️ Telegram secrets not configured, skipping..."
+          fi
           
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -172,6 +194,9 @@ jobs:
       - name: Keep
         run: sleep $(( ${{ github.event.inputs.duration }} * 3600 ))
 
+  # ============================================
+  # WINDOWS 11
+  # ============================================
   windows11-vps:
     runs-on: windows-latest
     if: github.event.inputs.os_type == 'windows11'
@@ -197,6 +222,7 @@ jobs:
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          Write-Host "  📱 Telegram   : ${{ github.event.inputs.telegram_notify }}"
           Write-Host ""
           
       - name: RDP
@@ -294,14 +320,12 @@ jobs:
           $hours = "${{ github.event.inputs.duration }}"
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          $sub = "${{ github.event.inputs.subdomain }}"
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🎉 WINDOWS 11 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           Write-Host "║  🔐 RDP : $ip`:3389"
           Write-Host "║  👤 User: $user | 🔑 Pass: $pass"
-          if ($sub -ne '') { Write-Host "║  🌐 Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           foreach ($l in $bench) { Write-Host "║  📊 $l" }
           foreach ($l in $res) { Write-Host "║  📈 $l" }
@@ -310,8 +334,41 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           $info = @(); $info += "Host: $ip"; $info += "Port: 3389"; $info += "User: $user"; $info += "Pass: $pass"
-          if ($sub -ne '') { $info += "Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
+          
+      - name: Telegram Notification
+        if: github.event.inputs.telegram_notify == 'yes'
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: pwsh
+        run: |
+          if ($env:BOT_TOKEN -and $env:CHAT_ID) {
+            $ip = "$env:IP"
+            $user = "${{ github.event.inputs.username }}"
+            $pass = "${{ github.event.inputs.password }}"
+            $region = "${{ github.event.inputs.region }}"
+            $hours = "${{ github.event.inputs.duration }}"
+            $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+            $bench = Get-Content "$env:TEMP\bench.txt"
+            
+            $message = "🚀 *WINDOWS 11 READY!*%0A%0A"
+            $message += "🖥️ *OS:* Windows 11 Pro%0A"
+            $message += "🌍 *Region:* $region%0A"
+            $message += "🔐 *RDP:* $ip`:3389%0A"
+            $message += "👤 *User:* $user%0A"
+            $message += "🔑 *Pass:* $pass%0A"
+            $message += "⏱️ *Expires:* $end%0A"
+            $message += "📊 *CPU:* $($bench[0].Split(':')[1].Trim())%0A"
+            $message += "💾 *RAM:* $($bench[1].Split(':')[1].Trim())%0A"
+            
+            $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
+            $body = @{chat_id="$env:CHAT_ID"; text="$message"; parse_mode="Markdown"}
+            Invoke-RestMethod -Uri $url -Method Post -Body $body | Out-Null
+            Write-Host "  ✅ Telegram notification sent"
+          } else {
+            Write-Host "  ⚠️ Telegram secrets not configured, skipping..."
+          }
           
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -328,6 +385,9 @@ jobs:
         shell: pwsh
         run: Start-Sleep -Seconds (${{ github.event.inputs.duration }} * 3600)
 
+  # ============================================
+  # WINDOWS 10
+  # ============================================
   windows10-vps:
     runs-on: windows-latest
     if: github.event.inputs.os_type == 'windows10'
@@ -353,6 +413,7 @@ jobs:
           Write-Host "  🌍 Region     : ${{ github.event.inputs.region }}"
           Write-Host "  👤 Username   : ${{ github.event.inputs.username }}"
           Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
+          Write-Host "  📱 Telegram   : ${{ github.event.inputs.telegram_notify }}"
           Write-Host ""
           
       - name: RDP
@@ -450,14 +511,12 @@ jobs:
           $hours = "${{ github.event.inputs.duration }}"
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          $sub = "${{ github.event.inputs.subdomain }}"
           Write-Host ""
           Write-Host "╔══════════════════════════════════════════════════════════════╗"
           Write-Host "║              🎉 WINDOWS 10 READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           Write-Host "║  🔐 RDP : $ip`:3389"
           Write-Host "║  👤 User: $user | 🔑 Pass: $pass"
-          if ($sub -ne '') { Write-Host "║  🌐 Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           foreach ($l in $bench) { Write-Host "║  📊 $l" }
           foreach ($l in $res) { Write-Host "║  📈 $l" }
@@ -466,8 +525,41 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Write-Host ""
           $info = @(); $info += "Host: $ip"; $info += "Port: 3389"; $info += "User: $user"; $info += "Pass: $pass"
-          if ($sub -ne '') { $info += "Subdomain: https://$sub-${{ matrix.instance }}.pinggy.io" }
           $info | Out-File vps-info.txt -Encoding ascii
+          
+      - name: Telegram Notification
+        if: github.event.inputs.telegram_notify == 'yes'
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: pwsh
+        run: |
+          if ($env:BOT_TOKEN -and $env:CHAT_ID) {
+            $ip = "$env:IP"
+            $user = "${{ github.event.inputs.username }}"
+            $pass = "${{ github.event.inputs.password }}"
+            $region = "${{ github.event.inputs.region }}"
+            $hours = "${{ github.event.inputs.duration }}"
+            $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+            $bench = Get-Content "$env:TEMP\bench.txt"
+            
+            $message = "🚀 *WINDOWS 10 READY!*%0A%0A"
+            $message += "🖥️ *OS:* Windows 10 Pro%0A"
+            $message += "🌍 *Region:* $region%0A"
+            $message += "🔐 *RDP:* $ip`:3389%0A"
+            $message += "👤 *User:* $user%0A"
+            $message += "🔑 *Pass:* $pass%0A"
+            $message += "⏱️ *Expires:* $end%0A"
+            $message += "📊 *CPU:* $($bench[0].Split(':')[1].Trim())%0A"
+            $message += "💾 *RAM:* $($bench[1].Split(':')[1].Trim())%0A"
+            
+            $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
+            $body = @{chat_id="$env:CHAT_ID"; text="$message"; parse_mode="Markdown"}
+            Invoke-RestMethod -Uri $url -Method Post -Body $body | Out-Null
+            Write-Host "  ✅ Telegram notification sent"
+          } else {
+            Write-Host "  ⚠️ Telegram secrets not configured, skipping..."
+          }
           
       - name: Upload
         uses: actions/upload-artifact@v4
