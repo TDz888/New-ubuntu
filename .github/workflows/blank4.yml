@@ -166,22 +166,36 @@ jobs:
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
-            MESSAGE="🚀 *VPS READY!*%0A%0A"
-            MESSAGE="${MESSAGE}🖥️ *OS:* Ubuntu Server%0A"
-            MESSAGE="${MESSAGE}🌍 *Region:* ${{ github.event.inputs.region }}%0A"
-            MESSAGE="${MESSAGE}🔐 *SSH:* ssh ${{ github.event.inputs.username }}@$IP -p 22%0A"
-            MESSAGE="${MESSAGE}🔑 *Pass:* ${{ github.event.inputs.password }}%0A"
-            MESSAGE="${MESSAGE}⏱️ *Expires:* $(date -d "+${{ github.event.inputs.duration }} hours" '+%H:%M:%S')%0A"
-            MESSAGE="${MESSAGE}📊 *CPU:* $(cat /tmp/bench.txt | head -1 | cut -d: -f2)%0A"
-            MESSAGE="${MESSAGE}💾 *RAM:* $(cat /tmp/bench.txt | head -2 | tail -1 | cut -d: -f2)%0A"
+            IP="$IP"
+            USER="${{ github.event.inputs.username }}"
+            PASS="${{ github.event.inputs.password }}"
+            REGION="${{ github.event.inputs.region }}"
+            HOURS="${{ github.event.inputs.duration }}"
+            END=$(date -d "+$HOURS hours" '+%H:%M:%S')
+            CPU=$(cat /tmp/bench.txt | head -1 | cut -d: -f2 | xargs)
+            MEM=$(cat /tmp/bench.txt | head -2 | tail -1 | cut -d: -f2 | xargs)
+            
+            MESSAGE="╔══════════════════════════════════════╗\n"
+            MESSAGE="${MESSAGE}║     🚀 UBUNTU SERVER READY 🚀        ║\n"
+            MESSAGE="${MESSAGE}╠══════════════════════════════════════╣\n"
+            MESSAGE="${MESSAGE}║  🌍 Region   : $REGION\n"
+            MESSAGE="${MESSAGE}║  🔐 SSH      : ssh $USER@$IP -p 22\n"
+            MESSAGE="${MESSAGE}║  👤 User     : $USER\n"
+            MESSAGE="${MESSAGE}║  🔑 Password : $PASS\n"
+            MESSAGE="${MESSAGE}║  ⏱️ Expires  : $END\n"
+            MESSAGE="${MESSAGE}╠══════════════════════════════════════╣\n"
+            MESSAGE="${MESSAGE}║  📊 BENCHMARK:\n"
+            MESSAGE="${MESSAGE}║     🔵 CPU  : $CPU ops/sec\n"
+            MESSAGE="${MESSAGE}║     🟢 RAM  : $MEM ops/sec\n"
+            MESSAGE="${MESSAGE}╚══════════════════════════════════════╝"
             
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
               -d text="$MESSAGE" \
-              -d parse_mode="Markdown" > /dev/null 2>&1
+              -d parse_mode="HTML" > /dev/null 2>&1
             echo "  ✅ Telegram notification sent"
           else
-            echo "  ⚠️ Telegram secrets not configured, skipping..."
+            echo "  ⚠️ Telegram secrets not configured"
           fi
           
       - name: Upload
@@ -344,30 +358,53 @@ jobs:
         shell: pwsh
         run: |
           if ($env:BOT_TOKEN -and $env:CHAT_ID) {
-            $ip = "$env:IP"
-            $user = "${{ github.event.inputs.username }}"
-            $pass = "${{ github.event.inputs.password }}"
-            $region = "${{ github.event.inputs.region }}"
-            $hours = "${{ github.event.inputs.duration }}"
-            $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-            $bench = Get-Content "$env:TEMP\bench.txt"
-            
-            $message = "🚀 *WINDOWS 11 READY!*%0A%0A"
-            $message += "🖥️ *OS:* Windows 11 Pro%0A"
-            $message += "🌍 *Region:* $region%0A"
-            $message += "🔐 *RDP:* $ip`:3389%0A"
-            $message += "👤 *User:* $user%0A"
-            $message += "🔑 *Pass:* $pass%0A"
-            $message += "⏱️ *Expires:* $end%0A"
-            $message += "📊 *CPU:* $($bench[0].Split(':')[1].Trim())%0A"
-            $message += "💾 *RAM:* $($bench[1].Split(':')[1].Trim())%0A"
-            
-            $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
-            $body = @{chat_id="$env:CHAT_ID"; text="$message"; parse_mode="Markdown"}
-            Invoke-RestMethod -Uri $url -Method Post -Body $body | Out-Null
-            Write-Host "  ✅ Telegram notification sent"
+            try {
+              $ip = "$env:IP"
+              $user = "${{ github.event.inputs.username }}"
+              $pass = "${{ github.event.inputs.password }}"
+              $region = "${{ github.event.inputs.region }}"
+              $hours = "${{ github.event.inputs.duration }}"
+              $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+              $bench = Get-Content "$env:TEMP\bench.txt" -ErrorAction SilentlyContinue
+              
+              $cpuScore = if ($bench) { $bench[0].Split(':')[1].Trim() } else { "N/A" }
+              $memScore = if ($bench) { $bench[1].Split(':')[1].Trim() } else { "N/A" }
+              
+              $message = @"
+╔══════════════════════════════════════╗
+║     🚀 WINDOWS 11 PRO READY 🚀        ║
+╠══════════════════════════════════════╣
+║  🌍 Region   : $region
+║  🔐 RDP      : $ip`:3389
+║  👤 User     : $user
+║  🔑 Password : $pass
+║  ⏱️ Expires  : $end
+╠══════════════════════════════════════╣
+║  📊 BENCHMARK:
+║     🔵 CPU  : $cpuScore ops/sec
+║     🟢 RAM  : $memScore ops/sec
+╚══════════════════════════════════════╝
+"@
+              
+              $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
+              $body = @{
+                chat_id = "$env:CHAT_ID"
+                text = $message
+                parse_mode = "HTML"
+              }
+              
+              $response = Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction Stop
+              
+              if ($response.ok) {
+                Write-Host "  ✅ Telegram notification sent"
+              } else {
+                Write-Host "  ⚠️ Telegram error: $($response.description)"
+              }
+            } catch {
+              Write-Host "  ⚠️ Failed to send: $($_.Exception.Message)"
+            }
           } else {
-            Write-Host "  ⚠️ Telegram secrets not configured, skipping..."
+            Write-Host "  ⚠️ Telegram secrets not configured"
           }
           
       - name: Upload
@@ -535,30 +572,53 @@ jobs:
         shell: pwsh
         run: |
           if ($env:BOT_TOKEN -and $env:CHAT_ID) {
-            $ip = "$env:IP"
-            $user = "${{ github.event.inputs.username }}"
-            $pass = "${{ github.event.inputs.password }}"
-            $region = "${{ github.event.inputs.region }}"
-            $hours = "${{ github.event.inputs.duration }}"
-            $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-            $bench = Get-Content "$env:TEMP\bench.txt"
-            
-            $message = "🚀 *WINDOWS 10 READY!*%0A%0A"
-            $message += "🖥️ *OS:* Windows 10 Pro%0A"
-            $message += "🌍 *Region:* $region%0A"
-            $message += "🔐 *RDP:* $ip`:3389%0A"
-            $message += "👤 *User:* $user%0A"
-            $message += "🔑 *Pass:* $pass%0A"
-            $message += "⏱️ *Expires:* $end%0A"
-            $message += "📊 *CPU:* $($bench[0].Split(':')[1].Trim())%0A"
-            $message += "💾 *RAM:* $($bench[1].Split(':')[1].Trim())%0A"
-            
-            $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
-            $body = @{chat_id="$env:CHAT_ID"; text="$message"; parse_mode="Markdown"}
-            Invoke-RestMethod -Uri $url -Method Post -Body $body | Out-Null
-            Write-Host "  ✅ Telegram notification sent"
+            try {
+              $ip = "$env:IP"
+              $user = "${{ github.event.inputs.username }}"
+              $pass = "${{ github.event.inputs.password }}"
+              $region = "${{ github.event.inputs.region }}"
+              $hours = "${{ github.event.inputs.duration }}"
+              $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
+              $bench = Get-Content "$env:TEMP\bench.txt" -ErrorAction SilentlyContinue
+              
+              $cpuScore = if ($bench) { $bench[0].Split(':')[1].Trim() } else { "N/A" }
+              $memScore = if ($bench) { $bench[1].Split(':')[1].Trim() } else { "N/A" }
+              
+              $message = @"
+╔══════════════════════════════════════╗
+║     🚀 WINDOWS 10 PRO READY 🚀        ║
+╠══════════════════════════════════════╣
+║  🌍 Region   : $region
+║  🔐 RDP      : $ip`:3389
+║  👤 User     : $user
+║  🔑 Password : $pass
+║  ⏱️ Expires  : $end
+╠══════════════════════════════════════╣
+║  📊 BENCHMARK:
+║     🔵 CPU  : $cpuScore ops/sec
+║     🟢 RAM  : $memScore ops/sec
+╚══════════════════════════════════════╝
+"@
+              
+              $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
+              $body = @{
+                chat_id = "$env:CHAT_ID"
+                text = $message
+                parse_mode = "HTML"
+              }
+              
+              $response = Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction Stop
+              
+              if ($response.ok) {
+                Write-Host "  ✅ Telegram notification sent"
+              } else {
+                Write-Host "  ⚠️ Telegram error: $($response.description)"
+              }
+            } catch {
+              Write-Host "  ⚠️ Failed to send: $($_.Exception.Message)"
+            }
           } else {
-            Write-Host "  ⚠️ Telegram secrets not configured, skipping..."
+            Write-Host "  ⚠️ Telegram secrets not configured"
           }
           
       - name: Upload
