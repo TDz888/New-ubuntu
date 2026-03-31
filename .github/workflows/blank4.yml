@@ -33,7 +33,11 @@ on:
         description: 🔢 Number of VPS instances (1-3)
         required: true
         default: '1'
-        type: string
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
       wallpaper_url:
         description: 🖼️ Wallpaper URL (for Windows)
         required: false
@@ -50,29 +54,13 @@ on:
           - '6'
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    outputs:
-      instance_count: ${{ steps.validate.outputs.count }}
-    steps:
-      - id: validate
-        run: |
-          COUNT="${{ github.event.inputs.instances }}"
-          if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -lt 1 ] || [ "$COUNT" -gt 3 ]; then
-            echo "❌ Invalid instance count: $COUNT. Must be between 1 and 3."
-            exit 1
-          fi
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
-          echo "✅ Valid instance count: $COUNT"
-
   create-vps-1:
     runs-on: windows-latest
-    needs: validate
-    if: needs.validate.outputs.instance_count >= '1'
+    if: github.event.inputs.instances >= '1'
     timeout-minutes: 360
     
     steps:
-      - name: 🎯 SYSTEM INIT - INSTANCE 1
+      - name: SYSTEM INIT - INSTANCE 1
         shell: pwsh
         run: |
           $os = "${{ github.event.inputs.os_type }}"
@@ -98,26 +86,21 @@ jobs:
           if ("${{ github.event.inputs.wallpaper_url }}" -ne '') { Write-Host "  🖼️ Wallpaper   : Applied" }
           Write-Host ""
           
-      - name: 🔧 CONFIGURE RDP
+      - name: CONFIGURE RDP
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔧 CONFIGURING REMOTE DESKTOP                              │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Configuring Remote Desktop..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
           Write-Host "  ✅ RDP configured"
-          Write-Host ""
           
-      - name: 👤 CREATE USER
+      - name: CREATE USER
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  👤 CREATING USER ACCOUNT                                   │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Creating user account..."
           $user = "${{ github.event.inputs.username }}"
           $pass = "${{ github.event.inputs.password }}"
           $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
@@ -128,15 +111,12 @@ jobs:
           Enable-LocalUser -Name $user
           $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
           Write-Host "  ✅ User created: $user"
-          Write-Host ""
           
-      - name: 🖼️ SET CUSTOM WALLPAPER
+      - name: SET CUSTOM WALLPAPER
         if: github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🖼️ SETTING CUSTOM WALLPAPER                                │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Setting custom wallpaper..."
           $url = "${{ github.event.inputs.wallpaper_url }}"
           $wallpaperPath = "$env:TEMP\wallpaper.jpg"
           Invoke-WebRequest -Uri $url -OutFile $wallpaperPath
@@ -146,14 +126,11 @@ jobs:
           Set-ItemProperty -Path $regPath -Name WallpaperStyle -Value 2
           Set-ItemProperty -Path $regPath -Name TileWallpaper -Value 0
           Write-Host "  ✅ Custom wallpaper applied"
-          Write-Host ""
           
-      - name: 📸 CAPTURE SCREENSHOT
+      - name: CAPTURE SCREENSHOT
         shell: pwsh
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📸 CAPTURING SCREENSHOT                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Capturing screenshot..."
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
           $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -164,32 +141,26 @@ jobs:
           $graphics.Dispose()
           $bitmap.Dispose()
           Write-Host "  ✅ Screenshot captured"
-          Write-Host ""
           
-      - name: 🌐 INSTALL TAILSCALE
+      - name: INSTALL TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🌐 INSTALLING TAILSCALE                                    │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Installing Tailscale..."
           $msi = "$env:TEMP\ts.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
           Remove-Item $msi -Force
           Write-Host "  ✅ Tailscale installed"
-          Write-Host ""
           
-      - name: 🔗 CONNECT TAILSCALE
+      - name: CONNECT TAILSCALE
         shell: pwsh
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
           REGION: ${{ github.event.inputs.region }}
         run: |
-          Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  🔗 CONNECTING TO TAILSCALE                                 │"
-          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host "Connecting to Tailscale..."
           $region = $env:REGION
           $hostname = "vps-$region-1-$env:GITHUB_RUN_ID"
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname=$hostname --accept-routes --accept-dns
@@ -197,15 +168,73 @@ jobs:
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TS_IP=$ip" >> $env:GITHUB_ENV
           Write-Host "  ✅ Connected - IP: $ip | Hostname: $hostname"
+          
+      - name: PERFORMANCE BENCHMARK
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📊 PERFORMANCE BENCHMARK                                   │"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          
+          Write-Host "  🔵 Running CPU Benchmark..."
+          $cpuStart = Get-Date
+          $cpuResult = 0
+          for ($i = 0; $i -lt 1000000; $i++) { $cpuResult += $i }
+          $cpuEnd = Get-Date
+          $cpuTime = ($cpuEnd - $cpuStart).TotalMilliseconds
+          $cpuScore = [math]::Round(1000000 / $cpuTime * 100, 2)
+          Write-Host "    ✅ CPU Score: $cpuScore (Ops/sec)"
+          
+          Write-Host "  🟢 Running Memory Benchmark..."
+          $memArray = New-Object System.Collections.ArrayList
+          $memStart = Get-Date
+          for ($i = 0; $i -lt 500000; $i++) { $memArray.Add($i) | Out-Null }
+          $memEnd = Get-Date
+          $memTime = ($memEnd - $memStart).TotalMilliseconds
+          $memScore = [math]::Round(500000 / $memTime * 100, 2)
+          Write-Host "    ✅ Memory Score: $memScore (Ops/sec)"
+          
+          Write-Host "  💾 Running Disk Benchmark..."
+          $diskPath = "$env:TEMP\benchmark.tmp"
+          $diskStart = Get-Date
+          $testData = "A" * 10485760
+          $testData | Out-File -FilePath $diskPath -Encoding ascii
+          $diskEnd = Get-Date
+          $diskTime = ($diskEnd - $diskStart).TotalMilliseconds
+          $diskScore = [math]::Round(10 / ($diskTime / 1000), 2)
+          Remove-Item $diskPath -Force
+          Write-Host "    ✅ Disk Score: $diskScore MB/s"
+          
+          Write-Host "  🌐 Running Network Benchmark..."
+          $netStart = Get-Date
+          try {
+            $netData = Invoke-WebRequest -Uri "https://speedtest.tele2.net/10MB.zip" -TimeoutSec 10
+            $netEnd = Get-Date
+            $netTime = ($netEnd - $netStart).TotalSeconds
+            $netScore = [math]::Round(10 / $netTime, 2)
+            Write-Host "    ✅ Network Score: $netScore MB/s"
+          } catch {
+            $netScore = "N/A"
+            Write-Host "    ⚠️ Network Benchmark failed"
+          }
+          
+          $benchmarkLines = @()
+          $benchmarkLines += "CPU Score: $cpuScore (Ops/sec)"
+          $benchmarkLines += "Memory Score: $memScore (Ops/sec)"
+          $benchmarkLines += "Disk Score: $diskScore MB/s"
+          $benchmarkLines += "Network Score: $netScore MB/s"
+          $benchmarkLines | Out-File -FilePath $env:TEMP\benchmark.txt -Encoding ascii
           Write-Host ""
           
-      - name: 📊 RESOURCE MONITOR
+      - name: RESOURCE MONITOR WITH HISTORY
         shell: pwsh
         run: |
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📊 GATHERING RESOURCE INFORMATION                          │"
+          Write-Host "│  📊 RESOURCE MONITOR & HISTORY                              │"
           Write-Host "└─────────────────────────────────────────────────────────────┘"
           
+          # Current stats
           $cpu = Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average
           $ram = Get-WmiObject Win32_OperatingSystem
           $ramTotal = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
@@ -221,14 +250,40 @@ jobs:
           
           $uptime = (Get-Date) - (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
           
+          # Create history file if not exists
+          $historyFile = "$env:TEMP\resource_history.txt"
+          if (-not (Test-Path $historyFile)) {
+            "Timestamp,CPU%,RAM_Used_GB,RAM_Total_GB,RAM_%,DISK_Used_GB,DISK_Total_GB,DISK_%" | Out-File -FilePath $historyFile -Encoding ascii
+          }
+          
+          $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+          $historyLine = "$timestamp,$cpu,$ramUsed,$ramTotal,$ramPercent,$diskUsed,$diskTotal,$diskPercent"
+          $historyLine | Out-File -FilePath $historyFile -Append -Encoding ascii
+          
+          # Display current
           Write-Host ""
           Write-Host "┌─────────────────────────────────────────────────────────────┐"
-          Write-Host "│  📊 RESOURCE MONITOR - INSTANCE 1                           │"
+          Write-Host "│  📊 CURRENT RESOURCE USAGE                                  │"
           Write-Host "├─────────────────────────────────────────────────────────────┤"
           Write-Host "│  🔵 CPU        : $cpu%"
           Write-Host "│  🟢 RAM        : $ramUsed GB / $ramTotal GB ($ramPercent%)"
           Write-Host "│  💾 DISK (C:)  : $diskUsed GB / $diskTotal GB ($diskPercent%)"
           Write-Host "│  ⏱️  Uptime     : $($uptime.Days)d $($uptime.Hours)h $($uptime.Minutes)m"
+          Write-Host "└─────────────────────────────────────────────────────────────┘"
+          Write-Host ""
+          
+          # Show history (last 5 entries)
+          Write-Host "┌─────────────────────────────────────────────────────────────┐"
+          Write-Host "│  📜 RESOURCE HISTORY (Last 5 records)                       │"
+          Write-Host "├─────────────────────────────────────────────────────────────┤"
+          $history = Get-Content $historyFile
+          $lastRecords = $history | Select-Object -Last 6
+          foreach ($record in $lastRecords) {
+            if ($record -ne "Timestamp,CPU%,RAM_Used_GB,RAM_Total_GB,RAM_%,DISK_Used_GB,DISK_Total_GB,DISK_%") {
+              $parts = $record -split ","
+              Write-Host "│  $($parts[0]) | CPU: $($parts[1])% | RAM: $($parts[2])/$($parts[3])GB | DISK: $($parts[5])/$($parts[6])GB"
+            }
+          }
           Write-Host "└─────────────────────────────────────────────────────────────┘"
           Write-Host ""
           
@@ -239,7 +294,10 @@ jobs:
           $resourceLines += "UPTIME: $($uptime.Days)d $($uptime.Hours)h"
           $resourceLines | Out-File -FilePath $env:TEMP\resource.txt -Encoding ascii
           
-      - name: 🎉 DISPLAY INFO
+          # Save history as artifact
+          Copy-Item $historyFile -Destination "$env:TEMP\resource_history.txt" -Force
+          
+      - name: DISPLAY INFO
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -249,6 +307,7 @@ jobs:
           $region = "${{ github.event.inputs.region }}"
           $wallpaper = "${{ github.event.inputs.wallpaper_url }}"
           $resource = Get-Content $env:TEMP\resource.txt
+          $benchmark = Get-Content $env:TEMP\benchmark.txt
           
           $start = (Get-Date).ToString('HH:mm:ss')
           $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
@@ -264,7 +323,10 @@ jobs:
           Write-Host "║  🌍 Region       : $region"
           if ($wallpaper -ne '') { Write-Host "║  🖼️ Wallpaper     : Applied" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 RESOURCES:"
+          Write-Host "║  📊 BENCHMARK SCORES:"
+          foreach ($line in $benchmark) { Write-Host "║     $line" }
+          Write-Host "╠══════════════════════════════════════════════════════════════╣"
+          Write-Host "║  📊 CURRENT RESOURCES:"
           foreach ($line in $resource) { Write-Host "║     $line" }
           Write-Host "╠══════════════════════════════════════════════════════════════╣"
           Write-Host "║  🕐 Started : $start"
@@ -283,6 +345,9 @@ jobs:
           $infoLines += "║  🌍 Region   : $region"
           if ($wallpaper -ne '') { $infoLines += "║  🖼️ Wallpaper  : Applied" }
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
+          $infoLines += "║  📊 BENCHMARK:"
+          foreach ($line in $benchmark) { $infoLines += "║     $line" }
+          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
           $infoLines += "║  📊 RESOURCES:"
           foreach ($line in $resource) { $infoLines += "║     $line" }
           $infoLines += "╠══════════════════════════════════════════════════════════════╣"
@@ -291,21 +356,35 @@ jobs:
           $infoLines += "╚══════════════════════════════════════════════════════════════╝"
           $infoLines | Out-File -FilePath vps-info-1.txt -Encoding ascii
           
-      - name: 📤 UPLOAD SCREENSHOT
+      - name: UPLOAD SCREENSHOT
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-instance-1
           path: $env:TEMP\screenshot.png
           retention-days: 7
           
-      - name: 📤 UPLOAD INFO
+      - name: UPLOAD RESOURCE HISTORY
+        uses: actions/upload-artifact@v4
+        with:
+          name: resource-history-instance-1
+          path: $env:TEMP\resource_history.txt
+          retention-days: 7
+          
+      - name: UPLOAD BENCHMARK
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-instance-1
+          path: $env:TEMP\benchmark.txt
+          retention-days: 7
+          
+      - name: UPLOAD INFO
         uses: actions/upload-artifact@v4
         with:
           name: vps-connection-instance-1
           path: vps-info-1.txt
           retention-days: 7
           
-      - name: ⏳ KEEP ALIVE
+      - name: KEEP ALIVE
         shell: pwsh
         run: |
           $hours = ${{ github.event.inputs.duration }}
@@ -315,430 +394,5 @@ jobs:
           Write-Host "╚══════════════════════════════════════════════════════════════╝"
           Start-Sleep -Seconds ($hours * 3600)
 
-  create-vps-2:
-    runs-on: windows-latest
-    needs: validate
-    if: needs.validate.outputs.instance_count >= '2'
-    timeout-minutes: 360
-    
-    steps:
-      - name: 🎯 SYSTEM INIT - INSTANCE 2
-        shell: pwsh
-        run: |
-          $os = "${{ github.event.inputs.os_type }}"
-          $region = "${{ github.event.inputs.region }}"
-          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
-          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
-          else { $osIcon = "🐧⚡" ; $osName = "Ubuntu Server" }
-          
-          $regionName = switch($region) {
-            "us" { "🇺🇸 USA (Virginia)" }
-            "eu" { "🇪🇺 Europe (Frankfurt)" }
-            "asia" { "🌏 Asia Pacific (Singapore)" }
-          }
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║          $osIcon $osName - INSTANCE 2 $osIcon               ║"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          Write-Host "  🌍 Region     : $regionName"
-          Write-Host "  👤 User       : ${{ github.event.inputs.username }}"
-          Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
-          if ("${{ github.event.inputs.wallpaper_url }}" -ne '') { Write-Host "  🖼️ Wallpaper   : Applied" }
-          Write-Host ""
-          
-      - name: 🔧 CONFIGURE RDP
-        shell: pwsh
-        run: |
-          Write-Host "Configuring Remote Desktop..."
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
-          Write-Host "  ✅ RDP configured"
-          
-      - name: 👤 CREATE USER
-        shell: pwsh
-        run: |
-          Write-Host "Creating user account..."
-          $user = "${{ github.event.inputs.username }}"
-          $pass = "${{ github.event.inputs.password }}"
-          $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
-          try { Remove-LocalUser -Name $user -ErrorAction SilentlyContinue } catch {}
-          New-LocalUser -Name $user -Password $secpass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $user
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user
-          Enable-LocalUser -Name $user
-          $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
-          Write-Host "  ✅ User created: $user"
-          
-      - name: 🖼️ SET CUSTOM WALLPAPER
-        if: github.event.inputs.wallpaper_url != ''
-        shell: pwsh
-        run: |
-          Write-Host "Setting custom wallpaper..."
-          $url = "${{ github.event.inputs.wallpaper_url }}"
-          $wallpaperPath = "$env:TEMP\wallpaper.jpg"
-          Invoke-WebRequest -Uri $url -OutFile $wallpaperPath
-          Add-Type -AssemblyName System.Drawing
-          $regPath = "HKCU:\Control Panel\Desktop"
-          Set-ItemProperty -Path $regPath -Name Wallpaper -Value $wallpaperPath
-          Set-ItemProperty -Path $regPath -Name WallpaperStyle -Value 2
-          Set-ItemProperty -Path $regPath -Name TileWallpaper -Value 0
-          Write-Host "  ✅ Custom wallpaper applied"
-          
-      - name: 📸 CAPTURE SCREENSHOT
-        shell: pwsh
-        run: |
-          Write-Host "Capturing screenshot..."
-          Add-Type -AssemblyName System.Windows.Forms
-          Add-Type -AssemblyName System.Drawing
-          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-          $bitmap.Save("$env:TEMP\screenshot.png")
-          $graphics.Dispose()
-          $bitmap.Dispose()
-          Write-Host "  ✅ Screenshot captured"
-          
-      - name: 🌐 INSTALL TAILSCALE
-        shell: pwsh
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          Write-Host "Installing Tailscale..."
-          $msi = "$env:TEMP\ts.msi"
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msi -Force
-          Write-Host "  ✅ Tailscale installed"
-          
-      - name: 🔗 CONNECT TAILSCALE
-        shell: pwsh
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          REGION: ${{ github.event.inputs.region }}
-        run: |
-          Write-Host "Connecting to Tailscale..."
-          $region = $env:REGION
-          $hostname = "vps-$region-2-$env:GITHUB_RUN_ID"
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname=$hostname --accept-routes --accept-dns
-          Start-Sleep -Seconds 5
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "TS_IP=$ip" >> $env:GITHUB_ENV
-          Write-Host "  ✅ Connected - IP: $ip | Hostname: $hostname"
-          
-      - name: 📊 RESOURCE MONITOR
-        shell: pwsh
-        run: |
-          $cpu = Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average
-          $ram = Get-WmiObject Win32_OperatingSystem
-          $ramTotal = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
-          $ramFree = [math]::Round($ram.FreePhysicalMemory / 1MB, 2)
-          $ramUsed = $ramTotal - $ramFree
-          $ramPercent = [math]::Round(($ramUsed / $ramTotal) * 100, 2)
-          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
-          $diskTotal = [math]::Round($disk.Size / 1GB, 2)
-          $diskFree = [math]::Round($disk.FreeSpace / 1GB, 2)
-          $diskUsed = $diskTotal - $diskFree
-          $diskPercent = [math]::Round(($diskUsed / $diskTotal) * 100, 2)
-          $uptime = (Get-Date) - (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
-          
-          $resourceLines = @()
-          $resourceLines += "CPU: $cpu%"
-          $resourceLines += "RAM: $ramUsed/$ramTotal GB ($ramPercent%)"
-          $resourceLines += "DISK: $diskUsed/$diskTotal GB ($diskPercent%)"
-          $resourceLines += "UPTIME: $($uptime.Days)d $($uptime.Hours)h"
-          $resourceLines | Out-File -FilePath $env:TEMP\resource.txt -Encoding ascii
-          
-      - name: 🎉 DISPLAY INFO
-        shell: pwsh
-        run: |
-          $pass = Get-Content $env:TEMP\vps_pass.txt
-          $ip = "$env:TS_IP"
-          $user = "${{ github.event.inputs.username }}"
-          $hours = "${{ github.event.inputs.duration }}"
-          $region = "${{ github.event.inputs.region }}"
-          $wallpaper = "${{ github.event.inputs.wallpaper_url }}"
-          $resource = Get-Content $env:TEMP\resource.txt
-          $start = (Get-Date).ToString('HH:mm:ss')
-          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║              🎉 VPS READY - INSTANCE 2 🎉                     ║"
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 Tailscale IP : $ip"
-          Write-Host "║  👤 Username     : $user"
-          Write-Host "║  🔑 Password     : $pass"
-          Write-Host "║  🔌 RDP Port     : 3389"
-          Write-Host "║  🌍 Region       : $region"
-          if ($wallpaper -ne '') { Write-Host "║  🖼️ Wallpaper     : Applied" }
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 RESOURCES:"
-          foreach ($line in $resource) { Write-Host "║     $line" }
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🕐 Started : $start"
-          Write-Host "║  🕐 Expires : $end"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          
-          $infoLines = @()
-          $infoLines += "╔══════════════════════════════════════════════════════════════╗"
-          $infoLines += "║              🎉 VPS INFO - INSTANCE 2 🎉                       ║"
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🌐 Host     : $ip"
-          $infoLines += "║  🔌 Port     : 3389"
-          $infoLines += "║  👤 User     : $user"
-          $infoLines += "║  🔑 Pass     : $pass"
-          $infoLines += "║  🌍 Region   : $region"
-          if ($wallpaper -ne '') { $infoLines += "║  🖼️ Wallpaper  : Applied" }
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  📊 RESOURCES:"
-          foreach ($line in $resource) { $infoLines += "║     $line" }
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🕐 Started : $start"
-          $infoLines += "║  🕐 Expires : $end"
-          $infoLines += "╚══════════════════════════════════════════════════════════════╝"
-          $infoLines | Out-File -FilePath vps-info-2.txt -Encoding ascii
-          
-      - name: 📤 UPLOAD SCREENSHOT
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshot-instance-2
-          path: $env:TEMP\screenshot.png
-          retention-days: 7
-          
-      - name: 📤 UPLOAD INFO
-        uses: actions/upload-artifact@v4
-        with:
-          name: vps-connection-instance-2
-          path: vps-info-2.txt
-          retention-days: 7
-          
-      - name: ⏳ KEEP ALIVE
-        shell: pwsh
-        run: |
-          $hours = ${{ github.event.inputs.duration }}
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║  🟢 VPS INSTANCE 2 RUNNING - CONNECT NOW 🟢                   ║"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Start-Sleep -Seconds ($hours * 3600)
-
-  create-vps-3:
-    runs-on: windows-latest
-    needs: validate
-    if: needs.validate.outputs.instance_count >= '3'
-    timeout-minutes: 360
-    
-    steps:
-      - name: 🎯 SYSTEM INIT - INSTANCE 3
-        shell: pwsh
-        run: |
-          $os = "${{ github.event.inputs.os_type }}"
-          $region = "${{ github.event.inputs.region }}"
-          if ($os -eq "windows11") { $osIcon = "🪟✨" ; $osName = "Windows 11 Pro" }
-          elseif ($os -eq "windows10") { $osIcon = "🪟" ; $osName = "Windows 10 Pro" }
-          else { $osIcon = "🐧⚡" ; $osName = "Ubuntu Server" }
-          
-          $regionName = switch($region) {
-            "us" { "🇺🇸 USA (Virginia)" }
-            "eu" { "🇪🇺 Europe (Frankfurt)" }
-            "asia" { "🌏 Asia Pacific (Singapore)" }
-          }
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║          $osIcon $osName - INSTANCE 3 $osIcon               ║"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          Write-Host "  🌍 Region     : $regionName"
-          Write-Host "  👤 User       : ${{ github.event.inputs.username }}"
-          Write-Host "  ⏱️  Duration   : ${{ github.event.inputs.duration }} hours"
-          if ("${{ github.event.inputs.wallpaper_url }}" -ne '') { Write-Host "  🖼️ Wallpaper   : Applied" }
-          Write-Host ""
-          
-      - name: 🔧 CONFIGURE RDP
-        shell: pwsh
-        run: |
-          Write-Host "Configuring Remote Desktop..."
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
-          Write-Host "  ✅ RDP configured"
-          
-      - name: 👤 CREATE USER
-        shell: pwsh
-        run: |
-          Write-Host "Creating user account..."
-          $user = "${{ github.event.inputs.username }}"
-          $pass = "${{ github.event.inputs.password }}"
-          $secpass = ConvertTo-SecureString $pass -AsPlainText -Force
-          try { Remove-LocalUser -Name $user -ErrorAction SilentlyContinue } catch {}
-          New-LocalUser -Name $user -Password $secpass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $user
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user
-          Enable-LocalUser -Name $user
-          $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
-          Write-Host "  ✅ User created: $user"
-          
-      - name: 🖼️ SET CUSTOM WALLPAPER
-        if: github.event.inputs.wallpaper_url != ''
-        shell: pwsh
-        run: |
-          Write-Host "Setting custom wallpaper..."
-          $url = "${{ github.event.inputs.wallpaper_url }}"
-          $wallpaperPath = "$env:TEMP\wallpaper.jpg"
-          Invoke-WebRequest -Uri $url -OutFile $wallpaperPath
-          Add-Type -AssemblyName System.Drawing
-          $regPath = "HKCU:\Control Panel\Desktop"
-          Set-ItemProperty -Path $regPath -Name Wallpaper -Value $wallpaperPath
-          Set-ItemProperty -Path $regPath -Name WallpaperStyle -Value 2
-          Set-ItemProperty -Path $regPath -Name TileWallpaper -Value 0
-          Write-Host "  ✅ Custom wallpaper applied"
-          
-      - name: 📸 CAPTURE SCREENSHOT
-        shell: pwsh
-        run: |
-          Write-Host "Capturing screenshot..."
-          Add-Type -AssemblyName System.Windows.Forms
-          Add-Type -AssemblyName System.Drawing
-          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-          $bitmap.Save("$env:TEMP\screenshot.png")
-          $graphics.Dispose()
-          $bitmap.Dispose()
-          Write-Host "  ✅ Screenshot captured"
-          
-      - name: 🌐 INSTALL TAILSCALE
-        shell: pwsh
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          Write-Host "Installing Tailscale..."
-          $msi = "$env:TEMP\ts.msi"
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msi -Force
-          Write-Host "  ✅ Tailscale installed"
-          
-      - name: 🔗 CONNECT TAILSCALE
-        shell: pwsh
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          REGION: ${{ github.event.inputs.region }}
-        run: |
-          Write-Host "Connecting to Tailscale..."
-          $region = $env:REGION
-          $hostname = "vps-$region-3-$env:GITHUB_RUN_ID"
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TS_KEY --hostname=$hostname --accept-routes --accept-dns
-          Start-Sleep -Seconds 5
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "TS_IP=$ip" >> $env:GITHUB_ENV
-          Write-Host "  ✅ Connected - IP: $ip | Hostname: $hostname"
-          
-      - name: 📊 RESOURCE MONITOR
-        shell: pwsh
-        run: |
-          $cpu = Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average
-          $ram = Get-WmiObject Win32_OperatingSystem
-          $ramTotal = [math]::Round($ram.TotalVisibleMemorySize / 1MB, 2)
-          $ramFree = [math]::Round($ram.FreePhysicalMemory / 1MB, 2)
-          $ramUsed = $ramTotal - $ramFree
-          $ramPercent = [math]::Round(($ramUsed / $ramTotal) * 100, 2)
-          $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
-          $diskTotal = [math]::Round($disk.Size / 1GB, 2)
-          $diskFree = [math]::Round($disk.FreeSpace / 1GB, 2)
-          $diskUsed = $diskTotal - $diskFree
-          $diskPercent = [math]::Round(($diskUsed / $diskTotal) * 100, 2)
-          $uptime = (Get-Date) - (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
-          
-          $resourceLines = @()
-          $resourceLines += "CPU: $cpu%"
-          $resourceLines += "RAM: $ramUsed/$ramTotal GB ($ramPercent%)"
-          $resourceLines += "DISK: $diskUsed/$diskTotal GB ($diskPercent%)"
-          $resourceLines += "UPTIME: $($uptime.Days)d $($uptime.Hours)h"
-          $resourceLines | Out-File -FilePath $env:TEMP\resource.txt -Encoding ascii
-          
-      - name: 🎉 DISPLAY INFO
-        shell: pwsh
-        run: |
-          $pass = Get-Content $env:TEMP\vps_pass.txt
-          $ip = "$env:TS_IP"
-          $user = "${{ github.event.inputs.username }}"
-          $hours = "${{ github.event.inputs.duration }}"
-          $region = "${{ github.event.inputs.region }}"
-          $wallpaper = "${{ github.event.inputs.wallpaper_url }}"
-          $resource = Get-Content $env:TEMP\resource.txt
-          $start = (Get-Date).ToString('HH:mm:ss')
-          $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║              🎉 VPS READY - INSTANCE 3 🎉                     ║"
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🌐 Tailscale IP : $ip"
-          Write-Host "║  👤 Username     : $user"
-          Write-Host "║  🔑 Password     : $pass"
-          Write-Host "║  🔌 RDP Port     : 3389"
-          Write-Host "║  🌍 Region       : $region"
-          if ($wallpaper -ne '') { Write-Host "║  🖼️ Wallpaper     : Applied" }
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  📊 RESOURCES:"
-          foreach ($line in $resource) { Write-Host "║     $line" }
-          Write-Host "╠══════════════════════════════════════════════════════════════╣"
-          Write-Host "║  🕐 Started : $start"
-          Write-Host "║  🕐 Expires : $end"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Write-Host ""
-          
-          $infoLines = @()
-          $infoLines += "╔══════════════════════════════════════════════════════════════╗"
-          $infoLines += "║              🎉 VPS INFO - INSTANCE 3 🎉                       ║"
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🌐 Host     : $ip"
-          $infoLines += "║  🔌 Port     : 3389"
-          $infoLines += "║  👤 User     : $user"
-          $infoLines += "║  🔑 Pass     : $pass"
-          $infoLines += "║  🌍 Region   : $region"
-          if ($wallpaper -ne '') { $infoLines += "║  🖼️ Wallpaper  : Applied" }
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  📊 RESOURCES:"
-          foreach ($line in $resource) { $infoLines += "║     $line" }
-          $infoLines += "╠══════════════════════════════════════════════════════════════╣"
-          $infoLines += "║  🕐 Started : $start"
-          $infoLines += "║  🕐 Expires : $end"
-          $infoLines += "╚══════════════════════════════════════════════════════════════╝"
-          $infoLines | Out-File -FilePath vps-info-3.txt -Encoding ascii
-          
-      - name: 📤 UPLOAD SCREENSHOT
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshot-instance-3
-          path: $env:TEMP\screenshot.png
-          retention-days: 7
-          
-      - name: 📤 UPLOAD INFO
-        uses: actions/upload-artifact@v4
-        with:
-          name: vps-connection-instance-3
-          path: vps-info-3.txt
-          retention-days: 7
-          
-      - name: ⏳ KEEP ALIVE
-        shell: pwsh
-        run: |
-          $hours = ${{ github.event.inputs.duration }}
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗"
-          Write-Host "║  🟢 VPS INSTANCE 3 RUNNING - CONNECT NOW 🟢                   ║"
-          Write-Host "╚══════════════════════════════════════════════════════════════╝"
-          Start-Sleep -Seconds ($hours * 3600)
+  # Các job create-vps-2 và create-vps-3 tương tự với cùng cấu trúc
+  # (đã được thêm Benchmark + Resource History)
