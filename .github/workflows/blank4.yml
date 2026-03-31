@@ -41,6 +41,15 @@ on:
           - '8'
           - '12'
           - '16'
+      connection_mode:
+        description: '🔌 Connection Mode'
+        required: true
+        default: 'rdp'
+        type: choice
+        options:
+          - 'rdp'
+          - 'novnc'
+          - 'both'
       duration:
         description: '⏱️ Hours to run'
         required: true
@@ -66,6 +75,7 @@ jobs:
           Write-Host "🤖 VPS CREATOR PRO PREMIUM RDP SERVER" -ForegroundColor Yellow
           Write-Host "⚡ Powered by Tailscale" -ForegroundColor Green
           Write-Host "🕒 Thời gian: ${{ github.event.inputs.duration }} giờ" -ForegroundColor Magenta
+          Write-Host "🔌 Chế độ: ${{ github.event.inputs.connection_mode }}" -ForegroundColor Cyan
           Write-Host ""
           
           $frames = @('⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷')
@@ -88,14 +98,11 @@ jobs:
               @{Name="Tắt xác thực mạng"; Script={
                   Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
               }},
-              @{Name="Cấu hình bảo mật RDP"; Script={
-                  Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-              }},
               @{Name="Mở port 3389 firewall"; Script={
                   netsh advfirewall firewall add rule name="RDP-Premium" dir=in action=allow protocol=TCP localport=3389 profile=any
                   netsh advfirewall firewall add rule name="RDP-Premium-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
               }},
-              @{Name="Khởi động dịch vụ"; Script={
+              @{Name="Khởi động dịch vụ RDP"; Script={
                   Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
                   Start-Service -Name TermService -ErrorAction SilentlyContinue
               }}
@@ -111,7 +118,6 @@ jobs:
               }
               Start-Sleep -Milliseconds 500
           }
-          
           Write-Host "🎯 Cấu hình hoàn tất!" -ForegroundColor Green
           
       - name: 👤 TẠO TÀI KHOẢN PREMIUM
@@ -124,25 +130,18 @@ jobs:
           $PASSWORD = "${{ github.event.inputs.password }}"
           $securePass = ConvertTo-SecureString $PASSWORD -AsPlainText -Force
           
-          try {
-              Remove-LocalUser -Name $USERNAME -ErrorAction SilentlyContinue
-              Write-Host "│ ✅ Đã xóa user cũ" -ForegroundColor Green
-          } catch {
-              Write-Host "│ ℹ️  Không có user cũ để xóa" -ForegroundColor Blue
-          }
+          try { Remove-LocalUser -Name $USERNAME -ErrorAction SilentlyContinue } catch {}
           
           try {
               New-LocalUser -Name $USERNAME -Password $securePass -AccountNeverExpires -Description "Premium Account"
-              Write-Host "│ ✅ Đã tạo user mới" -ForegroundColor Green
+              Write-Host "│ ✅ Đã tạo user: $USERNAME" -ForegroundColor Green
               
               Add-LocalGroupMember -Group "Administrators" -Member $USERNAME -ErrorAction SilentlyContinue
               Add-LocalGroupMember -Group "Remote Desktop Users" -Member $USERNAME -ErrorAction SilentlyContinue
               Add-LocalGroupMember -Group "Users" -Member $USERNAME -ErrorAction SilentlyContinue
-              
               Enable-LocalUser -Name $USERNAME
               
               Write-Host "│ ✅ Đã cấp quyền Administrator & RDP" -ForegroundColor Green
-              
           } catch {
               Write-Host "│ ❌ Lỗi tạo user: $($_.Exception.Message)" -ForegroundColor Red
               exit 1
@@ -151,7 +150,6 @@ jobs:
           echo "RDP_USER=$USERNAME" >> $env:GITHUB_ENV
           echo "RDP_PASS=$PASSWORD" >> $env:GITHUB_ENV
           echo "$PASSWORD" > $env:TEMP\rdp_password.txt
-          
           Write-Host "✅ Tài khoản: $USERNAME đã sẵn sàng" -ForegroundColor Green
           
       - name: 🔍 KIỂM TRA QUYỀN HỆ THỐNG
@@ -162,34 +160,20 @@ jobs:
           
           $USERNAME = "${{ github.event.inputs.username }}"
           $user = Get-LocalUser -Name $USERNAME -ErrorAction SilentlyContinue
-          if ($user) {
-              Write-Host "│ ✅ User $USERNAME tồn tại" -ForegroundColor Green
-          } else {
-              Write-Host "│ ❌ User không tồn tại" -ForegroundColor Red
-              exit 1
-          }
+          if ($user) { Write-Host "│ ✅ User $USERNAME tồn tại" -ForegroundColor Green }
+          else { Write-Host "│ ❌ User không tồn tại" -ForegroundColor Red; exit 1 }
           
           $isAdmin = (Get-LocalGroupMember -Group "Administrators" | Where-Object {$_.Name -like "*$USERNAME"}).Count -gt 0
-          if ($isAdmin) {
-              Write-Host "│ ✅ Có quyền Administrator" -ForegroundColor Green
-          } else {
-              Write-Host "│ ❌ Không có quyền Administrator" -ForegroundColor Red
-          }
+          if ($isAdmin) { Write-Host "│ ✅ Có quyền Administrator" -ForegroundColor Green }
+          else { Write-Host "│ ❌ Không có quyền Administrator" -ForegroundColor Red }
           
           $isRDPUser = (Get-LocalGroupMember -Group "Remote Desktop Users" | Where-Object {$_.Name -like "*$USERNAME"}).Count -gt 0
-          if ($isRDPUser) {
-              Write-Host "│ ✅ Có quyền Remote Desktop" -ForegroundColor Green
-          } else {
-              Write-Host "│ ❌ Không có quyền Remote Desktop" -ForegroundColor Red
-          }
+          if ($isRDPUser) { Write-Host "│ ✅ Có quyền Remote Desktop" -ForegroundColor Green }
+          else { Write-Host "│ ❌ Không có quyền Remote Desktop" -ForegroundColor Red }
           
           $termService = Get-Service -Name TermService -ErrorAction SilentlyContinue
-          if ($termService.Status -eq 'Running') {
-              Write-Host "│ ✅ Dịch vụ TermService đang chạy" -ForegroundColor Green
-          } else {
-              Write-Host "│ ❌ Dịch vụ TermService không chạy" -ForegroundColor Red
-          }
-          
+          if ($termService.Status -eq 'Running') { Write-Host "│ ✅ Dịch vụ TermService đang chạy" -ForegroundColor Green }
+          else { Write-Host "│ ❌ Dịch vụ TermService không chạy" -ForegroundColor Red }
           Write-Host "🎯 Kiểm tra hoàn tất!" -ForegroundColor Green
           
       - name: 🌐 THIẾT LẬP MẠNG PREMIUM
@@ -201,23 +185,19 @@ jobs:
           Write-Host "🌐 ĐANG THIẾT LẬP KẾT NỐI MẠNG" -ForegroundColor Yellow
           
           try {
-              $msiPath = "$env:TEMP\tailscale-premium.msi"
+              $msiPath = "$env:TEMP\tailscale.msi"
               Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
               Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
               Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
               Write-Host "│ ✅ Cài đặt Tailscale thành công" -ForegroundColor Green
-          } catch {
-              Write-Host "│ ❌ Lỗi cài đặt Tailscale" -ForegroundColor Red
-          }
+          } catch { Write-Host "│ ❌ Lỗi cài đặt Tailscale" -ForegroundColor Red }
           
           Start-Sleep -Seconds 10
           
           try {
-              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="vps-premium-$env:GITHUB_RUN_ID" --accept-routes --accept-dns
+              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="vps-premium" --accept-routes --accept-dns
               Write-Host "│ ✅ Kết nối Tailscale thành công" -ForegroundColor Green
-          } catch {
-              Write-Host "│ ❌ Lỗi kết nối Tailscale" -ForegroundColor Red
-          }
+          } catch { Write-Host "│ ❌ Lỗi kết nối Tailscale" -ForegroundColor Red }
           
           Write-Host "🔄 Đang lấy địa chỉ IP..." -NoNewline -ForegroundColor Blue
           $ip = $null
@@ -233,11 +213,32 @@ jobs:
               Write-Host "`r🔄 Đang lấy địa chỉ IP... $(@('.', '..', '...')[$i % 3])" -NoNewline -ForegroundColor Blue
               Start-Sleep -Seconds 3
           }
+          if (-not $ip) { echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV }
           
-          if (-not $ip -or $ip -notmatch '^\d+\.\d+\.\d+\.\d+$') {
-              Write-Host "`r⚠️  Không thể lấy IP, sử dụng localhost" -ForegroundColor Yellow
-              echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV
-          }
+      - name: 🖥️ CÀI ĐẶT noVNC (nếu cần)
+        if: github.event.inputs.connection_mode == 'novnc' || github.event.inputs.connection_mode == 'both'
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "🖥️ ĐANG CÀI ĐẶT noVNC" -ForegroundColor Yellow
+          
+          # Cài đặt noVNC và websockify
+          choco install python3 -y
+          pip install numpy websockify
+          
+          # Tải noVNC
+          Invoke-WebRequest -Uri "https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.zip" -OutFile "$env:TEMP\novnc.zip"
+          Expand-Archive -Path "$env:TEMP\novnc.zip" -DestinationPath "C:\novnc" -Force
+          Remove-Item "$env:TEMP\novnc.zip"
+          
+          # Khởi động websockify
+          Start-Process -NoNewWindow -FilePath "websockify" -ArgumentList "--web=C:\novnc\noVNC-1.4.0", "6080", "localhost:3389"
+          
+          # Lấy URL noVNC qua tailscale
+          $novncUrl = "http://$env:TAILSCALE_IP:6080/vnc.html?host=$env:TAILSCALE_IP&port=6080"
+          echo "NOVNC_URL=$novncUrl" >> $env:GITHUB_ENV
+          Write-Host "│ ✅ noVNC đã cài đặt" -ForegroundColor Green
+          Write-Host "│ 🌐 noVNC URL: $novncUrl" -ForegroundColor Cyan
           
       - name: 🎉 THÔNG TIN KẾT NỐI
         shell: pwsh
@@ -248,28 +249,47 @@ jobs:
           $HOURS = ${{ github.event.inputs.duration }}
           $START_TIME = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
           $END_TIME = (Get-Date).AddHours($HOURS).ToString('yyyy-MM-dd HH:mm:ss')
+          $MODE = "${{ github.event.inputs.connection_mode }}"
           
           Write-Host ""
           Write-Host "┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
           Write-Host "│              🎉 KẾT NỐI THÀNH CÔNG! 🎉                     │" -ForegroundColor Cyan
           Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 🌐  Địa chỉ: $env:TAILSCALE_IP" -ForegroundColor White
+          Write-Host "│ 🌐  Địa chỉ Tailscale: $env:TAILSCALE_IP" -ForegroundColor White
           Write-Host "│ 👤  Tài khoản: ${{ github.event.inputs.username }}" -ForegroundColor White
           Write-Host "│ 🔐  Mật khẩu: $matKhau" -ForegroundColor White
-          Write-Host "│ ⏰  Thời lượng: $HOURS giờ" -ForegroundColor White
-          Write-Host "│ 🕐  Bắt đầu: $START_TIME" -ForegroundColor White
-          Write-Host "│ 🕐  Kết thúc: $END_TIME" -ForegroundColor White
-          Write-Host "│ 📍  Port: 3389" -ForegroundColor White
           Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 💡  HƯỚNG DẪN KẾT NỐI (iPhone)                             │" -ForegroundColor Cyan
+          
+          if ($MODE -eq 'rdp' -or $MODE -eq 'both') {
+              Write-Host "│ 🔌 KẾT NỐI RDP:" -ForegroundColor Yellow
+              Write-Host "│    Microsoft Remote Desktop: $env:TAILSCALE_IP:3389" -ForegroundColor White
+          }
+          
+          if ($MODE -eq 'novnc' -or $MODE -eq 'both') {
+              Write-Host "│ 🌐 KẾT NỐI noVNC (Web Browser):" -ForegroundColor Yellow
+              Write-Host "│    URL: http://$env:TAILSCALE_IP:6080/vnc.html?host=$env:TAILSCALE_IP&port=6080" -ForegroundColor White
+          }
+          
+          Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 💡 HƯỚNG DẪN KẾT NỐI (iPhone)                             │" -ForegroundColor Cyan
           Write-Host "│   1. Cài Tailscale → Bật VPN                               │" -ForegroundColor Yellow
-          Write-Host "│   2. Cài Microsoft Remote Desktop từ App Store             │" -ForegroundColor Yellow
-          Write-Host "│   3. Add PC → PC name: $env:TAILSCALE_IP:3389" -ForegroundColor Yellow
-          Write-Host "│   4. User: ${{ github.event.inputs.username }} | Pass: $matKhau" -ForegroundColor Yellow
+          
+          if ($MODE -eq 'rdp' -or $MODE -eq 'both') {
+              Write-Host "│   2. Cài Microsoft Remote Desktop từ App Store             │" -ForegroundColor Yellow
+              Write-Host "│   3. Add PC → PC name: $env:TAILSCALE_IP:3389" -ForegroundColor Yellow
+              Write-Host "│   4. User: ${{ github.event.inputs.username }} | Pass: $matKhau" -ForegroundColor Yellow
+          }
+          
+          if ($MODE -eq 'novnc' -or $MODE -eq 'both') {
+              Write-Host "│   2. Mở Safari → truy cập: http://$env:TAILSCALE_IP:6080/vnc.html" -ForegroundColor Yellow
+              Write-Host "│   3. Kết nối với localhost:3389, user/pass như trên" -ForegroundColor Yellow
+          }
+          
           Write-Host "│   5. Enjoy! 🚀                                             │" -ForegroundColor Yellow
           Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
           
-          @"
+          # Lưu file
+          $info = @"
 ╔══════════════════════════════════════════════════════════════╗
 ║              🎉 VPS CONNECTION INFORMATION 🎉                 ║
 ╠══════════════════════════════════════════════════════════════╣
@@ -278,16 +298,26 @@ jobs:
 ║  💾 RAM      : ${{ github.event.inputs.ram_gb }} GB
 ╠══════════════════════════════════════════════════════════════╣
 ║  🌐 Host     : $env:TAILSCALE_IP
-║  🔌 Port     : 3389
 ║  👤 User     : ${{ github.event.inputs.username }}
 ║  🔑 Pass     : $matKhau
 ╠══════════════════════════════════════════════════════════════╣
-║  📱 Connect  : $env:TAILSCALE_IP:3389
+"@
+          
+          if ($MODE -eq 'rdp' -or $MODE -eq 'both') {
+              $info += "║  🔌 RDP      : $env:TAILSCALE_IP:3389`n"
+          }
+          
+          if ($MODE -eq 'novnc' -or $MODE -eq 'both') {
+              $info += "║  🌐 noVNC    : http://$env:TAILSCALE_IP:6080/vnc.html?host=$env:TAILSCALE_IP&port=6080`n"
+          }
+          
+          $info += @"
 ╠══════════════════════════════════════════════════════════════╣
 ║  🕐 Created  : $START_TIME
 ║  🕐 Expires  : $END_TIME
 ╚══════════════════════════════════════════════════════════════╝
-"@ | Out-File -FilePath vps-info.txt -Encoding utf8
+"@
+          $info | Out-File -FilePath vps-info.txt -Encoding utf8
           
       - name: 📤 UPLOAD CONNECTION INFO
         uses: actions/upload-artifact@v4
@@ -300,16 +330,11 @@ jobs:
         shell: pwsh
         run: |
           $HOURS = ${{ github.event.inputs.duration }}
-          $TOTAL_MINUTES = $HOURS * 60
-          
-          $START_TIME = Get-Date
-          $END_TIME = $START_TIME.AddHours($HOURS)
-          
+          $END_TIME = (Get-Date).AddHours($HOURS)
           Write-Host ""
           Write-Host "🔄 BẮT ĐẦU DUY TRÌ PHIÊN LÀM VIỆC..." -ForegroundColor Yellow
           Write-Host "💎 Phiên: VPS PREMIUM" -ForegroundColor Magenta
           Write-Host "🔗 Kết nối: $env:TAILSCALE_IP" -ForegroundColor Cyan
-          Write-Host "🕐 Bắt đầu: $($START_TIME.ToString('HH:mm:ss'))" -ForegroundColor Green
           Write-Host "🕐 Kết thúc: $($END_TIME.ToString('HH:mm:ss'))" -ForegroundColor Green
           Write-Host ""
           
@@ -320,23 +345,18 @@ jobs:
           do {
               $now = Get-Date
               $remaining = $END_TIME - $now
-              
               if ($remaining.TotalSeconds -le 0) { break }
               
               $hours = [math]::Floor($remaining.TotalHours)
               $minutes = [math]::Floor($remaining.TotalMinutes % 60)
               $seconds = [math]::Floor($remaining.TotalSeconds % 60)
-              
               $frame = $frames[([int]((Get-Date) - $startTime).TotalSeconds) % $frames.Length]
               $color = $colors[([int]((Get-Date) - $startTime).TotalMinutes) % $colors.Length]
               
               Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Thời gian còn lại: $hours giờ $minutes phút $seconds giây" -NoNewline -ForegroundColor $color
               Start-Sleep -Seconds 5
-              
           } while ($true)
-          
-          Write-Host ""
-          Write-Host "🎯 ĐÃ HẾT THỜI GIAN - TỰ ĐỘNG DỪNG!" -ForegroundColor Red
+          Write-Host "`r🎯 ĐÃ HẾT THỜI GIAN - TỰ ĐỘNG DỪNG!" -ForegroundColor Red
           
       - name: 🧹 DỌN DẸP HỆ THỐNG
         if: always()
@@ -346,36 +366,17 @@ jobs:
           Write-Host "🧹 ĐANG DỌN DẸP HỆ THỐNG..." -ForegroundColor Yellow
           
           $cleanupSteps = @(
-              @{Name="Xóa file password"; Script={
-                  Remove-Item "$env:TEMP\rdp_password.txt" -ErrorAction SilentlyContinue
-              }},
-              @{Name="Vô hiệu hóa user"; Script={
-                  Disable-LocalUser -Name "${{ github.event.inputs.username }}" -ErrorAction SilentlyContinue
-              }},
-              @{Name="Đóng kết nối mạng"; Script={
-                  & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 5
-              }},
-              @{Name="Xóa rule firewall"; Script={
-                  netsh advfirewall firewall delete rule name="RDP-Premium" dir=in -ErrorAction SilentlyContinue
-                  netsh advfirewall firewall delete rule name="RDP-Premium-Out" dir=out -ErrorAction SilentlyContinue
-              }},
-              @{Name="Khôi phục cài đặt RDP"; Script={
-                  Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
-                  Stop-Service -Name TermService -Force -ErrorAction SilentlyContinue
-              }}
+              @{Name="Xóa file password"; Script={ Remove-Item "$env:TEMP\rdp_password.txt" -ErrorAction SilentlyContinue }},
+              @{Name="Vô hiệu hóa user"; Script={ Disable-LocalUser -Name "${{ github.event.inputs.username }}" -ErrorAction SilentlyContinue }},
+              @{Name="Đóng kết nối mạng"; Script={ & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all -ErrorAction SilentlyContinue }},
+              @{Name="Xóa rule firewall"; Script={ netsh advfirewall firewall delete rule name="RDP-Premium" dir=in -ErrorAction SilentlyContinue }},
+              @{Name="Khôi phục cài đặt RDP"; Script={ Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue }}
           )
           
           foreach($step in $cleanupSteps) {
               Write-Host "│ 🗑️  $($step.Name)..." -NoNewline -ForegroundColor Gray
-              try {
-                  & $step.Script
-                  Write-Host "`r│ ✅ $($step.Name)" -ForegroundColor Green
-              } catch {
-                  Write-Host "`r│ ⚠️  $($step.Name) - Đã xử lý an toàn" -ForegroundColor Yellow
-              }
+              try { & $step.Script; Write-Host "`r│ ✅ $($step.Name)" -ForegroundColor Green }
+              catch { Write-Host "`r│ ⚠️  $($step.Name) - Đã xử lý an toàn" -ForegroundColor Yellow }
               Start-Sleep -Milliseconds 300
           }
-          
-          Write-Host ""
           Write-Host "🎉 Dọn dẹp hoàn tất! Hẹn gặp lại! 👋" -ForegroundColor Green
