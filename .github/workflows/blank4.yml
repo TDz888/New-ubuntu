@@ -25,7 +25,7 @@ on:
           - max
       features:
         description: 🎁 Additional Features
-        required: false
+        required: true
         type: choice
         default: basic
         options:
@@ -35,7 +35,7 @@ on:
           - full
       install_software:
         description: 📦 Install Software
-        required: false
+        required: true
         type: choice
         default: none
         options:
@@ -61,6 +61,7 @@ jobs:
           Write-Host "✅ System ready!" -ForegroundColor Green
           Write-Host "🎁 Features: ${{ github.event.inputs.features }}" -ForegroundColor Magenta
           Write-Host "📦 Software: ${{ github.event.inputs.install_software }}" -ForegroundColor Magenta
+          echo "START_TIME=$(Get-Date -Format 'HH:mm:ss')" >> $env:GITHUB_ENV
 
       - name: 🔧 Configure Windows RDP
         if: contains(github.event.inputs.os_type, 'windows')
@@ -70,8 +71,8 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           netsh advfirewall firewall add rule name="RDP-VPS" dir=in action=allow protocol=TCP localport=3389 | Out-Null
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
+          Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
+          Start-Service -Name TermService -ErrorAction SilentlyContinue
           Write-Host "✅ RDP configured!" -ForegroundColor Green
 
       - name: 🔧 Configure Linux SSH
@@ -79,31 +80,40 @@ jobs:
         shell: bash
         run: |
           echo -e "\n🔧 Configuring SSH..."
-          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo systemctl restart sshd
+          
+          # Smart detection: find correct SSH service name
+          if systemctl list-units --full --all | grep -q "ssh.service"; then
+              SSH_SERVICE="ssh"
+          elif systemctl list-units --full --all | grep -q "sshd.service"; then
+              SSH_SERVICE="sshd"
+          else
+              SSH_SERVICE="ssh"
+          fi
+          
+          # Enable password authentication
+          sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+          
+          # Restart SSH service
+          sudo systemctl restart $SSH_SERVICE || sudo service $SSH_SERVICE restart
+          
+          # Configure firewall
+          sudo ufw --force enable
           sudo ufw allow 22/tcp
-          echo "✅ SSH configured!"
+          sudo ufw allow 80/tcp
+          sudo ufw allow 8080/tcp
+          sudo ufw allow 25565/tcp
+          
+          echo "✅ SSH configured! Service: $SSH_SERVICE" -ForegroundColor Green
 
       - name: 👤 Create User Account
         shell: pwsh
         run: |
           Write-Host "👤 Creating user account..." -ForegroundColor Yellow
           
-          $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-          $lower = 'abcdefghijkmnpqrstuvwxyz'
-          $numbers = '23456789'
-          $all = $upper + $lower + $numbers
-          
-          $password = $upper[(Get-Random -Max $upper.Length)]
-          $password += $lower[(Get-Random -Max $lower.Length)]
-          $password += $numbers[(Get-Random -Max $numbers.Length)]
-          
-          for ($i = 1; $i -le 5; $i++) {
-              $password += $all[(Get-Random -Max $all.Length)]
-          }
-          
-          $chars = $password.ToCharArray()
-          $password = -join ($chars | Sort-Object { Get-Random })
+          # Generate strong password
+          $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+          $password = -join ((1..10) | ForEach-Object { $chars[(Get-Random -Max $chars.Length)] })
           
           $username = "PREMIUM-VPS"
           
@@ -116,117 +126,162 @@ jobs:
               Enable-LocalUser -Name $username
               Write-Host "✅ Windows user created" -ForegroundColor Green
           } else {
-              $tempFile = [System.IO.Path]::GetTempFileName()
-              $userPass = "$username`:$password"
-              [System.IO.File]::WriteAllText($tempFile, $userPass)
-              
-              sudo useradd -m -s /bin/bash $username 2>$null
-              sudo bash -c "chpasswd < $tempFile"
+              sudo useradd -m -s /bin/bash $username 2>/dev/null || true
+              echo "$username:$password" | sudo chpasswd
               sudo usermod -aG sudo $username
-              Remove-Item $tempFile -Force
               Write-Host "✅ Linux user created" -ForegroundColor Green
           }
           
           echo "VPS_USER=$username" >> $env:GITHUB_ENV
           echo "VPS_PASS=$password" >> $env:GITHUB_ENV
-          $password | Out-File -FilePath $env:TEMP\vps_pass.txt
+          echo "$password" | Out-File -FilePath $env:TEMP\vps_pass.txt
           
           Write-Host "📋 Username: $username" -ForegroundColor White
           Write-Host "📋 Password: $password" -ForegroundColor White
           Write-Host "🎯 User account ready!" -ForegroundColor Green
 
-      - name: 📦 Install Additional Software
-        if: contains(github.event.inputs.os_type, 'ubuntu')
+      - name: 📦 Install Software Packages
+        if: contains(github.event.inputs.os_type, 'ubuntu') && github.event.inputs.install_software != 'none'
         shell: bash
         run: |
-          echo -e "\n📦 Installing software..."
+          echo -e "\n📦 Installing software packages..."
+          sudo apt-get update -qq
           
-          if [ "${{ github.event.inputs.install_software }}" = "docker" ]; then
+          case "${{ github.event.inputs.install_software }}" in
+            docker)
               echo "🐳 Installing Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
               sudo sh get-docker.sh
               sudo usermod -aG docker ${{ env.VPS_USER }}
-              echo "✅ Docker installed!" 
-          fi
-          
-          if [ "${{ github.event.inputs.install_software }}" = "lamp" ]; then
+              echo "✅ Docker installed!"
+              ;;
+            lamp)
               echo "🌐 Installing LAMP stack..."
-              sudo apt update -qq
-              sudo apt install -y apache2 mysql-server php php-mysql
+              sudo apt-get install -y apache2 mysql-server php php-mysql php-curl php-zip php-gd php-mbstring php-xml
+              sudo systemctl enable apache2 mysql
+              sudo systemctl start apache2 mysql
               echo "✅ LAMP installed!"
-          fi
-          
-          if [ "${{ github.event.inputs.install_software }}" = "nodejs" ]; then
+              ;;
+            nodejs)
               echo "📜 Installing Node.js..."
-              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-              sudo apt install -y nodejs
-              echo "✅ Node.js installed!"
-          fi
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+              echo "✅ Node.js $(node -v) installed!"
+              ;;
+          esac
 
-      - name: 🎮 Setup Game Server
-        if: contains(github.event.inputs.features, 'game') && contains(github.event.inputs.os_type, 'ubuntu')
+      - name: 🌐 Setup Web Interface
+        if: contains(github.event.inputs.os_type, 'ubuntu') && (contains(github.event.inputs.features, 'web') || contains(github.event.inputs.features, 'full'))
         shell: bash
         run: |
-          echo -e "\n🎮 Setting up game server..."
+          echo -e "\n🌐 Setting up Web Interface..."
           
-          # Minecraft server
-          mkdir -p ~/minecraft
-          cd ~/minecraft
-          wget -O server.jar https://piston-data.mojang.com/v1/objects/.../server.jar
-          echo "eula=true" > eula.txt
-          nohup java -jar server.jar nogui &
-          echo "✅ Minecraft server running on port 25565"
-          
-          # Open firewall
-          sudo ufw allow 25565
-
-      - name: 🌐 Setup Web UI
-        if: contains(github.event.inputs.features, 'web') && contains(github.event.inputs.os_type, 'ubuntu')
-        shell: bash
-        run: |
-          echo -e "\n🌐 Setting up Web UI..."
-          
-          # Create simple status page
           sudo mkdir -p /var/www/vps-status
-          sudo tee /var/www/vps-status/index.html > /dev/null << 'EOF'
+          sudo chown -R $USER:$USER /var/www/vps-status
+          
+          # Create status page
+          cat > /var/www/vps-status/index.html << 'HTML'
           <!DOCTYPE html>
-          <html>
-          <head><title>VPS Status</title></head>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Premium VPS Status</title>
+              <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+                  .container { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 500px; width: 90%; text-align: center; }
+                  h1 { color: #667eea; margin-bottom: 20px; font-size: 2.5em; }
+                  .status { background: #10b981; color: white; padding: 10px; border-radius: 10px; margin: 20px 0; font-weight: bold; }
+                  .info { text-align: left; background: #f3f4f6; padding: 20px; border-radius: 10px; margin: 20px 0; }
+                  .info p { margin: 10px 0; color: #374151; }
+                  .footer { margin-top: 20px; color: #9ca3af; font-size: 0.8em; }
+              </style>
+          </head>
           <body>
-          <h1>🚀 Premium VPS is Running</h1>
-          <p>Status: Online</p>
-          <p>Uptime: <span id="uptime">Loading...</span></p>
-          <script>
-              setInterval(() => {
-                  fetch('/api/status')
-                      .then(r => r.json())
-                      .then(d => document.getElementById('uptime').innerText = d.uptime);
-              }, 5000);
-          </script>
+              <div class="container">
+                  <h1>🚀 Premium VPS</h1>
+                  <div class="status">✅ SYSTEM ONLINE</div>
+                  <div class="info">
+                      <p><strong>🖥️ Status:</strong> Running</p>
+                      <p><strong>⏱️ Uptime:</strong> <span id="uptime">Loading...</span></p>
+                      <p><strong>⚙️ Server:</strong> GitHub Actions</p>
+                  </div>
+                  <div class="footer">Powered by Premium VPS Generator</div>
+              </div>
+              <script>
+                  let startTime = new Date();
+                  setInterval(() => {
+                      let now = new Date();
+                      let diff = Math.floor((now - startTime) / 1000);
+                      let hours = Math.floor(diff / 3600);
+                      let minutes = Math.floor((diff % 3600) / 60);
+                      let seconds = diff % 60;
+                      document.getElementById('uptime').innerText = `${hours}h ${minutes}m ${seconds}s`;
+                  }, 1000);
+              </script>
           </body>
           </html>
-          EOF
+          HTML
           
-          # Simple API endpoint
-          sudo tee /var/www/vps-status/api/status.php > /dev/null << 'EOF'
-          <?php
-          header('Content-Type: application/json');
-          echo json_encode(['uptime' => shell_exec('uptime -p')]);
-          ?>
-          EOF
+          # Setup simple HTTP server
+          cd /var/www/vps-status
+          nohup python3 -m http.server 80 > /dev/null 2>&1 &
           
-          echo "✅ Web UI available at http://${{ env.TAILSCALE_IP }}"
+          echo "✅ Web UI available at http://${{ env.TAILSCALE_IP }}" -ForegroundColor Green
 
-      - name: 📁 Setup File Manager
-        if: contains(github.event.inputs.features, 'full') && contains(github.event.inputs.os_type, 'ubuntu')
+      - name: 🎮 Setup Game Server
+        if: contains(github.event.inputs.os_type, 'ubuntu') && (contains(github.event.inputs.features, 'game') || contains(github.event.inputs.features, 'full'))
         shell: bash
         run: |
-          echo -e "\n📁 Setting up Filebrowser..."
+          echo -e "\n🎮 Setting up Game Server..."
+          
+          # Install Java
+          sudo apt-get install -y openjdk-17-jre-headless
+          
+          # Setup Minecraft server
+          mkdir -p /home/${{ env.VPS_USER }}/minecraft
+          cd /home/${{ env.VPS_USER }}/minecraft
+          
+          # Download latest Minecraft server
+          wget -q https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar -O server.jar
+          
+          # Accept EULA
+          echo "eula=true" > eula.txt
+          
+          # Create startup script
+          cat > start.sh << 'START'
+          #!/bin/bash
+          cd /home/PREMIUM-VPS/minecraft
+          java -Xmx1024M -Xms1024M -jar server.jar nogui
+          START
+          
+          chmod +x start.sh
+          chown -R ${{ env.VPS_USER }}:${{ env.VPS_USER }} /home/${{ env.VPS_USER }}/minecraft
+          
+          # Start server in background
+          sudo -u ${{ env.VPS_USER }} nohup /home/${{ env.VPS_USER }}/minecraft/start.sh > /tmp/minecraft.log 2>&1 &
+          
+          echo "✅ Minecraft server running on port 25565" -ForegroundColor Green
+          echo "📝 Log: /tmp/minecraft.log" -ForegroundColor Gray
+
+      - name: 📁 Setup File Manager
+        if: contains(github.event.inputs.os_type, 'ubuntu') && contains(github.event.inputs.features, 'full')
+        shell: bash
+        run: |
+          echo -e "\n📁 Setting up File Manager..."
+          
+          # Install FileBrowser
           curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
-          filebrowser -r /home/${{ env.VPS_USER }} -a 0.0.0.0 -p 8080 &
-          sudo ufw allow 8080
-          echo "✅ File manager at http://${{ env.TAILSCALE_IP }}:8080"
-          echo "   Username: admin, Password: admin"
+          
+          # Create config directory
+          mkdir -p /home/${{ env.VPS_USER }}/.filebrowser
+          
+          # Run FileBrowser
+          nohup filebrowser -r /home/${{ env.VPS_USER }} -a 0.0.0.0 -p 8080 > /tmp/filebrowser.log 2>&1 &
+          
+          echo "✅ File Manager at http://${{ env.TAILSCALE_IP }}:8080" -ForegroundColor Green
+          echo "   Username: admin, Password: admin" -ForegroundColor Yellow
 
       - name: 🌐 Install Tailscale
         env:
@@ -261,7 +316,7 @@ jobs:
                   if ($env:OS_TYPE -eq "windows-latest") {
                       $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>&1
                   } else {
-                      $ip = bash -c "tailscale ip -4" 2>&1
+                      $ip = bash -c "tailscale ip -4 2>/dev/null" 2>&1
                   }
                   if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
                       echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
@@ -293,22 +348,14 @@ jobs:
               echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
               echo "SYS_RAM=${ram}GB" >> $env:GITHUB_ENV
               echo "SYS_DISK=${diskGB}GB / ${diskTotal}GB" >> $env:GITHUB_ENV
-              
-              Write-Host "⚙️ CPU: $cpu cores" -ForegroundColor White
-              Write-Host "💾 RAM: ${ram}GB" -ForegroundColor White
-              Write-Host "💿 Disk: ${diskGB}GB / ${diskTotal}GB" -ForegroundColor White
           } else {
-              $cpu = bash -c "nproc"
+              $cpu = bash -c "nproc 2>/dev/null || echo 1"
               $ram = bash -c "free -h | awk '/^Mem:/ {print \$2}'"
               $disk = bash -c "df -h / | awk 'NR==2 {print \$2}'"
               
               echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
               echo "SYS_RAM=$ram" >> $env:GITHUB_ENV
               echo "SYS_DISK=$disk" >> $env:GITHUB_ENV
-              
-              Write-Host "⚙️ CPU: $cpu cores" -ForegroundColor White
-              Write-Host "💾 RAM: $ram" -ForegroundColor White
-              Write-Host "💿 Disk: $disk" -ForegroundColor White
           }
           Write-Host "✅ System info collected!" -ForegroundColor Green
 
@@ -363,7 +410,7 @@ jobs:
               $msg = $msg + "🔌 SSH: ssh $env:VPS_USER@$env:TAILSCALE_IP%0A"
           }
           
-          if ($features -eq "web") {
+          if ($features -eq "web" -or $features -eq "full") {
               $msg = $msg + "🌐 Web UI: http://$env:TAILSCALE_IP%0A"
           }
           
@@ -371,17 +418,21 @@ jobs:
               $msg = $msg + "📁 File Manager: http://$env:TAILSCALE_IP:8080%0A"
           }
           
+          if ($features -eq "game" -or $features -eq "full") {
+              $msg = $msg + "🎮 Minecraft: $env:TAILSCALE_IP:25565%0A"
+          }
+          
           $url = "https://api.telegram.org/bot$bot/sendMessage"
           $body = "chat_id=$chat&text=$msg"
           
           try {
-              Invoke-RestMethod -Uri $url -Method Post -Body $body
-              Write-Host "✅ Telegram notification sent!" -ForegroundColor Green
+              Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
+              Write-Host "✅ Telegram sent!" -ForegroundColor Green
           } catch {
-              Write-Host "⚠️ Failed to send Telegram" -ForegroundColor Yellow
+              Write-Host "⚠️ Telegram failed" -ForegroundColor Yellow
           }
 
-      - name: 🎉 Show Connection Info
+      - name: 🎉 Display Connection Info
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
@@ -402,9 +453,9 @@ jobs:
           echo "TOTAL_MIN=$min" >> $env:GITHUB_ENV
           
           Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║              🎉 PREMIUM VPS READY - CONNECT NOW!            ║" -ForegroundColor Cyan
-          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║              🎉 PREMIUM VPS READY - CONNECT NOW!              ║" -ForegroundColor Cyan
+          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
           Write-Host "║  🌐 IP Address   │ $env:TAILSCALE_IP" -ForegroundColor White
           Write-Host "║  👤 Username     │ $env:VPS_USER" -ForegroundColor White
           Write-Host "║  🔑 Password     │ $pass" -ForegroundColor White
@@ -413,27 +464,32 @@ jobs:
           Write-Host "║  💾 RAM         │ $env:SYS_RAM" -ForegroundColor White
           Write-Host "║  💿 Disk        │ $env:SYS_DISK" -ForegroundColor White
           Write-Host "║  🎁 Features    │ $features" -ForegroundColor Magenta
-          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
           Write-Host "║  ⏱️  Duration    │ $display" -ForegroundColor White
           Write-Host "║  🕐 Start       │ $($now.ToString('HH:mm:ss'))" -ForegroundColor White
           Write-Host "║  🕐 End         │ $($end.ToString('HH:mm:ss'))" -ForegroundColor White
-          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
           
           if ($env:OS_TYPE -eq "windows-latest") {
-              Write-Host "║  🔌 RDP Connect │ mstsc /v:$env:TAILSCALE_IP" -ForegroundColor Yellow
+              Write-Host "║  🔌 RDP         │ mstsc /v:$env:TAILSCALE_IP" -ForegroundColor Yellow
           } else {
-              Write-Host "║  🔌 SSH Connect │ ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
+              Write-Host "║  🔌 SSH         │ ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
           }
           
-          if ($features -eq "web") {
+          if ($features -eq "web" -or $features -eq "full") {
               Write-Host "║  🌐 Web UI      │ http://$env:TAILSCALE_IP" -ForegroundColor Yellow
           }
           
           if ($features -eq "full") {
               Write-Host "║  📁 File Manager│ http://$env:TAILSCALE_IP:8080" -ForegroundColor Yellow
+              Write-Host "║  🔑 File Login  │ admin / admin" -ForegroundColor Gray
           }
           
-          Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          if ($features -eq "game" -or $features -eq "full") {
+              Write-Host "║  🎮 Minecraft   │ $env:TAILSCALE_IP:25565" -ForegroundColor Yellow
+          }
+          
+          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
 
       - name: 📝 Generate Summary
@@ -450,7 +506,7 @@ jobs:
           if ($duration -eq "2h") { $display = "2 hours" }
           if ($duration -eq "3h") { $display = "3 hours" }
           if ($duration -eq "4h") { $display = "4 hours" }
-          if ($duration -eq "max") { $display = "5 hours 40 minutes (Max)" }
+          if ($duration -eq "max") { $display = "5 hours 40 minutes" }
           
           $connectCmd = ""
           if ($env:OS_TYPE -eq "windows-latest") {
@@ -470,58 +526,54 @@ jobs:
           $summary = $summary + "| 👤 **Username** | $env:VPS_USER |`n"
           $summary = $summary + "| 🔑 **Password** | $pass |`n"
           $summary = $summary + "| 🌐 **Tailscale IP** | $env:TAILSCALE_IP |`n"
-          $summary = $summary + "| ⚙️ **CPU Cores** | $env:SYS_CPU |`n"
-          $summary = $summary + "| 💾 **Memory** | $env:SYS_RAM |`n"
+          $summary = $summary + "| ⚙️ **CPU** | $env:SYS_CPU |`n"
+          $summary = $summary + "| 💾 **RAM** | $env:SYS_RAM |`n"
           $summary = $summary + "| 💿 **Disk** | $env:SYS_DISK |`n"
           $summary = $summary + "| 🎁 **Features** | $features |`n"
           $summary = $summary + "| ⏱️ **Duration** | $display |`n"
-          $summary = $summary + "| 🕐 **Start Time** | $startTime |`n"
-          $summary = $summary + "| 🕐 **End Time** | $endTime |`n"
+          $summary = $summary + "| 🕐 **Start** | $startTime |`n"
+          $summary = $summary + "| 🕐 **End** | $endTime |`n"
           $summary = $summary + "`n"
-          $summary = $summary + "### 🔌 Connection Command`n"
-          $summary = $summary + "`n"
-          $summary = $summary + "    $connectCmd`n"
-          $summary = $summary + "`n"
+          $summary = $summary + "### 🔌 Connection`n"
+          $summary = $summary + "```bash`n$connectCmd`n````n"
           
-          if ($features -eq "web") {
+          if ($features -eq "web" -or $features -eq "full") {
               $summary = $summary + "### 🌐 Web Interface`n"
-              $summary = $summary + "`n"
-              $summary = $summary + "    http://$env:TAILSCALE_IP`n"
-              $summary = $summary + "`n"
+              $summary = $summary + "```bash`nhttp://$env:TAILSCALE_IP`n````n"
           }
           
           if ($features -eq "full") {
               $summary = $summary + "### 📁 File Manager`n"
-              $summary = $summary + "`n"
-              $summary = $summary + "    http://$env:TAILSCALE_IP:8080`n"
-              $summary = $summary + "    Username: admin, Password: admin`n"
-              $summary = $summary + "`n"
+              $summary = $summary + "```bash`nhttp://$env:TAILSCALE_IP:8080`n````n"
+              $summary = $summary + "**Login:** admin / admin`n"
           }
           
-          $summary = $summary + "### 📋 Instructions`n"
-          $summary = $summary + "`n"
-          $summary = $summary + "1. Make sure you have **Tailscale** installed on your local machine`n"
-          $summary = $summary + "2. Use the connection command above to connect`n"
-          $summary = $summary + "3. The VPS will automatically shutdown after the duration expires`n"
-          $summary = $summary + "`n"
-          $summary = $summary + "---`n"
-          $summary = $summary + "*Generated by Premium VPS Generator*`n"
+          if ($features -eq "game" -or $features -eq "full") {
+              $summary = $summary + "### 🎮 Minecraft Server`n"
+              $summary = $summary + "```bash`n$env:TAILSCALE_IP:25565`n````n"
+          }
           
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
           Write-Host "✅ Summary generated!" -ForegroundColor Green
 
-      - name: 📊 Monitoring Loop
-        if: success()
+      - name: ⏳ Keep Alive
         shell: pwsh
         run: |
           $min = [int]$env:TOTAL_MIN
           $end = (Get-Date).AddMinutes($min)
           $lastMonitor = (Get-Date).AddMinutes(-30)
+          $bot = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          $chat = "${{ secrets.TELEGRAM_CHAT_ID }}"
           
           Write-Host ""
-          Write-Host "📊 MONITORING ACTIVE" -ForegroundColor Yellow
-          Write-Host "   System stats will be sent every 30 minutes" -ForegroundColor Gray
+          Write-Host "🔄 KEEPING VPS ALIVE" -ForegroundColor Yellow
+          Write-Host "📍 IP: $env:TAILSCALE_IP" -ForegroundColor Cyan
+          Write-Host "⏰ End Time: $($end.ToString('HH:mm:ss'))" -ForegroundColor Green
+          Write-Host "📊 Monitoring every 30 minutes" -ForegroundColor Gray
           Write-Host ""
+          
+          $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
+          $frameIndex = 0
           
           do {
               $now = Get-Date
@@ -529,49 +581,42 @@ jobs:
               
               if ($remain.TotalSeconds -le 0) { break }
               
-              if (($now - $lastMonitor).TotalMinutes -ge 30) {
-                  # Send monitoring data to Telegram
-                  if (-not [string]::IsNullOrEmpty($env:BOT_TOKEN)) {
-                      $cpu = "$env:SYS_CPU"
-                      $ram = "$env:SYS_RAM"
-                      $disk = "$env:SYS_DISK"
-                      $uptime = (Get-Date) - $startTime
-                      $uptimeStr = "{0:D2}h {1:D2}m" -f $uptime.Hours, $uptime.Minutes
+              # Send monitoring report every 30 minutes
+              if (($now - $lastMonitor).TotalMinutes -ge 30 -and $bot -ne "") {
+                  try {
+                      $msg = "📊 *VPS MONITORING*%0A"
+                      $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
+                      $msg = $msg + "🕐 Time: $($now.ToString('HH:mm:ss'))%0A"
+                      $msg = $msg + "⚙️ CPU: $env:SYS_CPU%0A"
+                      $msg = $msg + "💾 RAM: $env:SYS_RAM%0A"
+                      $msg = $msg + "💿 Disk: $env:SYS_DISK%0A"
+                      $msg = $msg + "⏰ Remaining: $([math]::Floor($remain.TotalHours))h $([math]::Floor($remain.TotalMinutes % 60))m%0A"
                       
-                      $monitorMsg = "📊 *VPS MONITORING REPORT*%0A"
-                      $monitorMsg = $monitorMsg + "━━━━━━━━━━━━━━━━━━━━━%0A"
-                      $monitorMsg = $monitorMsg + "🕐 Time: $($now.ToString('HH:mm:ss'))%0A"
-                      $monitorMsg = $monitorMsg + "⏱️ Uptime: $uptimeStr%0A"
-                      $monitorMsg = $monitorMsg + "⚙️ CPU: $cpu%0A"
-                      $monitorMsg = $monitorMsg + "💾 RAM: $ram%0A"
-                      $monitorMsg = $monitorMsg + "💿 Disk: $disk%0A"
-                      $monitorMsg = $monitorMsg + "⏰ Remaining: $([math]::Floor($remain.TotalHours))h $([math]::Floor($remain.TotalMinutes % 60))m%0A"
-                      
-                      $url = "https://api.telegram.org/bot$env:BOT_TOKEN/sendMessage"
-                      $body = "chat_id=$env:CHAT_ID&text=$monitorMsg"
-                      try {
-                          Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
-                          Write-Host "📊 Monitoring report sent!" -ForegroundColor Green
-                      } catch {}
-                  }
+                      $url = "https://api.telegram.org/bot$bot/sendMessage"
+                      $body = "chat_id=$chat&text=$msg"
+                      Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
+                      Write-Host "`n📊 Monitoring report sent!" -ForegroundColor Green
+                  } catch {}
                   $lastMonitor = $now
               }
               
               $hours = [math]::Floor($remain.TotalHours)
               $mins = [math]::Floor($remain.TotalMinutes % 60)
               $secs = [math]::Floor($remain.TotalSeconds % 60)
+              $frame = $frames[$frameIndex % $frames.Length]
               
-              Write-Host "`r⏳ [$($now.ToString('HH:mm:ss'))] Remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
+              Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
               
-              Start-Sleep -Seconds 10
+              $frameIndex++
+              Start-Sleep -Seconds 5
               
           } while ($remain.TotalSeconds -gt 0)
           
           Write-Host ""
           Write-Host ""
-          Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Red
+          Write-Host "══════════════════════════════════════════════════════════════" -ForegroundColor Red
           Write-Host "  ⏰ TIME EXPIRED - VPS IS SHUTTING DOWN NOW" -ForegroundColor Red
-          Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Red
+          Write-Host "══════════════════════════════════════════════════════════════" -ForegroundColor Red
           Write-Host ""
 
       - name: 🧹 Cleanup
@@ -594,14 +639,16 @@ jobs:
               & "$env:ProgramFiles\Tailscale\tailscale.exe" down -ErrorAction SilentlyContinue
               Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
           } else {
-              sudo tailscale down -ErrorAction SilentlyContinue
+              sudo tailscale down -ErrorAction SilentlyContinue 2>/dev/null
               Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
               
-              # Kill game server processes
-              pkill -f "java -jar server.jar" 2>/dev/null || true
-              pkill -f filebrowser 2>/dev/null || true
+              # Kill background processes
+              sudo pkill -f "python3 -m http.server" 2>/dev/null || true
+              sudo pkill -f "java -jar server.jar" 2>/dev/null || true
+              sudo pkill -f "filebrowser" 2>/dev/null || true
+              Write-Host "  ✅ Services stopped" -ForegroundColor Green
           }
           
           Write-Host ""
-          Write-Host "✨ CLEANUP COMPLETE! Thank you for using Premium VPS!" -ForegroundColor Green
+          Write-Host "✨ CLEANUP COMPLETE! Thank you!" -ForegroundColor Green
           Write-Host ""
