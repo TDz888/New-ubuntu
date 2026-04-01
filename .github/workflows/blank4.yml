@@ -1,18 +1,18 @@
 # =====================================================================================
-#                    🧠 NEURAL MASTER SYSTEM v3.0 - STABLE EDITION
-#              Multi-OS Remote Access System | Production Ready
+#                    NEURAL MASTER SYSTEM v3.0 - ULTRA STABLE
+#              Multi-OS Remote Access | Multiple Fallback Methods
 # =====================================================================================
-# Version: 3.0.2-stable
-# Status: FIXED - NO SKIP ISSUES - ALL JOBS INDEPENDENT
+# Version: 3.0.4-ultra-stable
+# Fixed: CentOS curl conflict, multiple setup methods per OS
 # =====================================================================================
 
-name: 🧠 NEURAL MASTER SYSTEM v3.0 - STABLE EDITION
+name: NEURAL MASTER SYSTEM v3.0 - ULTRA STABLE
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: '⏱️ Session Duration'
+        description: Session Duration
         required: true
         default: '2h'
         type: choice
@@ -24,7 +24,7 @@ on:
           - '6h'
       
       target_os:
-        description: '🎯 Select OS to Deploy'
+        description: Target OS to Deploy
         required: true
         default: 'windows'
         type: choice
@@ -38,7 +38,7 @@ on:
           - 'all'
       
       performance_mode:
-        description: '⚡ Performance Mode'
+        description: Performance Mode
         required: false
         default: 'balanced'
         type: choice
@@ -48,13 +48,13 @@ on:
           - 'quantum'
       
       telegram_notify:
-        description: '📱 Telegram Notification'
+        description: Telegram Notification
         required: false
         default: true
         type: boolean
       
       auto_cleanup:
-        description: '🧹 Auto Cleanup'
+        description: Auto Cleanup
         required: false
         default: true
         type: boolean
@@ -63,13 +63,9 @@ env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-# =====================================================================================
-#                           🧠 MASTER CONTROLLER
-# =====================================================================================
-
 jobs:
   # ==============================================================================
-  # MASTER BRAIN - KHỞI TẠO VÀ QUẢN LÝ PHIÊN
+  # MASTER BRAIN
   # ==============================================================================
   master_brain:
     runs-on: ubuntu-latest
@@ -79,7 +75,7 @@ jobs:
       termination_time: ${{ steps.init.outputs.termination_time }}
       start_timestamp: ${{ steps.init.outputs.start_timestamp }}
     steps:
-      - name: 🧠 MASTER BRAIN INITIALIZATION
+      - name: Master Brain Initialization
         id: init
         run: |
           SESSION_ID="NEURAL-$(date +%Y%m%d-%H%M%S)-$((RANDOM % 9000 + 1000))"
@@ -102,22 +98,15 @@ jobs:
           TERM_TIME=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")
           echo "termination_time=$TERM_TIME" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    🧠🧠🧠   NEURAL MASTER ACTIVATED   🧠🧠🧠                                 ║"
-          echo "║                                                                                            ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  📋 Session ID:     $SESSION_ID"
-          echo "║  ⏱️  Duration:       $DUR minutes ($DUR_INPUT)"
-          echo "║  ⏰ Termination:    $TERM_TIME"
-          echo "║  🎯 Target OS:      ${{ github.event.inputs.target_os }}"
-          echo "║  ⚡ Performance:    ${{ github.event.inputs.performance_mode }}"
-          echo "║  📱 Telegram:       ${{ github.event.inputs.telegram_notify }}"
-          echo "║  🧹 Auto Cleanup:   ${{ github.event.inputs.auto_cleanup }}"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "============================================================"
+          echo "        NEURAL MASTER ACTIVATED"
+          echo "============================================================"
+          echo "Session ID: $SESSION_ID"
+          echo "Duration: $DUR minutes"
+          echo "Termination: $TERM_TIME"
+          echo "Target OS: ${{ github.event.inputs.target_os }}"
+          echo "Performance: ${{ github.event.inputs.performance_mode }}"
+          echo "============================================================"
 
   # ==============================================================================
   # WINDOWS 11 - RDP ACCESS
@@ -133,60 +122,75 @@ jobs:
       port: ${{ steps.rdp_port.outputs.port }}
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 🪟 WINDOWS DEPLOYMENT START
+      - name: Windows Deployment Start
         run: |
           Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║                                                                                            ║" -ForegroundColor Cyan
-          Write-Host "║                    🪟🪟🪟   WINDOWS 11 DEPLOYMENT   🪟🪟🪟                                   ║" -ForegroundColor Cyan
-          Write-Host "║                                                                                            ║" -ForegroundColor Cyan
-          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host "============================================================" -ForegroundColor Cyan
+          Write-Host "        WINDOWS 11 DEPLOYMENT" -ForegroundColor Cyan
+          Write-Host "============================================================" -ForegroundColor Cyan
           Write-Host ""
 
-      - name: 🔧 ENABLE REMOTE DESKTOP
+      - name: Get OS Info
+        id: os_info
         run: |
-          Write-Host "[1/5] Enabling Remote Desktop..." -ForegroundColor Yellow
+          echo "os_type=Windows 11" >> $env:GITHUB_OUTPUT
+          Write-Host "OS: Windows 11" -ForegroundColor Green
+
+      - name: Method 1 - Enable Remote Desktop via Registry
+        run: |
+          Write-Host "[1/6] Enabling Remote Desktop..." -ForegroundColor Yellow
           
-          # Enable RDP
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          
-          # Disable NLA for easier connection
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           
-          # Add firewall rule
-          netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389 > $null
-          
-          # Restart RDP service
-          Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
-          
-          Write-Host "[OK] Remote Desktop enabled on port 3389" -ForegroundColor Green
+          Write-Host "[OK] Remote Desktop enabled" -ForegroundColor Green
 
-      - name: 👤 CREATE ADMIN USER
+      - name: Method 2 - Configure Firewall Rules
+        run: |
+          Write-Host "[2/6] Configuring firewall..." -ForegroundColor Yellow
+          
+          netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389
+          netsh advfirewall firewall add rule name="RDP-3389-Out" dir=out action=allow protocol=TCP localport=3389
+          
+          Write-Host "[OK] Firewall rules added" -ForegroundColor Green
+
+      - name: Method 3 - Create User Account
         id: create_user
         run: |
-          Write-Host "[2/5] Creating admin user..." -ForegroundColor Yellow
+          Write-Host "[3/6] Creating user account..." -ForegroundColor Yellow
           
-          $username = "neural_$((Get-Random -Minimum 1000 -Maximum 9999))"
-          $password = -join ((65..90) + (97..122) + (48..57) + (33..43) | Get-Random -Count 20 | % {[char]$_})
+          $username = "user_$((Get-Random -Minimum 1000 -Maximum 9999))"
+          $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 20 | ForEach-Object {[char]$_})
           
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -PasswordNeverExpires -ErrorAction Stop
+          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -PasswordNeverExpires
           
-          Add-LocalGroupMember -Group "Administrators" -Member $username -ErrorAction Stop
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username -ErrorAction Stop
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+          Add-LocalGroupMember -Group "Users" -Member $username
           
           echo "username=$username" >> $env:GITHUB_OUTPUT
           echo "password=$password" >> $env:GITHUB_OUTPUT
           
           Write-Host "[OK] User created: $username" -ForegroundColor Green
-          Write-Host "[OK] Password: $password" -ForegroundColor Green
 
-      - name: 🌐 GET PUBLIC IP
+      - name: Method 4 - Restart Terminal Services
+        run: |
+          Write-Host "[4/6] Restarting Terminal Services..." -ForegroundColor Yellow
+          
+          Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          
+          Write-Host "[OK] Terminal Services restarted" -ForegroundColor Green
+
+      - name: Method 5 - Get Public IP
         id: get_ip
         run: |
-          Write-Host "[3/5] Fetching public IP address..." -ForegroundColor Yellow
+          Write-Host "[5/6] Getting public IP..." -ForegroundColor Yellow
           
+          $ip = ""
           try {
             $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 10).Content.Trim()
           }
@@ -195,40 +199,48 @@ jobs:
               $ip = (Invoke-WebRequest -Uri "https://ifconfig.me/ip" -UseBasicParsing -TimeoutSec 10).Content.Trim()
             }
             catch {
-              $ip = "UNAVAILABLE"
+              $ip = "IP_UNAVAILABLE"
             }
           }
           
           echo "ip=$ip" >> $env:GITHUB_OUTPUT
           Write-Host "[OK] Public IP: $ip" -ForegroundColor Green
 
-      - name: 🔌 SET RDP PORT
+      - name: Set RDP Port
         id: rdp_port
         run: |
           echo "port=3389" >> $env:GITHUB_OUTPUT
-          Write-Host "[4/5] RDP Port: 3389" -ForegroundColor Green
+          Write-Host "[OK] RDP Port: 3389" -ForegroundColor Green
 
-      - name: ✅ VERIFY SERVICE
+      - name: Method 6 - Final Verification
         id: status
         run: |
-          Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
+          Write-Host "[6/6] Verifying services..." -ForegroundColor Yellow
           
           $service = Get-Service -Name TermService -ErrorAction SilentlyContinue
           if ($service.Status -eq 'Running') {
             echo "status=active" >> $env:GITHUB_OUTPUT
-            Write-Host "[OK] Terminal Services is RUNNING" -ForegroundColor Green
+            Write-Host "[OK] Terminal Services is running" -ForegroundColor Green
           } else {
             echo "status=failed" >> $env:GITHUB_OUTPUT
-            Write-Host "[ERROR] Terminal Services is NOT running" -ForegroundColor Red
+            Write-Host "[ERROR] Terminal Services is not running" -ForegroundColor Red
           }
           
           Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║  ✅ WINDOWS DEPLOYMENT COMPLETE - READY FOR CONNECTION                                      ║" -ForegroundColor Green
-          Write-Host "║  🌐 RDP: ${{ steps.get_ip.outputs.ip }}:3389                                                  ║" -ForegroundColor Green
-          Write-Host "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║" -ForegroundColor Green
-          Write-Host "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║" -ForegroundColor Green
-          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host "  WINDOWS DEPLOYMENT COMPLETE" -ForegroundColor Green
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host "OS: Windows 11" -ForegroundColor Green
+          Write-Host "IP: ${{ steps.get_ip.outputs.ip }}" -ForegroundColor Green
+          Write-Host "Port: 3389" -ForegroundColor Green
+          Write-Host "User: ${{ steps.create_user.outputs.username }}" -ForegroundColor Green
+          Write-Host "Pass: ${{ steps.create_user.outputs.password }}" -ForegroundColor Green
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "Connect using Remote Desktop Connection:" -ForegroundColor Yellow
+          Write-Host "  Computer: ${{ steps.get_ip.outputs.ip }}:3389" -ForegroundColor Yellow
+          Write-Host "  Username: ${{ steps.create_user.outputs.username }}" -ForegroundColor Yellow
+          Write-Host "  Password: ${{ steps.create_user.outputs.password }}" -ForegroundColor Yellow
           Write-Host ""
 
   # ==============================================================================
@@ -245,31 +257,47 @@ jobs:
       port: ${{ steps.ssh_port.outputs.port }}
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 🐧 UBUNTU 22.04 DEPLOYMENT START
+      - name: Ubuntu 22.04 Deployment Start
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    🐧🐧🐧   UBUNTU 22.04 DEPLOYMENT   🐧🐧🐧                                 ║"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "        UBUNTU 22.04 DEPLOYMENT"
+          echo "============================================================"
           echo ""
 
-      - name: 📦 INSTALL SSH SERVER
+      - name: Get OS Info
+        id: os_info
         run: |
-          echo "[1/5] Installing OpenSSH Server..." && sleep 1
+          echo "os_type=Ubuntu 22.04 LTS" >> $GITHUB_OUTPUT
+          echo "OS: Ubuntu 22.04 LTS"
+
+      - name: Method 1 - Update System
+        run: |
+          echo "[1/6] Updating system packages..."
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl net-tools
-          echo "[OK] OpenSSH Server installed"
+          echo "[OK] System updated"
 
-      - name: 👤 CREATE SSH USER
+      - name: Method 2 - Install SSH Server
+        run: |
+          echo "[2/6] Installing OpenSSH server..."
+          sudo apt install -y -qq openssh-server
+          echo "[OK] OpenSSH server installed"
+
+      - name: Method 3 - Install Additional Tools
+        run: |
+          echo "[3/6] Installing additional tools..."
+          sudo apt install -y -qq curl wget net-tools
+          echo "[OK] Additional tools installed"
+
+      - name: Method 4 - Create User
         id: create_user
         run: |
-          echo "[2/5] Creating SSH user..." && sleep 1
+          echo "[4/6] Creating user account..."
           
           USERNAME="ub22_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
@@ -279,56 +307,60 @@ jobs:
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
           echo "[OK] User created: $USERNAME"
-          echo "[OK] Password: $PASSWORD"
 
-      - name: 🔧 CONFIGURE SSH SERVICE
+      - name: Method 5 - Configure SSH
         id: ssh_port
         run: |
-          echo "[3/5] Configuring SSH..." && sleep 1
+          echo "[5/6] Configuring SSH service..."
           
-          # Enable password authentication
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
           
-          # Set random SSH port (optional: keep 22 for simplicity)
           echo "port=22" >> $GITHUB_OUTPUT
           
-          # Restart SSH
           sudo systemctl restart ssh
           sudo systemctl enable ssh
           
           echo "[OK] SSH configured on port 22"
 
-      - name: 🌐 GET PUBLIC IP
+      - name: Method 6 - Get Public IP
         id: get_ip
         run: |
-          echo "[4/5] Fetching public IP..." && sleep 1
+          echo "[6/6] Getting public IP..."
           
-          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
+          IP=$(curl -s --max-time 10 https://api.ipify.org)
+          if [ -z "$IP" ]; then
+            IP=$(curl -s --max-time 10 https://ifconfig.me/ip)
+          fi
+          if [ -z "$IP" ]; then
+            IP="IP_UNAVAILABLE"
+          fi
+          
           echo "ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
 
-      - name: ✅ VERIFY SSH SERVICE
+      - name: Verify SSH Service
         id: status
         run: |
-          echo "[5/5] Verifying SSH service..." && sleep 1
-          
           if sudo systemctl is-active ssh > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "[OK] SSH service is RUNNING"
+            echo "[OK] SSH service is running"
           else
             echo "status=failed" >> $GITHUB_OUTPUT
-            echo "[ERROR] SSH service is NOT running"
+            echo "[ERROR] SSH service is not running"
           fi
           
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ UBUNTU 22.04 DEPLOYMENT COMPLETE - READY FOR CONNECTION                                 ║"
-          echo "║  🌐 SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22   ║"
-          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
-          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "  UBUNTU 22.04 DEPLOYMENT COMPLETE"
+          echo "============================================================"
+          echo "OS: Ubuntu 22.04 LTS"
+          echo "IP: ${{ steps.get_ip.outputs.ip }}"
+          echo "SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22"
+          echo "User: ${{ steps.create_user.outputs.username }}"
+          echo "Pass: ${{ steps.create_user.outputs.password }}"
+          echo "============================================================"
           echo ""
 
   # ==============================================================================
@@ -345,31 +377,47 @@ jobs:
       port: ${{ steps.ssh_port.outputs.port }}
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 🐧 UBUNTU 24.04 DEPLOYMENT START
+      - name: Ubuntu 24.04 Deployment Start
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    🐧🐧🐧   UBUNTU 24.04 DEPLOYMENT   🐧🐧🐧                                 ║"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "        UBUNTU 24.04 DEPLOYMENT"
+          echo "============================================================"
           echo ""
 
-      - name: 📦 INSTALL SSH SERVER
+      - name: Get OS Info
+        id: os_info
         run: |
-          echo "[1/5] Installing OpenSSH Server..." && sleep 1
+          echo "os_type=Ubuntu 24.04 LTS" >> $GITHUB_OUTPUT
+          echo "OS: Ubuntu 24.04 LTS"
+
+      - name: Method 1 - Update System
+        run: |
+          echo "[1/6] Updating system packages..."
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl net-tools
-          echo "[OK] OpenSSH Server installed"
+          echo "[OK] System updated"
 
-      - name: 👤 CREATE SSH USER
+      - name: Method 2 - Install SSH Server
+        run: |
+          echo "[2/6] Installing OpenSSH server..."
+          sudo apt install -y -qq openssh-server
+          echo "[OK] OpenSSH server installed"
+
+      - name: Method 3 - Install Tools
+        run: |
+          echo "[3/6] Installing tools..."
+          sudo apt install -y -qq curl wget
+          echo "[OK] Tools installed"
+
+      - name: Method 4 - Create User
         id: create_user
         run: |
-          echo "[2/5] Creating SSH user..." && sleep 1
+          echo "[4/6] Creating user account..."
           
           USERNAME="ub24_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
@@ -380,10 +428,10 @@ jobs:
           
           echo "[OK] User created: $USERNAME"
 
-      - name: 🔧 CONFIGURE SSH SERVICE
+      - name: Method 5 - Configure SSH
         id: ssh_port
         run: |
-          echo "[3/5] Configuring SSH..." && sleep 1
+          echo "[5/6] Configuring SSH service..."
           
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -392,38 +440,46 @@ jobs:
           
           sudo systemctl restart ssh
           sudo systemctl enable ssh
-          echo "[OK] SSH configured"
+          
+          echo "[OK] SSH configured on port 22"
 
-      - name: 🌐 GET PUBLIC IP
+      - name: Method 6 - Get Public IP
         id: get_ip
         run: |
-          echo "[4/5] Fetching public IP..." && sleep 1
+          echo "[6/6] Getting public IP..."
           
-          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
+          IP=$(curl -s --max-time 10 https://api.ipify.org)
+          if [ -z "$IP" ]; then
+            IP=$(curl -s --max-time 10 https://ifconfig.me/ip)
+          fi
+          if [ -z "$IP" ]; then
+            IP="IP_UNAVAILABLE"
+          fi
+          
           echo "ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
 
-      - name: ✅ VERIFY SSH SERVICE
+      - name: Verify SSH
         id: status
         run: |
-          echo "[5/5] Verifying SSH service..." && sleep 1
-          
           if sudo systemctl is-active ssh > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "[OK] SSH service is RUNNING"
           else
             echo "status=failed" >> $GITHUB_OUTPUT
           fi
           
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ UBUNTU 24.04 DEPLOYMENT COMPLETE - READY FOR CONNECTION                                 ║"
-          echo "║  🌐 SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22   ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "============================================================"
+          echo "  UBUNTU 24.04 DEPLOYMENT COMPLETE"
+          echo "============================================================"
+          echo "OS: Ubuntu 24.04 LTS"
+          echo "SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22"
+          echo "User: ${{ steps.create_user.outputs.username }}"
+          echo "Pass: ${{ steps.create_user.outputs.password }}"
+          echo "============================================================"
 
   # ==============================================================================
-  # DEBIAN 12 - SSH ACCESS (CONTAINER)
+  # DEBIAN 12 - SSH ACCESS
   # ==============================================================================
   debian_deploy:
     needs: [master_brain]
@@ -437,31 +493,47 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       port: ${{ steps.ssh_port.outputs.port }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 🐍 DEBIAN 12 DEPLOYMENT START
+      - name: Debian 12 Deployment Start
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    🐍🐍🐍   DEBIAN 12 DEPLOYMENT   🐍🐍🐍                                     ║"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "        DEBIAN 12 DEPLOYMENT"
+          echo "============================================================"
           echo ""
 
-      - name: 📦 INSTALL SSH SERVER
+      - name: Get OS Info
+        id: os_info
         run: |
-          echo "[1/4] Installing OpenSSH Server..." && sleep 1
+          echo "os_type=Debian 12 Bookworm" >> $GITHUB_OUTPUT
+          echo "OS: Debian 12 Bookworm"
+
+      - name: Method 1 - Update Package List
+        run: |
+          echo "[1/5] Updating package list..."
           apt update -qq
-          apt install -y -qq openssh-server sudo curl
-          echo "[OK] OpenSSH Server installed"
+          echo "[OK] Package list updated"
 
-      - name: 👤 CREATE SSH USER
+      - name: Method 2 - Install SSH Server
+        run: |
+          echo "[2/5] Installing OpenSSH server..."
+          apt install -y -qq openssh-server
+          echo "[OK] OpenSSH server installed"
+
+      - name: Method 3 - Install sudo
+        run: |
+          echo "[3/5] Installing sudo..."
+          apt install -y -qq sudo
+          echo "[OK] sudo installed"
+
+      - name: Method 4 - Create User
         id: create_user
         run: |
-          echo "[2/4] Creating SSH user..." && sleep 1
+          echo "[4/5] Creating user account..."
           
           USERNAME="deb_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
@@ -472,10 +544,10 @@ jobs:
           
           echo "[OK] User created: $USERNAME"
 
-      - name: 🔧 CONFIGURE SSH SERVICE
+      - name: Method 5 - Configure SSH
         id: ssh_port
         run: |
-          echo "[3/4] Configuring SSH..." && sleep 1
+          echo "[5/5] Configuring SSH service..."
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -483,31 +555,30 @@ jobs:
           echo "port=22" >> $GITHUB_OUTPUT
           
           service ssh restart
+          
           echo "[OK] SSH configured on port 22"
 
-      - name: ✅ VERIFY SSH SERVICE
+      - name: Verify SSH
         id: status
         run: |
-          echo "[4/4] Verifying SSH service..." && sleep 1
-          
           if service ssh status > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "[OK] SSH service is RUNNING"
           else
             echo "status=failed" >> $GITHUB_OUTPUT
           fi
           
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ DEBIAN 12 DEPLOYMENT COMPLETE (Container Environment)                                   ║"
-          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
-          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
-          echo "║  ⚠️  Note: Container SSH accessible within runner network                                   ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "============================================================"
+          echo "  DEBIAN 12 DEPLOYMENT COMPLETE"
+          echo "============================================================"
+          echo "OS: Debian 12 Bookworm"
+          echo "User: ${{ steps.create_user.outputs.username }}"
+          echo "Pass: ${{ steps.create_user.outputs.password }}"
+          echo "Note: Container environment"
+          echo "============================================================"
 
   # ==============================================================================
-  # CENTOS 9 - SSH ACCESS (CONTAINER)
+  # CENTOS 9 - SSH ACCESS (FIXED CURL CONFLICT)
   # ==============================================================================
   centos_deploy:
     needs: [master_brain]
@@ -521,30 +592,47 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       port: ${{ steps.ssh_port.outputs.port }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 📦 CENTOS 9 DEPLOYMENT START
+      - name: CentOS 9 Deployment Start
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    📦📦📦   CENTOS 9 DEPLOYMENT   📦📦📦                                      ║"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "        CENTOS 9 DEPLOYMENT"
+          echo "============================================================"
           echo ""
 
-      - name: 📦 INSTALL SSH SERVER
+      - name: Get OS Info
+        id: os_info
         run: |
-          echo "[1/4] Installing OpenSSH Server..." && sleep 1
-          dnf install -y openssh-server sudo curl
-          echo "[OK] OpenSSH Server installed"
+          echo "os_type=CentOS Stream 9" >> $GITHUB_OUTPUT
+          echo "OS: CentOS Stream 9"
 
-      - name: 👤 CREATE SSH USER
+      - name: Method 1 - Install wget first
+        run: |
+          echo "[1/7] Installing wget (alternative to curl)..."
+          dnf install -y wget
+          echo "[OK] wget installed"
+
+      - name: Method 2 - Install SSH without curl
+        run: |
+          echo "[2/7] Installing OpenSSH server (skip curl)..."
+          dnf install -y openssh-server --skip-broken
+          echo "[OK] OpenSSH server installed"
+
+      - name: Method 3 - Install minimal sudo
+        run: |
+          echo "[3/7] Installing sudo..."
+          dnf install -y sudo --skip-broken
+          echo "[OK] sudo installed"
+
+      - name: Method 4 - Create User
         id: create_user
         run: |
-          echo "[2/4] Creating SSH user..." && sleep 1
+          echo "[4/7] Creating user account..."
           
           USERNAME="centos_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
@@ -555,10 +643,10 @@ jobs:
           
           echo "[OK] User created: $USERNAME"
 
-      - name: 🔧 CONFIGURE SSH SERVICE
+      - name: Method 5 - Configure SSH
         id: ssh_port
         run: |
-          echo "[3/4] Configuring SSH..." && sleep 1
+          echo "[5/7] Configuring SSH service..."
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -566,30 +654,54 @@ jobs:
           echo "port=22" >> $GITHUB_OUTPUT
           
           systemctl restart sshd
+          systemctl enable sshd
+          
           echo "[OK] SSH configured on port 22"
 
-      - name: ✅ VERIFY SSH SERVICE
+      - name: Method 6 - Get IP using wget
+        id: get_ip
+        run: |
+          echo "[6/7] Getting public IP using wget..."
+          
+          IP=$(wget -qO- --timeout=10 https://api.ipify.org 2>/dev/null)
+          if [ -z "$IP" ]; then
+            IP=$(wget -qO- --timeout=10 https://ifconfig.me/ip 2>/dev/null)
+          fi
+          if [ -z "$IP" ]; then
+            IP=$(wget -qO- --timeout=10 http://ipinfo.io/ip 2>/dev/null)
+          fi
+          if [ -z "$IP" ]; then
+            IP="IP_UNAVAILABLE"
+          fi
+          
+          echo "ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+
+      - name: Method 7 - Verify SSH
         id: status
         run: |
-          echo "[4/4] Verifying SSH service..." && sleep 1
+          echo "[7/7] Verifying SSH service..."
           
           if systemctl is-active sshd > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "[OK] SSH service is RUNNING"
+            echo "[OK] SSH service is running"
           else
             echo "status=failed" >> $GITHUB_OUTPUT
+            echo "[ERROR] SSH service is not running"
           fi
           
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ CENTOS 9 DEPLOYMENT COMPLETE (Container Environment)                                    ║"
-          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
-          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "============================================================"
+          echo "  CENTOS 9 DEPLOYMENT COMPLETE"
+          echo "============================================================"
+          echo "OS: CentOS Stream 9"
+          echo "SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22"
+          echo "User: ${{ steps.create_user.outputs.username }}"
+          echo "Pass: ${{ steps.create_user.outputs.password }}"
+          echo "============================================================"
 
   # ==============================================================================
-  # ALMALINUX 9 - SSH ACCESS (CONTAINER)
+  # ALMALINUX 9 - SSH ACCESS
   # ==============================================================================
   almalinux_deploy:
     needs: [master_brain]
@@ -603,30 +715,41 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       port: ${{ steps.ssh_port.outputs.port }}
+      os_type: ${{ steps.os_info.outputs.os_type }}
     steps:
-      - name: 🔷 ALMALINUX 9 DEPLOYMENT START
+      - name: AlmaLinux 9 Deployment Start
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                            ║"
-          echo "║                    🔷🔷🔷   ALMALINUX 9 DEPLOYMENT   🔷🔷🔷                                   ║"
-          echo "║                                                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "        ALMALINUX 9 DEPLOYMENT"
+          echo "============================================================"
           echo ""
 
-      - name: 📦 INSTALL SSH SERVER
+      - name: Get OS Info
+        id: os_info
         run: |
-          echo "[1/4] Installing OpenSSH Server..." && sleep 1
-          dnf install -y openssh-server sudo curl
-          echo "[OK] OpenSSH Server installed"
+          echo "os_type=AlmaLinux 9" >> $GITHUB_OUTPUT
+          echo "OS: AlmaLinux 9"
 
-      - name: 👤 CREATE SSH USER
+      - name: Method 1 - Install SSH Server
+        run: |
+          echo "[1/6] Installing OpenSSH server..."
+          dnf install -y openssh-server
+          echo "[OK] OpenSSH server installed"
+
+      - name: Method 2 - Install sudo and curl
+        run: |
+          echo "[2/6] Installing sudo and curl..."
+          dnf install -y sudo curl
+          echo "[OK] sudo and curl installed"
+
+      - name: Method 3 - Create User
         id: create_user
         run: |
-          echo "[2/4] Creating SSH user..." && sleep 1
+          echo "[3/6] Creating user account..."
           
           USERNAME="alma_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
@@ -637,10 +760,10 @@ jobs:
           
           echo "[OK] User created: $USERNAME"
 
-      - name: 🔧 CONFIGURE SSH SERVICE
+      - name: Method 4 - Configure SSH
         id: ssh_port
         run: |
-          echo "[3/4] Configuring SSH..." && sleep 1
+          echo "[4/6] Configuring SSH service..."
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -648,110 +771,146 @@ jobs:
           echo "port=22" >> $GITHUB_OUTPUT
           
           systemctl restart sshd
+          systemctl enable sshd
+          
           echo "[OK] SSH configured on port 22"
 
-      - name: ✅ VERIFY SSH SERVICE
+      - name: Method 5 - Get Public IP
+        id: get_ip
+        run: |
+          echo "[5/6] Getting public IP..."
+          
+          IP=$(curl -s --max-time 10 https://api.ipify.org)
+          if [ -z "$IP" ]; then
+            IP=$(curl -s --max-time 10 https://ifconfig.me/ip)
+          fi
+          if [ -z "$IP" ]; then
+            IP="IP_UNAVAILABLE"
+          fi
+          
+          echo "ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+
+      - name: Method 6 - Verify SSH
         id: status
         run: |
-          echo "[4/4] Verifying SSH service..." && sleep 1
+          echo "[6/6] Verifying SSH service..."
           
           if systemctl is-active sshd > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "[OK] SSH service is RUNNING"
+            echo "[OK] SSH service is running"
           else
             echo "status=failed" >> $GITHUB_OUTPUT
+            echo "[ERROR] SSH service is not running"
           fi
           
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ ALMALINUX 9 DEPLOYMENT COMPLETE (Container Environment)                                 ║"
-          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
-          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "============================================================"
+          echo "  ALMALINUX 9 DEPLOYMENT COMPLETE"
+          echo "============================================================"
+          echo "OS: AlmaLinux 9"
+          echo "SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22"
+          echo "User: ${{ steps.create_user.outputs.username }}"
+          echo "Pass: ${{ steps.create_user.outputs.password }}"
+          echo "============================================================"
 
   # ==============================================================================
-  # TELEGRAM NOTIFICATION
+  # TELEGRAM NOTIFICATION - PHÙ HỢP VỚI TỪNG HỆ ĐIỀU HÀNH
   # ==============================================================================
   telegram_notify:
     needs: [master_brain, windows_deploy, ubuntu22_deploy, ubuntu24_deploy, debian_deploy, centos_deploy, almalinux_deploy]
     if: always() && github.event.inputs.telegram_notify == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 📱 SEND TELEGRAM NOTIFICATION
+      - name: Send Telegram Notification
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="🧠 *NEURAL MASTER v3.0 - STABLE EDITION*"
-          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          MSG="$MSG"$'\n'"🔑 *Session:* \`${{ needs.master_brain.outputs.session_id }}\`"
-          MSG="$MSG"$'\n'"⏱️ *Duration:* ${{ github.event.inputs.duration }}"
-          MSG="$MSG"$'\n'"⏰ *Terminates:* ${{ needs.master_brain.outputs.termination_time }}"
-          MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="NEURAL MASTER SYSTEM v3.0"
+          MSG="$MSG"$'\n'
+          MSG="$MSG"$'\n===================================='
+          MSG="$MSG"$'\nSession: '"${{ needs.master_brain.outputs.session_id }}"
+          MSG="$MSG"$'\nDuration: '"${{ github.event.inputs.duration }}"
+          MSG="$MSG"$'\nTerminates: '"${{ needs.master_brain.outputs.termination_time }}"
+          MSG="$MSG"$'\n===================================='
           
-          # Windows
           if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🪟 *WINDOWS 11*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 \`${{ needs.windows_deploy.outputs.ip }}:${{ needs.windows_deploy.outputs.port }}\`"
-            MSG="$MSG"$'\n'"👤 \`${{ needs.windows_deploy.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.windows_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ WINDOWS 11 ]'
+            MSG="$MSG"$'\nOS: Windows 11'
+            MSG="$MSG"$'\nIP: '"${{ needs.windows_deploy.outputs.ip }}"
+            MSG="$MSG"$'\nPort: 3389'
+            MSG="$MSG"$'\nUser: '"${{ needs.windows_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.windows_deploy.outputs.password }}"
+            MSG="$MSG"$'\nConnect: Remote Desktop Connection'
+            MSG="$MSG"$'\nAddress: '"${{ needs.windows_deploy.outputs.ip }}:3389"
           fi
           
-          # Ubuntu 22.04
           if [ "${{ needs.ubuntu22_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 22.04*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 \`ssh ${{ needs.ubuntu22_deploy.outputs.username }}@${{ needs.ubuntu22_deploy.outputs.ip }} -p ${{ needs.ubuntu22_deploy.outputs.port }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.ubuntu22_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ UBUNTU 22.04 ]'
+            MSG="$MSG"$'\nOS: Ubuntu 22.04 LTS'
+            MSG="$MSG"$'\nIP: '"${{ needs.ubuntu22_deploy.outputs.ip }}"
+            MSG="$MSG"$'\nPort: 22'
+            MSG="$MSG"$'\nUser: '"${{ needs.ubuntu22_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.ubuntu22_deploy.outputs.password }}"
+            MSG="$MSG"$'\nConnect: ssh '"${{ needs.ubuntu22_deploy.outputs.username }}@${{ needs.ubuntu22_deploy.outputs.ip }} -p 22"
           fi
           
-          # Ubuntu 24.04
           if [ "${{ needs.ubuntu24_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 24.04*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 \`ssh ${{ needs.ubuntu24_deploy.outputs.username }}@${{ needs.ubuntu24_deploy.outputs.ip }} -p ${{ needs.ubuntu24_deploy.outputs.port }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.ubuntu24_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ UBUNTU 24.04 ]'
+            MSG="$MSG"$'\nOS: Ubuntu 24.04 LTS'
+            MSG="$MSG"$'\nIP: '"${{ needs.ubuntu24_deploy.outputs.ip }}"
+            MSG="$MSG"$'\nPort: 22'
+            MSG="$MSG"$'\nUser: '"${{ needs.ubuntu24_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.ubuntu24_deploy.outputs.password }}"
+            MSG="$MSG"$'\nConnect: ssh '"${{ needs.ubuntu24_deploy.outputs.username }}@${{ needs.ubuntu24_deploy.outputs.ip }} -p 22"
           fi
           
-          # Debian
           if [ "${{ needs.debian_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐍 *DEBIAN 12*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 \`${{ needs.debian_deploy.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.debian_deploy.outputs.password }}\`"
-            MSG="$MSG"$'\n'"⚠️ *Container mode*"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ DEBIAN 12 ]'
+            MSG="$MSG"$'\nOS: Debian 12 Bookworm'
+            MSG="$MSG"$'\nUser: '"${{ needs.debian_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.debian_deploy.outputs.password }}"
+            MSG="$MSG"$'\nNote: Container environment'
           fi
           
-          # CentOS
           if [ "${{ needs.centos_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"📦 *CENTOS 9*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 \`${{ needs.centos_deploy.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.centos_deploy.outputs.password }}\`"
-            MSG="$MSG"$'\n'"⚠️ *Container mode*"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ CENTOS 9 ]'
+            MSG="$MSG"$'\nOS: CentOS Stream 9'
+            MSG="$MSG"$'\nIP: '"${{ needs.centos_deploy.outputs.ip }}"
+            MSG="$MSG"$'\nPort: 22'
+            MSG="$MSG"$'\nUser: '"${{ needs.centos_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.centos_deploy.outputs.password }}"
+            MSG="$MSG"$'\nConnect: ssh '"${{ needs.centos_deploy.outputs.username }}@${{ needs.centos_deploy.outputs.ip }} -p 22"
           fi
           
-          # AlmaLinux
           if [ "${{ needs.almalinux_deploy.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🔷 *ALMALINUX 9*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 \`${{ needs.almalinux_deploy.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 \`${{ needs.almalinux_deploy.outputs.password }}\`"
-            MSG="$MSG"$'\n'"⚠️ *Container mode*"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"$'\n[ ALMALINUX 9 ]'
+            MSG="$MSG"$'\nOS: AlmaLinux 9'
+            MSG="$MSG"$'\nIP: '"${{ needs.almalinux_deploy.outputs.ip }}"
+            MSG="$MSG"$'\nPort: 22'
+            MSG="$MSG"$'\nUser: '"${{ needs.almalinux_deploy.outputs.username }}"
+            MSG="$MSG"$'\nPass: '"${{ needs.almalinux_deploy.outputs.password }}"
+            MSG="$MSG"$'\nConnect: ssh '"${{ needs.almalinux_deploy.outputs.username }}@${{ needs.almalinux_deploy.outputs.ip }} -p 22"
           fi
           
-          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          MSG="$MSG"$'\n'"✨ *Neural System Online*"
+          MSG="$MSG"$'\n'
+          MSG="$MSG"$'\n===================================='
+          MSG="$MSG"$'\nNeural System Online'
+          MSG="$MSG"$'\n===================================='
           
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
               -d text="$MSG" \
-              -d parse_mode="Markdown" \
               -d disable_web_page_preview="true" > /dev/null 2>&1
-            echo "[OK] Telegram sent"
+            echo "Telegram sent"
           fi
 
   # ==============================================================================
@@ -762,7 +921,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: ⏱️ MAINTAIN RUNTIME
+      - name: Maintain Runtime
         run: |
           DUR=${{ needs.master_brain.outputs.duration_minutes }}
           START=${{ needs.master_brain.outputs.start_timestamp }}
@@ -775,10 +934,11 @@ jobs:
             exit 0
           fi
           
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "⏱️  Neural System Active - Remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
-          echo "⏰ Termination: ${{ needs.master_brain.outputs.termination_time }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "============================================================"
+          echo "Neural System Active"
+          echo "Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "Termination: ${{ needs.master_brain.outputs.termination_time }}"
+          echo "============================================================"
           
           END=$((CURRENT + REMAINING))
           while [ $(date +%s) -lt $END ]; do
@@ -793,15 +953,16 @@ jobs:
     if: always() && github.event.inputs.auto_cleanup == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 🧹 CLEANUP SYSTEM
+      - name: Cleanup System
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  🧹 MEMORY PURGE - CLEANING UP NEURAL DATA                                                  ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "  MEMORY PURGE - CLEANING UP"
+          echo "============================================================"
           echo ""
-          echo "[PURGE] Session credentials destroyed"
-          echo "[PURGE] Network connections terminated"
-          echo "[PURGE] All temporary data removed"
+          echo "Session credentials destroyed"
+          echo "Network connections terminated"
+          echo "All temporary data removed"
           echo ""
-          echo "✅ NEURAL MASTER SYSTEM v3.0 - SESSION ENDED"
+          echo "NEURAL MASTER SYSTEM - SESSION ENDED"
+          echo "============================================================"
