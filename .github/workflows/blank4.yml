@@ -75,10 +75,7 @@ jobs:
         run: exit 0
         shell: pwsh
 
-      # ============================================
-      # KHỞI TẠO CHUNG
-      # ============================================
-      - name: 🎯 SYSTEM INIT
+      - name: System Init
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
@@ -108,33 +105,23 @@ jobs:
             Write-Host ""
           fi
 
-      # ============================================
-      # CẤU HÌNH RDP (Windows) hoặc SSH (Ubuntu)
-      # ============================================
-      - name: 🔧 CONFIGURE SERVICES
+      - name: Configure Services
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
-            echo "> Installing SSH..."
             sudo apt-get update -qq
             sudo apt-get install -y -qq openssh-server
             sudo systemctl enable ssh
             sudo systemctl start ssh
-            echo "  ✅ SSH ready"
           else
-            Write-Host "> Configuring RDP..."
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
             netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
             Set-Service -Name TermService -StartupType Automatic
             Start-Service -Name TermService
-            Write-Host "  ✅ RDP ready"
           fi
 
-      # ============================================
-      # TẠO USER
-      # ============================================
-      - name: 👤 CREATE USER
+      - name: Create User
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
@@ -153,43 +140,29 @@ jobs:
             Enable-LocalUser -Name $u
             $p | Out-File -FilePath $env:TEMP\pass.txt
           fi
-          echo "  ✅ User created"
 
-      # ============================================
-      # WALLPAPER (chỉ Windows)
-      # ============================================
-      - name: 🖼️ SET WALLPAPER
+      - name: Wallpaper
         if: github.event.inputs.os_type != 'ubuntu-server' && github.event.inputs.wallpaper_url != ''
         shell: pwsh
         run: |
-          Write-Host "> Setting wallpaper..."
           $url = "${{ github.event.inputs.wallpaper_url }}"
           $img = "$env:TEMP\wall.jpg"
           Invoke-WebRequest -Uri $url -OutFile $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $img
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value 2
-          Write-Host "  ✅ Wallpaper applied"
 
-      # ============================================
-      # SCREENSHOT (chỉ Windows)
-      # ============================================
-      - name: 📸 CAPTURE SCREENSHOT
+      - name: Screenshot
         if: github.event.inputs.os_type != 'ubuntu-server'
         shell: pwsh
         run: |
-          Write-Host "> Capturing screenshot..."
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing
           $bmp = New-Object System.Drawing.Bitmap ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width), ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
           $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
           $bmp.Save("$env:TEMP\screen.png")
           $g.Dispose(); $bmp.Dispose()
-          Write-Host "  ✅ Screenshot saved"
 
-      # ============================================
-      # TAILSCALE
-      # ============================================
-      - name: 🌐 INSTALL TAILSCALE
+      - name: Install Tailscale
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -202,9 +175,8 @@ jobs:
             Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
             Remove-Item $msi -Force
           fi
-          echo "  ✅ Tailscale installed"
 
-      - name: 🔗 CONNECT TAILSCALE
+      - name: Connect Tailscale
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         env:
           KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -219,12 +191,8 @@ jobs:
             $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
             echo "IP=$ip" >> $env:GITHUB_ENV
           fi
-          echo "  ✅ Connected - IP: $env:IP"
 
-      # ============================================
-      # BENCHMARK
-      # ============================================
-      - name: 📊 BENCHMARK
+      - name: Benchmark
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
@@ -240,12 +208,8 @@ jobs:
             $d = Get-Date; "X" * 10485760 | Out-File "$env:TEMP\disk.tmp"; $disk = [math]::Round(10 / (Get-Date).Subtract($d).TotalSeconds, 2); Remove-Item "$env:TEMP\disk.tmp" -Force
             $bench = @(); $bench += "CPU: $cpu ops/sec"; $bench += "Memory: $mem ops/sec"; $bench += "Disk: $disk MB/s"; $bench | Out-File "$env:TEMP\bench.txt"
           fi
-          echo "  ✅ Benchmark done"
 
-      # ============================================
-      # MONITOR
-      # ============================================
-      - name: 📈 MONITOR
+      - name: Monitor
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
@@ -269,19 +233,14 @@ jobs:
             $res = @(); $res += "CPU: $cpu%"; $res += "RAM: $ramU/$ramT GB"; $res += "DISK: $diskU/$diskT GB"; $res += "UPTIME: $($up.Days)d $($up.Hours)h"
             $res | Out-File "$env:TEMP\res.txt"
           fi
-          echo "  ✅ Monitor done"
 
-      # ============================================
-      # HIỂN THỊ THÔNG TIN
-      # ============================================
-      - name: 🎉 DISPLAY INFO
+      - name: Display Info
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
             pass=$(cat /tmp/pass.txt)
             ip="$IP"
             user="${{ github.event.inputs.username }}"
-            hours="${{ github.event.inputs.duration }}"
             echo ""
             echo "╔══════════════════════════════════════════════════════════════╗"
             echo "║              🎉 UBUNTU SERVER READY - INSTANCE ${{ matrix.instance }} 🎉            ║"
@@ -326,90 +285,93 @@ jobs:
             $info | Out-File vps-info.txt -Encoding ascii
           fi
 
-      # ============================================
-      # TELEGRAM NOTIFICATION (ĐẸP)
-      # ============================================
-      - name: 📱 TELEGRAM NOTIFICATION
+      - name: Telegram Notification
         if: github.event.inputs.telegram_notify == 'yes'
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
-          if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
-            if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
-              IP="$IP"
-              USER="${{ github.event.inputs.username }}"
-              PASS="${{ github.event.inputs.password }}"
-              REGION="${{ github.event.inputs.region }}"
-              HOURS="${{ github.event.inputs.duration }}"
-              END=$(date -d "+$HOURS hours" '+%H:%M:%S')
-              CPU=$(cat /tmp/bench.txt | head -1 | cut -d: -f2 | xargs)
-              MEM=$(cat /tmp/bench.txt | head -2 | tail -1 | cut -d: -f2 | xargs)
-              MESSAGE="╔══════════════════════════════════════╗\n"
-              MESSAGE="${MESSAGE}║     🚀 UBUNTU SERVER READY 🚀        ║\n"
-              MESSAGE="${MESSAGE}╠══════════════════════════════════════╣\n"
-              MESSAGE="${MESSAGE}║  🌍 Region   : $REGION\n"
-              MESSAGE="${MESSAGE}║  🔐 SSH      : ssh $USER@$IP -p 22\n"
-              MESSAGE="${MESSAGE}║  👤 User     : $USER\n"
-              MESSAGE="${MESSAGE}║  🔑 Password : $PASS\n"
-              MESSAGE="${MESSAGE}║  ⏱️ Expires  : $END\n"
-              MESSAGE="${MESSAGE}╠══════════════════════════════════════╣\n"
-              MESSAGE="${MESSAGE}║  📊 BENCHMARK:\n"
-              MESSAGE="${MESSAGE}║     🔵 CPU  : $CPU ops/sec\n"
-              MESSAGE="${MESSAGE}║     🟢 RAM  : $MEM ops/sec\n"
-              MESSAGE="${MESSAGE}╚══════════════════════════════════════╝"
-              curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" -d chat_id="$CHAT_ID" -d text="$MESSAGE" -d parse_mode="HTML" > /dev/null 2>&1
-              echo "  ✅ Telegram sent"
-            else
-              echo "  ⚠️ Telegram secrets not configured"
-            fi
-          else
-            if ($env:BOT_TOKEN -and $env:CHAT_ID) {
-              try {
-                $ip = "$env:IP"
-                $user = "${{ github.event.inputs.username }}"
-                $pass = "${{ github.event.inputs.password }}"
-                $region = "${{ github.event.inputs.region }}"
-                $hours = "${{ github.event.inputs.duration }}"
-                $end = (Get-Date).AddHours($hours).ToString('HH:mm:ss')
-                $bench = Get-Content "$env:TEMP\bench.txt" -ErrorAction SilentlyContinue
-                $cpuScore = if ($bench) { $bench[0].Split(':')[1].Trim() } else { "N/A" }
-                $memScore = if ($bench) { $bench[1].Split(':')[1].Trim() } else { "N/A" }
-                $os = "${{ github.event.inputs.os_type }}"
-                if ($os -eq "windows11") { $title = "WINDOWS 11 PRO READY 🚀" }
-                else { $title = "WINDOWS 10 PRO READY 🚀" }
-                $message = @"
+          $OS_TYPE = "${{ github.event.inputs.os_type }}"
+          
+          if ($OS_TYPE -eq "ubuntu-server") {
+            $BOT = $env:BOT_TOKEN
+            $CHAT = $env:CHAT_ID
+            if ($BOT -and $CHAT) {
+              $IP = "$env:IP"
+              $USER = "${{ github.event.inputs.username }}"
+              $PASS = "${{ github.event.inputs.password }}"
+              $REGION = "${{ github.event.inputs.region }}"
+              $HOURS = "${{ github.event.inputs.duration }}"
+              $END = (Get-Date).AddHours($HOURS).ToString('HH:mm:ss')
+              $CPU = (Get-Content /tmp/bench.txt | Select-Object -First 1) -replace 'CPU: ', ''
+              $MEM = (Get-Content /tmp/bench.txt | Select-Object -Skip 1 -First 1) -replace 'Memory: ', ''
+              
+              $MESSAGE = @"
 ╔══════════════════════════════════════╗
-║     🚀 $title        ║
+║     🚀 UBUNTU SERVER READY 🚀        ║
 ╠══════════════════════════════════════╣
-║  🌍 Region   : $region
-║  🔐 RDP      : $ip`:3389
-║  👤 User     : $user
-║  🔑 Password : $pass
-║  ⏱️ Expires  : $end
+║  🌍 Region   : $REGION
+║  🔐 SSH      : ssh $USER@$IP -p 22
+║  👤 User     : $USER
+║  🔑 Password : $PASS
+║  ⏱️ Expires  : $END
 ╠══════════════════════════════════════╣
 ║  📊 BENCHMARK:
-║     🔵 CPU  : $cpuScore ops/sec
-║     🟢 RAM  : $memScore ops/sec
+║     🔵 CPU  : $CPU
+║     🟢 RAM  : $MEM
 ╚══════════════════════════════════════╝
 "@
-                $url = "https://api.telegram.org/bot$($env:BOT_TOKEN)/sendMessage"
-                $body = @{ chat_id = "$env:CHAT_ID"; text = $message; parse_mode = "HTML" }
-                Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction Stop | Out-Null
-                Write-Host "  ✅ Telegram sent"
-              } catch {
-                Write-Host "  ⚠️ Failed: $($_.Exception.Message)"
-              }
+              $URL = "https://api.telegram.org/bot$BOT/sendMessage"
+              $BODY = @{chat_id = "$CHAT"; text = "$MESSAGE"; parse_mode = "HTML"}
+              Invoke-RestMethod -Uri $URL -Method Post -Body $BODY | Out-Null
+              Write-Host "  ✅ Telegram sent"
             } else {
               Write-Host "  ⚠️ Telegram secrets not configured"
             }
-          fi
+          }
+          else {
+            $BOT = $env:BOT_TOKEN
+            $CHAT = $env:CHAT_ID
+            if ($BOT -and $CHAT) {
+              $IP = "$env:IP"
+              $USER = "${{ github.event.inputs.username }}"
+              $PASS = "${{ github.event.inputs.password }}"
+              $REGION = "${{ github.event.inputs.region }}"
+              $HOURS = "${{ github.event.inputs.duration }}"
+              $END = (Get-Date).AddHours($HOURS).ToString('HH:mm:ss')
+              $BENCH = Get-Content "$env:TEMP\bench.txt"
+              $CPU = ($BENCH[0] -split ':')[1].Trim()
+              $MEM = ($BENCH[1] -split ':')[1].Trim()
+              $OS = "${{ github.event.inputs.os_type }}"
+              if ($OS -eq "windows11") { $TITLE = "WINDOWS 11 PRO READY 🚀" }
+              else { $TITLE = "WINDOWS 10 PRO READY 🚀" }
+              
+              $MESSAGE = @"
+╔══════════════════════════════════════╗
+║     🚀 $TITLE        ║
+╠══════════════════════════════════════╣
+║  🌍 Region   : $REGION
+║  🔐 RDP      : $IP`:3389
+║  👤 User     : $USER
+║  🔑 Password : $PASS
+║  ⏱️ Expires  : $END
+╠══════════════════════════════════════╣
+║  📊 BENCHMARK:
+║     🔵 CPU  : $CPU
+║     🟢 RAM  : $MEM
+╚══════════════════════════════════════╝
+"@
+              $URL = "https://api.telegram.org/bot$BOT/sendMessage"
+              $BODY = @{chat_id = "$CHAT"; text = "$MESSAGE"; parse_mode = "HTML"}
+              Invoke-RestMethod -Uri $URL -Method Post -Body $Body | Out-Null
+              Write-Host "  ✅ Telegram sent"
+            } else {
+              Write-Host "  ⚠️ Telegram secrets not configured"
+            }
+          }
 
-      # ============================================
-      # UPLOAD
-      # ============================================
-      - name: 📤 UPLOAD
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: vps-${{ matrix.instance }}
@@ -420,10 +382,7 @@ jobs:
             ${{ env.TEMP }}\res.txt
           retention-days: 7
 
-      # ============================================
-      # GIỮ VPS CHẠY
-      # ============================================
-      - name: ⏳ KEEP ALIVE
+      - name: Keep Alive
         shell: ${{ github.event.inputs.os_type == 'ubuntu-server' && 'bash' || 'pwsh' }}
         run: |
           if [ "${{ github.event.inputs.os_type }}" = "ubuntu-server" ]; then
