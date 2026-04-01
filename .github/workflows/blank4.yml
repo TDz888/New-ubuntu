@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       os_type:
-        description: 🖥️ Operating System
+        description: Operating System
         required: true
         type: choice
         default: windows-latest
@@ -12,10 +12,10 @@ on:
           - windows-latest
           - ubuntu-latest
       duration:
-        description: ⏱️ Duration
+        description: Duration
         required: true
         type: choice
-        default: 3h
+        default: 2h
         options:
           - 30m
           - 1h
@@ -30,109 +30,133 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: SYSTEM INIT
+      - name: System Initialization
         shell: pwsh
         run: |
           Write-Host ""
-          Write-Host "========================================" -ForegroundColor Cyan
-          Write-Host "   PREMIUM VPS GENERATOR - STARTING" -ForegroundColor Cyan
-          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║     🚀 PREMIUM VPS GENERATOR - INITIALIZING        ║" -ForegroundColor Cyan
+          Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
-          Write-Host "System ready!" -ForegroundColor Green
+          Write-Host "✅ System ready!" -ForegroundColor Green
 
-      - name: CONFIGURE WINDOWS RDP
+      - name: Configure Windows RDP
         if: contains(github.event.inputs.os_type, 'windows')
         shell: pwsh
         run: |
-          Write-Host "Configuring Remote Desktop..." -ForegroundColor Yellow
+          Write-Host "🔧 Configuring Remote Desktop..." -ForegroundColor Yellow
+          
+          # Enable RDP
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Write-Host "  ✅ RDP enabled" -ForegroundColor Green
+          
+          # Disable NLA
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-VPS" dir=in action=allow protocol=TCP localport=3389
+          Write-Host "  ✅ NLA disabled" -ForegroundColor Green
+          
+          # Open firewall
+          netsh advfirewall firewall add rule name="RDP-VPS" dir=in action=allow protocol=TCP localport=3389 | Out-Null
+          Write-Host "  ✅ Firewall configured" -ForegroundColor Green
+          
+          # Start service
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          Write-Host "RDP configured!" -ForegroundColor Green
+          Write-Host "  ✅ RDP service started" -ForegroundColor Green
+          
+          Write-Host "🎯 RDP configuration complete!" -ForegroundColor Green
 
-      - name: CONFIGURE LINUX SSH
+      - name: Configure Linux SSH
         if: contains(github.event.inputs.os_type, 'ubuntu')
         shell: bash
         run: |
-          echo "Configuring SSH..."
+          echo -e "\n🔧 Configuring SSH..."
           sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart sshd
           sudo ufw allow 22/tcp
-          echo "SSH configured!"
+          echo "✅ SSH configured!"
 
-      - name: CREATE USER ACCOUNT
+      - name: Create User Account
         shell: pwsh
         run: |
-          Write-Host "Creating user account..." -ForegroundColor Yellow
+          Write-Host "👤 Creating user account..." -ForegroundColor Yellow
           
+          # Generate random password
           $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
           $lower = 'abcdefghijkmnpqrstuvwxyz'
           $numbers = '23456789'
           $all = $upper + $lower + $numbers
           
-          $pass = $upper[(Get-Random -Max $upper.Length)]
-          $pass += $lower[(Get-Random -Max $lower.Length)]
-          $pass += $numbers[(Get-Random -Max $numbers.Length)]
+          $password = $upper[(Get-Random -Max $upper.Length)]
+          $password += $lower[(Get-Random -Max $lower.Length)]
+          $password += $numbers[(Get-Random -Max $numbers.Length)]
           
           for ($i = 1; $i -le 5; $i++) {
-              $pass += $all[(Get-Random -Max $all.Length)]
+              $password += $all[(Get-Random -Max $all.Length)]
           }
           
-          $chars = $pass.ToCharArray()
-          $pass = -join ($chars | Sort-Object { Get-Random })
+          $chars = $password.ToCharArray()
+          $password = -join ($chars | Sort-Object { Get-Random })
           
           $username = "PREMIUM-VPS"
-          $securePass = ConvertTo-SecureString $pass -AsPlainText -Force
           
           if ($env:OS_TYPE -eq "windows-latest") {
+              # Windows user creation
+              $securePass = ConvertTo-SecureString $password -AsPlainText -Force
               Remove-LocalUser -Name $username -ErrorAction SilentlyContinue
-              New-LocalUser -Name $username -Password $securePass -AccountNeverExpires
+              New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -FullName "Premium VPS User"
               Add-LocalGroupMember -Group "Administrators" -Member $username
               Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
               Enable-LocalUser -Name $username
+              Write-Host "  ✅ Windows user created" -ForegroundColor Green
           } else {
-              sudo useradd -m -s /bin/bash $username
-              echo "$username:$pass" | sudo chpasswd
+              # Linux user creation - FIXED
+              $tempFile = [System.IO.Path]::GetTempFileName()
+              "$username`:$password" | Out-File -FilePath $tempFile -Encoding ASCII
+              sudo useradd -m -s /bin/bash $username 2>$null
+              sudo chpasswd < $tempFile
               sudo usermod -aG sudo $username
+              Remove-Item $tempFile -Force
+              Write-Host "  ✅ Linux user created" -ForegroundColor Green
           }
           
+          # Save credentials
           echo "VPS_USER=$username" >> $env:GITHUB_ENV
-          echo "VPS_PASS=$pass" >> $env:GITHUB_ENV
-          $pass | Out-File -FilePath $env:TEMP\vps_pass.txt
+          echo "VPS_PASS=$password" >> $env:GITHUB_ENV
+          $password | Out-File -FilePath $env:TEMP\vps_pass.txt
           
-          Write-Host "Username: $username" -ForegroundColor Green
-          Write-Host "Password: $pass" -ForegroundColor Green
+          Write-Host "  📋 Username: $username" -ForegroundColor White
+          Write-Host "  📋 Password: $password" -ForegroundColor White
+          Write-Host "🎯 User account ready!" -ForegroundColor Green
 
-      - name: INSTALL TAILSCALE
+      - name: Install Tailscale
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         shell: pwsh
         run: |
-          Write-Host "Installing Tailscale..." -ForegroundColor Yellow
+          Write-Host "🌐 Installing Tailscale..." -ForegroundColor Yellow
           
           if ($env:OS_TYPE -eq "windows-latest") {
               $msiPath = "$env:TEMP\tailscale.msi"
-              Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
+              Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
               Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
               Remove-Item $msiPath -Force
               Start-Sleep -Seconds 5
-              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="premium-vps-$env:GITHUB_RUN_ID"
+              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="premium-vps-$env:GITHUB_RUN_ID" --accept-routes
+              Write-Host "  ✅ Tailscale installed on Windows" -ForegroundColor Green
           } else {
-              curl -fsSL https://tailscale.com/install.sh | sudo sh
-              sudo tailscale up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="premium-vps-$env:GITHUB_RUN_ID"
+              bash -c "curl -fsSL https://tailscale.com/install.sh | sudo sh"
+              bash -c "sudo tailscale up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=premium-vps-$env:GITHUB_RUN_ID --accept-routes"
+              Write-Host "  ✅ Tailscale installed on Linux" -ForegroundColor Green
           }
-          
-          Write-Host "Tailscale installed!" -ForegroundColor Green
 
-      - name: GET TAILSCALE IP
+      - name: Get Tailscale IP
         shell: pwsh
         run: |
-          Write-Host "Getting Tailscale IP..." -ForegroundColor Yellow
+          Write-Host "📡 Getting Tailscale IP..." -ForegroundColor Yellow
           
           $ip = ""
-          for ($i = 0; $i -lt 15; $i++) {
+          for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Seconds 2
               try {
                   if ($env:OS_TYPE -eq "windows-latest") {
                       $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>&1
@@ -141,40 +165,54 @@ jobs:
                   }
                   if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
                       echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-                      Write-Host "IP: $ip" -ForegroundColor Green
+                      Write-Host "  ✅ IP: $ip" -ForegroundColor Green
                       break
                   }
-              } catch {}
-              Start-Sleep -Seconds 2
+              } catch {
+                  Write-Host "  ⏳ Waiting for IP... ($i/20)" -ForegroundColor Yellow
+              }
           }
           
           if ($ip -eq "") {
               echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV
-              Write-Host "Using localhost" -ForegroundColor Yellow
+              Write-Host "  ⚠️ Using localhost" -ForegroundColor Yellow
           }
 
-      - name: SYSTEM INFO
+      - name: Get System Info
         shell: pwsh
         run: |
-          Write-Host "System Information..." -ForegroundColor Yellow
+          Write-Host "📊 Getting system information..." -ForegroundColor Yellow
           
           if ($env:OS_TYPE -eq "windows-latest") {
               $cpu = (Get-CimInstance Win32_Processor).NumberOfCores
               $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+              $disk = Get-PSDrive C | Select-Object -ExpandProperty Used
+              $diskGB = [math]::Round($disk / 1GB, 1)
+              $diskTotal = [math]::Round((Get-PSDrive C).Size / 1GB, 1)
+              
               echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
               echo "SYS_RAM=${ram}GB" >> $env:GITHUB_ENV
-              Write-Host "CPU: $cpu cores" -ForegroundColor White
-              Write-Host "RAM: ${ram}GB" -ForegroundColor White
+              echo "SYS_DISK=${diskGB}GB / ${diskTotal}GB" >> $env:GITHUB_ENV
+              
+              Write-Host "  ⚙️ CPU: $cpu cores" -ForegroundColor White
+              Write-Host "  💾 RAM: ${ram}GB" -ForegroundColor White
+              Write-Host "  💿 Disk: ${diskGB}GB / ${diskTotal}GB" -ForegroundColor White
           } else {
               $cpu = bash -c "nproc"
               $ram = bash -c "free -h | awk '/^Mem:/ {print \$2}'"
+              $disk = bash -c "df -h / | awk 'NR==2 {print \$2}'"
+              
               echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
               echo "SYS_RAM=$ram" >> $env:GITHUB_ENV
-              Write-Host "CPU: $cpu cores" -ForegroundColor White
-              Write-Host "RAM: $ram" -ForegroundColor White
+              echo "SYS_DISK=$disk" >> $env:GITHUB_ENV
+              
+              Write-Host "  ⚙️ CPU: $cpu cores" -ForegroundColor White
+              Write-Host "  💾 RAM: $ram" -ForegroundColor White
+              Write-Host "  💿 Disk: $disk" -ForegroundColor White
           }
+          Write-Host "🎯 System info collected!" -ForegroundColor Green
 
-      - name: SEND TELEGRAM NOTIFICATION
+      - name: Send Telegram Notification
         if: success()
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -184,8 +222,8 @@ jobs:
           $bot = $env:BOT_TOKEN
           $chat = $env:CHAT_ID
           
-          if ($bot -eq "" -or $chat -eq "") {
-              Write-Host "No Telegram credentials - skipping" -ForegroundColor Yellow
+          if ([string]::IsNullOrEmpty($bot) -or [string]::IsNullOrEmpty($chat)) {
+              Write-Host "⚠️ No Telegram credentials - skipping" -ForegroundColor Yellow
               exit 0
           }
           
@@ -203,83 +241,151 @@ jobs:
           $now = Get-Date
           $end = $now.AddMinutes($min)
           
-          $msg = "PREMIUM VPS READY"
-          $msg = $msg + "%0A━━━━━━━━━━━━━━━━━━━━━"
-          $msg = $msg + "%0AOS: ${{ github.event.inputs.os_type }}"
-          $msg = $msg + "%0AUser: $env:VPS_USER"
-          $msg = $msg + "%0APass: $pass"
-          $msg = $msg + "%0AIP: $env:TAILSCALE_IP"
-          $msg = $msg + "%0ACPU: $env:SYS_CPU"
-          $msg = $msg + "%0ARAM: $env:SYS_RAM"
-          $msg = $msg + "%0ADuration: $duration"
-          $msg = $msg + "%0AStart: $($now.ToString('HH:mm:ss'))"
-          $msg = $msg + "%0AEnd: $($end.ToString('HH:mm:ss'))"
+          $msg = "🚀 PREMIUM VPS READY%0A"
+          $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
+          $msg = $msg + "🖥️ OS: ${{ github.event.inputs.os_type }}%0A"
+          $msg = $msg + "👤 User: $env:VPS_USER%0A"
+          $msg = $msg + "🔑 Pass: $pass%0A"
+          $msg = $msg + "🌐 IP: $env:TAILSCALE_IP%0A"
+          $msg = $msg + "⚙️ CPU: $env:SYS_CPU%0A"
+          $msg = $msg + "💾 RAM: $env:SYS_RAM%0A"
+          $msg = $msg + "💿 Disk: $env:SYS_DISK%0A"
+          $msg = $msg + "⏱️ Duration: $duration%0A"
+          $msg = $msg + "🕐 Start: $($now.ToString('HH:mm:ss'))%0A"
+          $msg = $msg + "🕐 End: $($end.ToString('HH:mm:ss'))%0A"
+          $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
           
           if ($env:OS_TYPE -eq "windows-latest") {
-              $msg = $msg + "%0AConnect: mstsc /v:$env:TAILSCALE_IP"
+              $msg = $msg + "🔌 RDP: mstsc /v:$env:TAILSCALE_IP"
           } else {
-              $msg = $msg + "%0AConnect: ssh $env:VPS_USER@$env:TAILSCALE_IP"
+              $msg = $msg + "🔌 SSH: ssh $env:VPS_USER@$env:TAILSCALE_IP"
           }
           
           $url = "https://api.telegram.org/bot$bot/sendMessage"
-          $body = "chat_id=$chat&text=$msg&parse_mode=Markdown"
+          $body = "chat_id=$chat&text=$msg"
           
-          Invoke-RestMethod -Uri $url -Method Post -Body $body
-          Write-Host "Telegram sent!" -ForegroundColor Green
+          try {
+              Invoke-RestMethod -Uri $url -Method Post -Body $body
+              Write-Host "✅ Telegram notification sent!" -ForegroundColor Green
+          } catch {
+              Write-Host "⚠️ Failed to send Telegram" -ForegroundColor Yellow
+          }
 
-      - name: SHOW CONNECTION INFO
+      - name: Show Connection Info
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
           
           $min = 0
-          if ($duration -eq "30m") { $min = 30 }
-          if ($duration -eq "1h") { $min = 60 }
-          if ($duration -eq "2h") { $min = 120 }
-          if ($duration -eq "3h") { $min = 180 }
-          if ($duration -eq "4h") { $min = 240 }
-          if ($duration -eq "max") { $min = 340 }
+          if ($duration -eq "30m") { $min = 30; $display = "30 minutes" }
+          if ($duration -eq "1h") { $min = 60; $display = "1 hour" }
+          if ($duration -eq "2h") { $min = 120; $display = "2 hours" }
+          if ($duration -eq "3h") { $min = 180; $display = "3 hours" }
+          if ($duration -eq "4h") { $min = 240; $display = "4 hours" }
+          if ($duration -eq "max") { $min = 340; $display = "5 hours 40 minutes" }
           
           $now = Get-Date
           $end = $now.AddMinutes($min)
           echo "TOTAL_MIN=$min" >> $env:GITHUB_ENV
           
           Write-Host ""
-          Write-Host "=================================================" -ForegroundColor Cyan
-          Write-Host "         PREMIUM VPS READY - CONNECT NOW" -ForegroundColor Cyan
-          Write-Host "=================================================" -ForegroundColor Cyan
-          Write-Host "IP Address   : $env:TAILSCALE_IP" -ForegroundColor White
-          Write-Host "Username     : $env:VPS_USER" -ForegroundColor White
-          Write-Host "Password     : $pass" -ForegroundColor White
-          Write-Host "OS           : ${{ github.event.inputs.os_type }}" -ForegroundColor White
-          Write-Host "CPU          : $env:SYS_CPU" -ForegroundColor White
-          Write-Host "RAM          : $env:SYS_RAM" -ForegroundColor White
-          Write-Host "-------------------------------------------------" -ForegroundColor Cyan
-          Write-Host "Duration     : $duration" -ForegroundColor White
-          Write-Host "Start        : $($now.ToString('HH:mm:ss'))" -ForegroundColor White
-          Write-Host "End          : $($end.ToString('HH:mm:ss'))" -ForegroundColor White
-          Write-Host "-------------------------------------------------" -ForegroundColor Cyan
+          Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║              🎉 PREMIUM VPS READY - CONNECT NOW!            ║" -ForegroundColor Cyan
+          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "║  🌐 IP Address   │ $env:TAILSCALE_IP" -ForegroundColor White
+          Write-Host "║  👤 Username     │ $env:VPS_USER" -ForegroundColor White
+          Write-Host "║  🔑 Password     │ $pass" -ForegroundColor White
+          Write-Host "║  🖥️  OS          │ ${{ github.event.inputs.os_type }}" -ForegroundColor White
+          Write-Host "║  ⚙️  CPU         │ $env:SYS_CPU" -ForegroundColor White
+          Write-Host "║  💾 RAM         │ $env:SYS_RAM" -ForegroundColor White
+          Write-Host "║  💿 Disk        │ $env:SYS_DISK" -ForegroundColor White
+          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "║  ⏱️  Duration    │ $display" -ForegroundColor White
+          Write-Host "║  🕐 Start       │ $($now.ToString('HH:mm:ss'))" -ForegroundColor White
+          Write-Host "║  🕐 End         │ $($end.ToString('HH:mm:ss'))" -ForegroundColor White
+          Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
           
           if ($env:OS_TYPE -eq "windows-latest") {
-              Write-Host "RDP Connect  : mstsc /v:$env:TAILSCALE_IP" -ForegroundColor Yellow
+              Write-Host "║  🔌 RDP Connect │ mstsc /v:$env:TAILSCALE_IP" -ForegroundColor Yellow
           } else {
-              Write-Host "SSH Connect  : ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
+              Write-Host "║  🔌 SSH Connect │ ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
           }
           
-          Write-Host "=================================================" -ForegroundColor Cyan
+          Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
 
-      - name: KEEP ALIVE
+      - name: Generate Summary
+        if: success()
+        run: |
+          $pass = Get-Content $env:TEMP\vps_pass.txt
+          $duration = "${{ github.event.inputs.duration }}"
+          
+          $display = ""
+          if ($duration -eq "30m") { $display = "30 minutes" }
+          if ($duration -eq "1h") { $display = "1 hour" }
+          if ($duration -eq "2h") { $display = "2 hours" }
+          if ($duration -eq "3h") { $display = "3 hours" }
+          if ($duration -eq "4h") { $display = "4 hours" }
+          if ($duration -eq "max") { $display = "5 hours 40 minutes (Max)" }
+          
+          $connectCmd = ""
+          if ($env:OS_TYPE -eq "windows-latest") {
+              $connectCmd = "mstsc /v:$env:TAILSCALE_IP"
+          } else {
+              $connectCmd = "ssh $env:VPS_USER@$env:TAILSCALE_IP"
+          }
+          
+          $summary = @"
+## 🚀 Premium VPS Created Successfully
+
+| Parameter | Value |
+|-----------|-------|
+| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |
+| 👤 **Username** | `$env:VPS_USER` |
+| 🔑 **Password** | `$pass` |
+| 🌐 **Tailscale IP** | `$env:TAILSCALE_IP` |
+| ⚙️ **CPU Cores** | $env:SYS_CPU |
+| 💾 **Memory** | $env:SYS_RAM |
+| 💿 **Disk** | $env:SYS_DISK |
+| ⏱️ **Duration** | $display |
+| 🕐 **Start Time** | $(Get-Date -Format 'HH:mm:ss') |
+| 🕐 **End Time** | $((Get-Date).AddMinutes($env:TOTAL_MIN).ToString('HH:mm:ss')) |
+
+### 🔌 Connection Command
+
+`$connectCmd`
+
+### 📋 Instructions
+
+1. Make sure you have **Tailscale** installed on your local machine
+2. Use the connection command above to connect
+3. The VPS will automatically shutdown after the duration expires
+
+---
+*Generated by Premium VPS Generator*
+"@
+          
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          Write-Host "✅ Summary generated!" -ForegroundColor Green
+        shell: pwsh
+
+      - name: Keep Alive
         shell: pwsh
         run: |
           $min = [int]$env:TOTAL_MIN
           $end = (Get-Date).AddMinutes($min)
           
-          Write-Host "Keeping VPS alive..." -ForegroundColor Yellow
-          Write-Host "IP: $env:TAILSCALE_IP" -ForegroundColor Cyan
-          Write-Host "End: $($end.ToString('HH:mm:ss'))" -ForegroundColor Green
           Write-Host ""
+          Write-Host "🔄 KEEPING VPS ALIVE" -ForegroundColor Yellow
+          Write-Host "📍 IP: $env:TAILSCALE_IP" -ForegroundColor Cyan
+          Write-Host "⏰ End Time: $($end.ToString('HH:mm:ss'))" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "Press Ctrl+C to stop manually (not recommended)" -ForegroundColor Gray
+          Write-Host ""
+          
+          $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
+          $frameIndex = 0
           
           do {
               $now = Get-Date
@@ -287,32 +393,53 @@ jobs:
               
               if ($remain.TotalSeconds -le 0) { break }
               
-              $h = [math]::Floor($remain.TotalHours)
-              $m = [math]::Floor($remain.TotalMinutes % 60)
-              $s = [math]::Floor($remain.TotalSeconds % 60)
+              $hours = [math]::Floor($remain.TotalHours)
+              $mins = [math]::Floor($remain.TotalMinutes % 60)
+              $secs = [math]::Floor($remain.TotalSeconds % 60)
+              $frame = $frames[$frameIndex % $frames.Length]
               
-              Write-Host "`r[$($now.ToString('HH:mm:ss'))] Remaining: ${h}h ${m}m ${s}s" -NoNewline -ForegroundColor Yellow
+              Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Time remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
               
+              $frameIndex++
               Start-Sleep -Seconds 1
               
           } while ($remain.TotalSeconds -gt 0)
           
-          Write-Host "`n`nTIME EXPIRED - VPS SHUTTING DOWN!" -ForegroundColor Red
+          Write-Host ""
+          Write-Host ""
+          Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Red
+          Write-Host "  ⏰ TIME EXPIRED - VPS IS SHUTTING DOWN NOW" -ForegroundColor Red
+          Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Red
+          Write-Host ""
 
-      - name: CLEANUP
+      - name: Cleanup
         if: always()
         shell: pwsh
         run: |
-          Write-Host "Cleaning up..." -ForegroundColor Yellow
+          Write-Host ""
+          Write-Host "🧹 CLEANING UP..." -ForegroundColor Yellow
           
+          # Remove password file
           Remove-Item "$env:TEMP\vps_pass.txt" -ErrorAction SilentlyContinue
+          Write-Host "  ✅ Password file removed" -ForegroundColor Green
           
+          # Disable user
           if ($env:OS_TYPE -eq "windows-latest") {
               Disable-LocalUser -Name $env:VPS_USER -ErrorAction SilentlyContinue
+              Write-Host "  ✅ User disabled" -ForegroundColor Green
+              
+              # Remove firewall rule
               netsh advfirewall firewall delete rule name="RDP-VPS" -ErrorAction SilentlyContinue
+              Write-Host "  ✅ Firewall rule removed" -ForegroundColor Green
+              
+              # Disconnect Tailscale
               & "$env:ProgramFiles\Tailscale\tailscale.exe" down -ErrorAction SilentlyContinue
+              Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
           } else {
               sudo tailscale down -ErrorAction SilentlyContinue
+              Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
           }
           
-          Write-Host "Cleanup complete! Thank you!" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "✨ CLEANUP COMPLETE! Thank you for using Premium VPS!" -ForegroundColor Green
+          Write-Host ""
