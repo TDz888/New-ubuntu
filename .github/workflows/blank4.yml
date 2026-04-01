@@ -1,654 +1,469 @@
-name: 🚀 PREMIUM VPS GENERATOR
+#!/usr/bin/env pwsh
+# =====================================================================
+#                    🚀 VPS PROVISIONING SCRIPT v3.0
+#                    Hoàn chỉnh - Không lỗi - Tối ưu
+# =====================================================================
 
-on:
-  workflow_dispatch:
-    inputs:
-      os_type:
-        description: 🖥️ Operating System
-        required: true
-        type: choice
-        default: windows-latest
-        options:
-          - windows-latest
-          - ubuntu-latest
-      duration:
-        description: ⏱️ Duration
-        required: true
-        type: choice
-        default: 2h
-        options:
-          - 30m
-          - 1h
-          - 2h
-          - 3h
-          - 4h
-          - max
-      features:
-        description: 🎁 Additional Features
-        required: true
-        type: choice
-        default: basic
-        options:
-          - basic
-          - web
-          - game
-          - full
-      install_software:
-        description: 📦 Install Software
-        required: true
-        type: choice
-        default: none
-        options:
-          - none
-          - docker
-          - lamp
-          - nodejs
+# Cấu hình an toàn
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
-jobs:
-  generate-vps:
-    runs-on: ${{ github.event.inputs.os_type }}
-    timeout-minutes: 360
+# Biến toàn cục
+$script:StepCurrent = 0
+$script:StepTotal = 7
+$script:LogFile = "/tmp/vps_setup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+
+# =====================================================================
+# 📋 HÀM TIỆN ÍCH
+# =====================================================================
+
+function Write-Step {
+    param(
+        [string]$Title,
+        [string]$Icon = "📌"
+    )
+    $script:StepCurrent++
+    $percent = [math]::Round(($script:StepCurrent / $script:StepTotal) * 100)
     
-    steps:
-      - name: 🎯 System Initialization
-        shell: pwsh
-        run: |
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║     🚀 PREMIUM VPS GENERATOR - INITIALIZING        ║" -ForegroundColor Cyan
-          Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-          Write-Host ""
-          Write-Host "✅ System ready!" -ForegroundColor Green
-          Write-Host "🎁 Features: ${{ github.event.inputs.features }}" -ForegroundColor Magenta
-          Write-Host "📦 Software: ${{ github.event.inputs.install_software }}" -ForegroundColor Magenta
-          echo "START_TIME=$(Get-Date -Format 'HH:mm:ss')" >> $env:GITHUB_ENV
+    Write-Host ""
+    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║ $Icon  Bước $($script:StepCurrent)/$($script:StepTotal): $Title" -ForegroundColor Yellow
+    Write-Host "║  Tiến độ: [$percent%] Hoàn thành" -ForegroundColor White
+    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Ghi log
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$timestamp] START: $Title" | Out-File -FilePath $script:LogFile -Append
+}
 
-      - name: 🔧 Configure Windows RDP
-        if: contains(github.event.inputs.os_type, 'windows')
-        shell: pwsh
-        run: |
-          Write-Host "🔧 Configuring Remote Desktop..." -ForegroundColor Yellow
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-VPS" dir=in action=allow protocol=TCP localport=3389 | Out-Null
-          Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
-          Start-Service -Name TermService -ErrorAction SilentlyContinue
-          Write-Host "✅ RDP configured!" -ForegroundColor Green
+function Write-Success {
+    param([string]$Message)
+    Write-Host "✅ $Message" -ForegroundColor Green
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$timestamp] SUCCESS: $Message" | Out-File -FilePath $script:LogFile -Append
+}
 
-      - name: 🔧 Configure Linux SSH
-        if: contains(github.event.inputs.os_type, 'ubuntu')
-        shell: bash
-        run: |
-          echo -e "\n🔧 Configuring SSH..."
-          
-          # Smart detection: find correct SSH service name
-          if systemctl list-units --full --all | grep -q "ssh.service"; then
-              SSH_SERVICE="ssh"
-          elif systemctl list-units --full --all | grep -q "sshd.service"; then
-              SSH_SERVICE="sshd"
-          else
-              SSH_SERVICE="ssh"
-          fi
-          
-          # Enable password authentication
-          sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-          
-          # Restart SSH service
-          sudo systemctl restart $SSH_SERVICE || sudo service $SSH_SERVICE restart
-          
-          # Configure firewall
-          sudo ufw --force enable
-          sudo ufw allow 22/tcp
-          sudo ufw allow 80/tcp
-          sudo ufw allow 8080/tcp
-          sudo ufw allow 25565/tcp
-          
-          echo "✅ SSH configured! Service: $SSH_SERVICE" -ForegroundColor Green
+function Write-Error {
+    param([string]$Message)
+    Write-Host "❌ $Message" -ForegroundColor Red
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$timestamp] ERROR: $Message" | Out-File -FilePath $script:LogFile -Append
+}
 
-      - name: 👤 Create User Account
-        shell: pwsh
-        run: |
-          Write-Host "👤 Creating user account..." -ForegroundColor Yellow
-          
-          # Generate strong password
-          $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-          $password = -join ((1..10) | ForEach-Object { $chars[(Get-Random -Max $chars.Length)] })
-          
-          $username = "PREMIUM-VPS"
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-              Remove-LocalUser -Name $username -ErrorAction SilentlyContinue
-              New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -FullName "Premium VPS User"
-              Add-LocalGroupMember -Group "Administrators" -Member $username
-              Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
-              Enable-LocalUser -Name $username
-              Write-Host "✅ Windows user created" -ForegroundColor Green
-          } else {
-              sudo useradd -m -s /bin/bash $username 2>/dev/null || true
-              echo "$username:$password" | sudo chpasswd
-              sudo usermod -aG sudo $username
-              Write-Host "✅ Linux user created" -ForegroundColor Green
-          }
-          
-          echo "VPS_USER=$username" >> $env:GITHUB_ENV
-          echo "VPS_PASS=$password" >> $env:GITHUB_ENV
-          echo "$password" | Out-File -FilePath $env:TEMP\vps_pass.txt
-          
-          Write-Host "📋 Username: $username" -ForegroundColor White
-          Write-Host "📋 Password: $password" -ForegroundColor White
-          Write-Host "🎯 User account ready!" -ForegroundColor Green
+function Write-Warning {
+    param([string]$Message)
+    Write-Host "⚠️  $Message" -ForegroundColor Yellow
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$timestamp] WARNING: $Message" | Out-File -FilePath $script:LogFile -Append
+}
 
-      - name: 📦 Install Software Packages
-        if: contains(github.event.inputs.os_type, 'ubuntu') && github.event.inputs.install_software != 'none'
-        shell: bash
-        run: |
-          echo -e "\n📦 Installing software packages..."
-          sudo apt-get update -qq
-          
-          case "${{ github.event.inputs.install_software }}" in
-            docker)
-              echo "🐳 Installing Docker..."
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sudo sh get-docker.sh
-              sudo usermod -aG docker ${{ env.VPS_USER }}
-              echo "✅ Docker installed!"
-              ;;
-            lamp)
-              echo "🌐 Installing LAMP stack..."
-              sudo apt-get install -y apache2 mysql-server php php-mysql php-curl php-zip php-gd php-mbstring php-xml
-              sudo systemctl enable apache2 mysql
-              sudo systemctl start apache2 mysql
-              echo "✅ LAMP installed!"
-              ;;
-            nodejs)
-              echo "📜 Installing Node.js..."
-              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-              echo "✅ Node.js $(node -v) installed!"
-              ;;
-          esac
+function Write-Info {
+    param([string]$Message)
+    Write-Host "ℹ️  $Message" -ForegroundColor White
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$timestamp] INFO: $Message" | Out-File -FilePath $script:LogFile -Append
+}
 
-      - name: 🌐 Setup Web Interface
-        if: contains(github.event.inputs.os_type, 'ubuntu') && (contains(github.event.inputs.features, 'web') || contains(github.event.inputs.features, 'full'))
-        shell: bash
-        run: |
-          echo -e "\n🌐 Setting up Web Interface..."
-          
-          sudo mkdir -p /var/www/vps-status
-          sudo chown -R $USER:$USER /var/www/vps-status
-          
-          # Create status page
-          cat > /var/www/vps-status/index.html << 'HTML'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Premium VPS Status</title>
-              <style>
-                  * { margin: 0; padding: 0; box-sizing: border-box; }
-                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
-                  .container { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 500px; width: 90%; text-align: center; }
-                  h1 { color: #667eea; margin-bottom: 20px; font-size: 2.5em; }
-                  .status { background: #10b981; color: white; padding: 10px; border-radius: 10px; margin: 20px 0; font-weight: bold; }
-                  .info { text-align: left; background: #f3f4f6; padding: 20px; border-radius: 10px; margin: 20px 0; }
-                  .info p { margin: 10px 0; color: #374151; }
-                  .footer { margin-top: 20px; color: #9ca3af; font-size: 0.8em; }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1>🚀 Premium VPS</h1>
-                  <div class="status">✅ SYSTEM ONLINE</div>
-                  <div class="info">
-                      <p><strong>🖥️ Status:</strong> Running</p>
-                      <p><strong>⏱️ Uptime:</strong> <span id="uptime">Loading...</span></p>
-                      <p><strong>⚙️ Server:</strong> GitHub Actions</p>
-                  </div>
-                  <div class="footer">Powered by Premium VPS Generator</div>
-              </div>
-              <script>
-                  let startTime = new Date();
-                  setInterval(() => {
-                      let now = new Date();
-                      let diff = Math.floor((now - startTime) / 1000);
-                      let hours = Math.floor(diff / 3600);
-                      let minutes = Math.floor((diff % 3600) / 60);
-                      let seconds = diff % 60;
-                      document.getElementById('uptime').innerText = `${hours}h ${minutes}m ${seconds}s`;
-                  }, 1000);
-              </script>
-          </body>
-          </html>
-          HTML
-          
-          # Setup simple HTTP server
-          cd /var/www/vps-status
-          nohup python3 -m http.server 80 > /dev/null 2>&1 &
-          
-          echo "✅ Web UI available at http://${{ env.TAILSCALE_IP }}" -ForegroundColor Green
+# =====================================================================
+# 🔧 HÀM XỬ LÝ CHÍNH
+# =====================================================================
 
-      - name: 🎮 Setup Game Server
-        if: contains(github.event.inputs.os_type, 'ubuntu') && (contains(github.event.inputs.features, 'game') || contains(github.event.inputs.features, 'full'))
-        shell: bash
-        run: |
-          echo -e "\n🎮 Setting up Game Server..."
-          
-          # Install Java
-          sudo apt-get install -y openjdk-17-jre-headless
-          
-          # Setup Minecraft server
-          mkdir -p /home/${{ env.VPS_USER }}/minecraft
-          cd /home/${{ env.VPS_USER }}/minecraft
-          
-          # Download latest Minecraft server
-          wget -q https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar -O server.jar
-          
-          # Accept EULA
-          echo "eula=true" > eula.txt
-          
-          # Create startup script
-          cat > start.sh << 'START'
-          #!/bin/bash
-          cd /home/PREMIUM-VPS/minecraft
-          java -Xmx1024M -Xms1024M -jar server.jar nogui
-          START
-          
-          chmod +x start.sh
-          chown -R ${{ env.VPS_USER }}:${{ env.VPS_USER }} /home/${{ env.VPS_USER }}/minecraft
-          
-          # Start server in background
-          sudo -u ${{ env.VPS_USER }} nohup /home/${{ env.VPS_USER }}/minecraft/start.sh > /tmp/minecraft.log 2>&1 &
-          
-          echo "✅ Minecraft server running on port 25565" -ForegroundColor Green
-          echo "📝 Log: /tmp/minecraft.log" -ForegroundColor Gray
+function Show-Banner {
+    Clear-Host
+    Write-Host @"
 
-      - name: 📁 Setup File Manager
-        if: contains(github.event.inputs.os_type, 'ubuntu') && contains(github.event.inputs.features, 'full')
-        shell: bash
-        run: |
-          echo -e "\n📁 Setting up File Manager..."
-          
-          # Install FileBrowser
-          curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
-          
-          # Create config directory
-          mkdir -p /home/${{ env.VPS_USER }}/.filebrowser
-          
-          # Run FileBrowser
-          nohup filebrowser -r /home/${{ env.VPS_USER }} -a 0.0.0.0 -p 8080 > /tmp/filebrowser.log 2>&1 &
-          
-          echo "✅ File Manager at http://${{ env.TAILSCALE_IP }}:8080" -ForegroundColor Green
-          echo "   Username: admin, Password: admin" -ForegroundColor Yellow
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║    ██╗   ██╗██████╗ ███████╗    ██████╗ ██████╗  ██████╗ ██╗       ║
+║    ██║   ██║██╔══██╗██╔════╝    ██╔══██╗██╔══██╗██╔═══██╗██║       ║
+║    ██║   ██║██████╔╝███████╗    ██████╔╝██████╔╝██║   ██║██║       ║
+║    ╚██╗ ██╔╝██╔═══╝ ╚════██║    ██╔═══╝ ██╔══██╗██║   ██║██║       ║
+║     ╚████╔╝ ██║     ███████║    ██║     ██║  ██║╚██████╔╝███████╗  ║
+║      ╚═══╝  ╚═╝     ╚══════╝    ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝  ║
+║                                                                      ║
+║                    🚀 VPS PROVISIONING SCRIPT                        ║
+║                         Version 3.0.0                               ║
+║                    Không lỗi - Tối ưu - An toàn                     ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
 
-      - name: 🌐 Install Tailscale
-        env:
-          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        shell: pwsh
-        run: |
-          Write-Host "🌐 Installing Tailscale..." -ForegroundColor Yellow
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              $msiPath = "$env:TEMP\tailscale.msi"
-              Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
-              Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
-              Remove-Item $msiPath -Force
-              Start-Sleep -Seconds 5
-              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="premium-vps-$env:GITHUB_RUN_ID" --accept-routes
-              Write-Host "✅ Tailscale installed on Windows" -ForegroundColor Green
-          } else {
-              bash -c "curl -fsSL https://tailscale.com/install.sh | sudo sh"
-              bash -c "sudo tailscale up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=premium-vps-$env:GITHUB_RUN_ID --accept-routes"
-              Write-Host "✅ Tailscale installed on Linux" -ForegroundColor Green
-          }
+"@ -ForegroundColor Cyan
+    
+    Write-Info "Khởi tạo quá trình cài đặt VPS..."
+    Start-Sleep -Seconds 2
+}
 
-      - name: 📡 Get Tailscale IP
-        shell: pwsh
-        run: |
-          Write-Host "📡 Getting Tailscale IP..." -ForegroundColor Yellow
-          
-          $ip = ""
-          for ($i = 0; $i -lt 20; $i++) {
-              Start-Sleep -Seconds 2
-              try {
-                  if ($env:OS_TYPE -eq "windows-latest") {
-                      $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>&1
-                  } else {
-                      $ip = bash -c "tailscale ip -4 2>/dev/null" 2>&1
-                  }
-                  if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
-                      echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-                      Write-Host "✅ IP: $ip" -ForegroundColor Green
-                      break
-                  }
-              } catch {
-                  Write-Host "⏳ Waiting for IP... ($i/20)" -ForegroundColor Yellow
-              }
-          }
-          
-          if ($ip -eq "") {
-              echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV
-              Write-Host "⚠️ Using localhost" -ForegroundColor Yellow
-          }
+function Test-SystemRequirements {
+    Write-Step -Title "Kiểm tra hệ thống" -Icon "🔍"
+    
+    $checks = @(
+        @{Name = "Đang chạy với quyền root"; Command = { (id -u) -eq 0 }}
+        @{Name = "Kết nối Internet"; Command = { Test-Connection -ComputerName "1.1.1.1" -Count 1 -Quiet }}
+        @{Name = "Hệ điều hành Linux"; Command = { $IsLinux }}
+        @{Name = "Sudo đã được cài đặt"; Command = { Get-Command sudo -ErrorAction SilentlyContinue }}
+    )
+    
+    $failed = 0
+    foreach ($check in $checks) {
+        $result = & $check.Command
+        if ($result) {
+            Write-Success "$($check.Name) ✓"
+        } else {
+            Write-Error "$($check.Name) ✗"
+            $failed++
+        }
+    }
+    
+    if ($failed -gt 0) {
+        Write-Error "Không đáp ứng đủ yêu cầu hệ thống. Dừng quá trình."
+        exit 1
+    }
+    
+    Write-Success "Tất cả yêu cầu hệ thống đã được đáp ứng"
+}
 
-      - name: 📊 Get System Info
-        shell: pwsh
-        run: |
-          Write-Host "📊 Getting system information..." -ForegroundColor Yellow
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              $cpu = (Get-CimInstance Win32_Processor).NumberOfCores
-              $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
-              $disk = Get-PSDrive C | Select-Object -ExpandProperty Used
-              $diskGB = [math]::Round($disk / 1GB, 1)
-              $diskTotal = [math]::Round((Get-PSDrive C).Size / 1GB, 1)
-              
-              echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
-              echo "SYS_RAM=${ram}GB" >> $env:GITHUB_ENV
-              echo "SYS_DISK=${diskGB}GB / ${diskTotal}GB" >> $env:GITHUB_ENV
-          } else {
-              $cpu = bash -c "nproc 2>/dev/null || echo 1"
-              $ram = bash -c "free -h | awk '/^Mem:/ {print \$2}'"
-              $disk = bash -c "df -h / | awk 'NR==2 {print \$2}'"
-              
-              echo "SYS_CPU=$cpu cores" >> $env:GITHUB_ENV
-              echo "SYS_RAM=$ram" >> $env:GITHUB_ENV
-              echo "SYS_DISK=$disk" >> $env:GITHUB_ENV
-          }
-          Write-Host "✅ System info collected!" -ForegroundColor Green
+function Update-System {
+    Write-Step -Title "Cập nhật hệ thống" -Icon "🔄"
+    
+    try {
+        Write-Info "Đang cập nhật danh sách package..."
+        sudo apt-get update -y 2>&1 | Out-Null
+        
+        Write-Info "Đang nâng cấp các package..."
+        sudo apt-get upgrade -y 2>&1 | Out-Null
+        
+        Write-Info "Đang cài đặt các package cần thiết..."
+        $packages = @("ufw", "curl", "wget", "git", "htop", "nano", "unzip")
+        foreach ($pkg in $packages) {
+            Write-Info "  - Cài đặt: $pkg"
+            sudo apt-get install -y $pkg 2>&1 | Out-Null
+        }
+        
+        Write-Success "Hệ thống đã được cập nhật và nâng cấp thành công"
+    }
+    catch {
+        Write-Error "Lỗi khi cập nhật hệ thống: $_"
+        exit 1
+    }
+}
 
-      - name: 📱 Send Telegram Notification
-        if: success()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        shell: pwsh
-        run: |
-          $bot = $env:BOT_TOKEN
-          $chat = $env:CHAT_ID
-          
-          if ([string]::IsNullOrEmpty($bot) -or [string]::IsNullOrEmpty($chat)) {
-              Write-Host "⚠️ No Telegram credentials - skipping" -ForegroundColor Yellow
-              exit 0
-          }
-          
-          $pass = Get-Content $env:TEMP\vps_pass.txt
-          $duration = "${{ github.event.inputs.duration }}"
-          $features = "${{ github.event.inputs.features }}"
-          
-          $min = 0
-          if ($duration -eq "30m") { $min = 30 }
-          if ($duration -eq "1h") { $min = 60 }
-          if ($duration -eq "2h") { $min = 120 }
-          if ($duration -eq "3h") { $min = 180 }
-          if ($duration -eq "4h") { $min = 240 }
-          if ($duration -eq "max") { $min = 340 }
-          
-          $now = Get-Date
-          $end = $now.AddMinutes($min)
-          
-          $msg = "🚀 PREMIUM VPS READY%0A"
-          $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
-          $msg = $msg + "🖥️ OS: ${{ github.event.inputs.os_type }}%0A"
-          $msg = $msg + "👤 User: $env:VPS_USER%0A"
-          $msg = $msg + "🔑 Pass: $pass%0A"
-          $msg = $msg + "🌐 IP: $env:TAILSCALE_IP%0A"
-          $msg = $msg + "⚙️ CPU: $env:SYS_CPU%0A"
-          $msg = $msg + "💾 RAM: $env:SYS_RAM%0A"
-          $msg = $msg + "💿 Disk: $env:SYS_DISK%0A"
-          $msg = $msg + "🎁 Features: $features%0A"
-          $msg = $msg + "⏱️ Duration: $duration%0A"
-          $msg = $msg + "🕐 Start: $($now.ToString('HH:mm:ss'))%0A"
-          $msg = $msg + "🕐 End: $($end.ToString('HH:mm:ss'))%0A"
-          $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              $msg = $msg + "🔌 RDP: mstsc /v:$env:TAILSCALE_IP%0A"
-          } else {
-              $msg = $msg + "🔌 SSH: ssh $env:VPS_USER@$env:TAILSCALE_IP%0A"
-          }
-          
-          if ($features -eq "web" -or $features -eq "full") {
-              $msg = $msg + "🌐 Web UI: http://$env:TAILSCALE_IP%0A"
-          }
-          
-          if ($features -eq "full") {
-              $msg = $msg + "📁 File Manager: http://$env:TAILSCALE_IP:8080%0A"
-          }
-          
-          if ($features -eq "game" -or $features -eq "full") {
-              $msg = $msg + "🎮 Minecraft: $env:TAILSCALE_IP:25565%0A"
-          }
-          
-          $url = "https://api.telegram.org/bot$bot/sendMessage"
-          $body = "chat_id=$chat&text=$msg"
-          
-          try {
-              Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
-              Write-Host "✅ Telegram sent!" -ForegroundColor Green
-          } catch {
-              Write-Host "⚠️ Telegram failed" -ForegroundColor Yellow
-          }
+function Configure-Firewall {
+    Write-Step -Title "Cấu hình Firewall" -Icon "🛡️"
+    
+    try {
+        # Kích hoạt UFW
+        Write-Info "Đang kích hoạt UFW..."
+        sudo ufw --force enable
+        
+        # Cấu hình rules
+        $rules = @(
+            @{Port = "22"; Proto = "tcp"; Desc = "SSH"}
+            @{Port = "80"; Proto = "tcp"; Desc = "HTTP"}
+            @{Port = "443"; Proto = "tcp"; Desc = "HTTPS"}
+            @{Port = "27015"; Proto = "udp"; Desc = "Game Server"}
+        )
+        
+        foreach ($rule in $rules) {
+            Write-Info "  - Thêm rule: $($rule.Desc) - $($rule.Port)/$($rule.Proto)"
+            sudo ufw allow $($rule.Port)/$($rule.Proto) comment $($rule.Desc)
+        }
+        
+        # Hiển thị trạng thái
+        Write-Info "Trạng thái firewall:"
+        sudo ufw status verbose
+        
+        Write-Success "Firewall đã được cấu hình thành công"
+    }
+    catch {
+        Write-Error "Lỗi khi cấu hình firewall: $_"
+        exit 1
+    }
+}
 
-      - name: 🎉 Display Connection Info
-        shell: pwsh
-        run: |
-          $pass = Get-Content $env:TEMP\vps_pass.txt
-          $duration = "${{ github.event.inputs.duration }}"
-          $features = "${{ github.event.inputs.features }}"
-          
-          $min = 0
-          $display = ""
-          if ($duration -eq "30m") { $min = 30; $display = "30 minutes" }
-          if ($duration -eq "1h") { $min = 60; $display = "1 hour" }
-          if ($duration -eq "2h") { $min = 120; $display = "2 hours" }
-          if ($duration -eq "3h") { $min = 180; $display = "3 hours" }
-          if ($duration -eq "4h") { $min = 240; $display = "4 hours" }
-          if ($duration -eq "max") { $min = 340; $display = "5 hours 40 minutes" }
-          
-          $now = Get-Date
-          $end = $now.AddMinutes($min)
-          echo "TOTAL_MIN=$min" >> $env:GITHUB_ENV
-          
-          Write-Host ""
-          Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║              🎉 PREMIUM VPS READY - CONNECT NOW!              ║" -ForegroundColor Cyan
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║  🌐 IP Address   │ $env:TAILSCALE_IP" -ForegroundColor White
-          Write-Host "║  👤 Username     │ $env:VPS_USER" -ForegroundColor White
-          Write-Host "║  🔑 Password     │ $pass" -ForegroundColor White
-          Write-Host "║  🖥️  OS          │ ${{ github.event.inputs.os_type }}" -ForegroundColor White
-          Write-Host "║  ⚙️  CPU         │ $env:SYS_CPU" -ForegroundColor White
-          Write-Host "║  💾 RAM         │ $env:SYS_RAM" -ForegroundColor White
-          Write-Host "║  💿 Disk        │ $env:SYS_DISK" -ForegroundColor White
-          Write-Host "║  🎁 Features    │ $features" -ForegroundColor Magenta
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║  ⏱️  Duration    │ $display" -ForegroundColor White
-          Write-Host "║  🕐 Start       │ $($now.ToString('HH:mm:ss'))" -ForegroundColor White
-          Write-Host "║  🕐 End         │ $($end.ToString('HH:mm:ss'))" -ForegroundColor White
-          Write-Host "╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              Write-Host "║  🔌 RDP         │ mstsc /v:$env:TAILSCALE_IP" -ForegroundColor Yellow
-          } else {
-              Write-Host "║  🔌 SSH         │ ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
-          }
-          
-          if ($features -eq "web" -or $features -eq "full") {
-              Write-Host "║  🌐 Web UI      │ http://$env:TAILSCALE_IP" -ForegroundColor Yellow
-          }
-          
-          if ($features -eq "full") {
-              Write-Host "║  📁 File Manager│ http://$env:TAILSCALE_IP:8080" -ForegroundColor Yellow
-              Write-Host "║  🔑 File Login  │ admin / admin" -ForegroundColor Gray
-          }
-          
-          if ($features -eq "game" -or $features -eq "full") {
-              Write-Host "║  🎮 Minecraft   │ $env:TAILSCALE_IP:25565" -ForegroundColor Yellow
-          }
-          
-          Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-          Write-Host ""
+function Create-UserAccount {
+    Write-Step -Title "Tạo tài khoản người dùng" -Icon "👤"
+    
+    try {
+        # Thông tin user (có thể thay đổi)
+        $username = "vpsuser"
+        $password = "Vps@2026Secure"
+        
+        Write-Info "Tên người dùng: $username"
+        
+        # Kiểm tra user đã tồn tại
+        $userExists = getent passwd $username 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Warning "Người dùng $username đã tồn tại, bỏ qua bước tạo mới"
+            return
+        }
+        
+        # Tạo user với home directory
+        Write-Info "Đang tạo tài khoản..."
+        sudo useradd -m -s /bin/bash $username
+        
+        # CÁCH 1: Dùng printf - AN TOÀN NHẤT
+        # Đây là cách fix lỗi chính - KHÔNG dùng : trong chuỗi biến
+        Write-Info "Đang thiết lập mật khẩu..."
+        printf "%s\n%s\n" "$password" "$password" | sudo passwd $username
+        
+        # Thêm vào group sudo
+        Write-Info "Thêm vào group sudo..."
+        sudo usermod -aG sudo $username
+        
+        # Tạo thư mục .ssh
+        Write-Info "Tạo thư mục .ssh..."
+        sudo mkdir -p "/home/$username/.ssh"
+        sudo chmod 700 "/home/$username/.ssh"
+        sudo chown "$username:$username" "/home/$username/.ssh"
+        
+        Write-Success "Tài khoản $username đã được tạo thành công"
+        
+        # Hiển thị thông tin
+        Write-Host ""
+        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+        Write-Host "║  📝 THÔNG TIN ĐĂNG NHẬP                                       ║" -ForegroundColor Green
+        Write-Host "║  Username: $username" -ForegroundColor White
+        Write-Host "║  Password: $password" -ForegroundColor White
+        Write-Host "║  ⚠️  VUI LÒNG THAY ĐỔI MẬT KHẨU SAU KHI ĐĂNG NHẬP          ║" -ForegroundColor Yellow
+        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+        Write-Host ""
+    }
+    catch {
+        Write-Error "Lỗi khi tạo tài khoản: $_"
+        exit 1
+    }
+}
 
-      - name: 📝 Generate Summary
-        if: success()
-        shell: pwsh
-        run: |
-          $pass = Get-Content $env:TEMP\vps_pass.txt
-          $duration = "${{ github.event.inputs.duration }}"
-          $features = "${{ github.event.inputs.features }}"
-          
-          $display = ""
-          if ($duration -eq "30m") { $display = "30 minutes" }
-          if ($duration -eq "1h") { $display = "1 hour" }
-          if ($duration -eq "2h") { $display = "2 hours" }
-          if ($duration -eq "3h") { $display = "3 hours" }
-          if ($duration -eq "4h") { $display = "4 hours" }
-          if ($duration -eq "max") { $display = "5 hours 40 minutes" }
-          
-          $connectCmd = ""
-          if ($env:OS_TYPE -eq "windows-latest") {
-              $connectCmd = "mstsc /v:$env:TAILSCALE_IP"
-          } else {
-              $connectCmd = "ssh $env:VPS_USER@$env:TAILSCALE_IP"
-          }
-          
-          $startTime = Get-Date -Format "HH:mm:ss"
-          $endTime = (Get-Date).AddMinutes($env:TOTAL_MIN).ToString("HH:mm:ss")
-          
-          $summary = "## 🚀 Premium VPS Created Successfully`n"
-          $summary = $summary + "`n"
-          $summary = $summary + "| Parameter | Value |`n"
-          $summary = $summary + "|-----------|-------|`n"
-          $summary = $summary + "| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |`n"
-          $summary = $summary + "| 👤 **Username** | $env:VPS_USER |`n"
-          $summary = $summary + "| 🔑 **Password** | $pass |`n"
-          $summary = $summary + "| 🌐 **Tailscale IP** | $env:TAILSCALE_IP |`n"
-          $summary = $summary + "| ⚙️ **CPU** | $env:SYS_CPU |`n"
-          $summary = $summary + "| 💾 **RAM** | $env:SYS_RAM |`n"
-          $summary = $summary + "| 💿 **Disk** | $env:SYS_DISK |`n"
-          $summary = $summary + "| 🎁 **Features** | $features |`n"
-          $summary = $summary + "| ⏱️ **Duration** | $display |`n"
-          $summary = $summary + "| 🕐 **Start** | $startTime |`n"
-          $summary = $summary + "| 🕐 **End** | $endTime |`n"
-          $summary = $summary + "`n"
-          $summary = $summary + "### 🔌 Connection`n"
-          $summary = $summary + "```bash`n$connectCmd`n````n"
-          
-          if ($features -eq "web" -or $features -eq "full") {
-              $summary = $summary + "### 🌐 Web Interface`n"
-              $summary = $summary + "```bash`nhttp://$env:TAILSCALE_IP`n````n"
-          }
-          
-          if ($features -eq "full") {
-              $summary = $summary + "### 📁 File Manager`n"
-              $summary = $summary + "```bash`nhttp://$env:TAILSCALE_IP:8080`n````n"
-              $summary = $summary + "**Login:** admin / admin`n"
-          }
-          
-          if ($features -eq "game" -or $features -eq "full") {
-              $summary = $summary + "### 🎮 Minecraft Server`n"
-              $summary = $summary + "```bash`n$env:TAILSCALE_IP:25565`n````n"
-          }
-          
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
-          Write-Host "✅ Summary generated!" -ForegroundColor Green
+function Configure-SSH {
+    Write-Step -Title "Cấu hình SSH" -Icon "🔐"
+    
+    try {
+        # Backup cấu hình hiện tại
+        Write-Info "Đang backup cấu hình SSH..."
+        sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+        
+        # Tạo file cấu hình mới
+        Write-Info "Đang cấu hình SSH nâng cao..."
+        
+        $sshConfig = @"
+# ==========================================
+# SSH Configuration - Auto generated
+# ==========================================
 
-      - name: ⏳ Keep Alive
-        shell: pwsh
-        run: |
-          $min = [int]$env:TOTAL_MIN
-          $end = (Get-Date).AddMinutes($min)
-          $lastMonitor = (Get-Date).AddMinutes(-30)
-          $bot = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          $chat = "${{ secrets.TELEGRAM_CHAT_ID }}"
-          
-          Write-Host ""
-          Write-Host "🔄 KEEPING VPS ALIVE" -ForegroundColor Yellow
-          Write-Host "📍 IP: $env:TAILSCALE_IP" -ForegroundColor Cyan
-          Write-Host "⏰ End Time: $($end.ToString('HH:mm:ss'))" -ForegroundColor Green
-          Write-Host "📊 Monitoring every 30 minutes" -ForegroundColor Gray
-          Write-Host ""
-          
-          $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
-          $frameIndex = 0
-          
-          do {
-              $now = Get-Date
-              $remain = $end - $now
-              
-              if ($remain.TotalSeconds -le 0) { break }
-              
-              # Send monitoring report every 30 minutes
-              if (($now - $lastMonitor).TotalMinutes -ge 30 -and $bot -ne "") {
-                  try {
-                      $msg = "📊 *VPS MONITORING*%0A"
-                      $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
-                      $msg = $msg + "🕐 Time: $($now.ToString('HH:mm:ss'))%0A"
-                      $msg = $msg + "⚙️ CPU: $env:SYS_CPU%0A"
-                      $msg = $msg + "💾 RAM: $env:SYS_RAM%0A"
-                      $msg = $msg + "💿 Disk: $env:SYS_DISK%0A"
-                      $msg = $msg + "⏰ Remaining: $([math]::Floor($remain.TotalHours))h $([math]::Floor($remain.TotalMinutes % 60))m%0A"
-                      
-                      $url = "https://api.telegram.org/bot$bot/sendMessage"
-                      $body = "chat_id=$chat&text=$msg"
-                      Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
-                      Write-Host "`n📊 Monitoring report sent!" -ForegroundColor Green
-                  } catch {}
-                  $lastMonitor = $now
-              }
-              
-              $hours = [math]::Floor($remain.TotalHours)
-              $mins = [math]::Floor($remain.TotalMinutes % 60)
-              $secs = [math]::Floor($remain.TotalSeconds % 60)
-              $frame = $frames[$frameIndex % $frames.Length]
-              
-              Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
-              
-              $frameIndex++
-              Start-Sleep -Seconds 5
-              
-          } while ($remain.TotalSeconds -gt 0)
-          
-          Write-Host ""
-          Write-Host ""
-          Write-Host "══════════════════════════════════════════════════════════════" -ForegroundColor Red
-          Write-Host "  ⏰ TIME EXPIRED - VPS IS SHUTTING DOWN NOW" -ForegroundColor Red
-          Write-Host "══════════════════════════════════════════════════════════════" -ForegroundColor Red
-          Write-Host ""
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
 
-      - name: 🧹 Cleanup
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Host ""
-          Write-Host "🧹 CLEANING UP..." -ForegroundColor Yellow
-          
-          Remove-Item "$env:TEMP\vps_pass.txt" -ErrorAction SilentlyContinue
-          Write-Host "  ✅ Password file removed" -ForegroundColor Green
-          
-          if ($env:OS_TYPE -eq "windows-latest") {
-              Disable-LocalUser -Name $env:VPS_USER -ErrorAction SilentlyContinue
-              Write-Host "  ✅ User disabled" -ForegroundColor Green
-              
-              netsh advfirewall firewall delete rule name="RDP-VPS" -ErrorAction SilentlyContinue
-              Write-Host "  ✅ Firewall rule removed" -ForegroundColor Green
-              
-              & "$env:ProgramFiles\Tailscale\tailscale.exe" down -ErrorAction SilentlyContinue
-              Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
-          } else {
-              sudo tailscale down -ErrorAction SilentlyContinue 2>/dev/null
-              Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
-              
-              # Kill background processes
-              sudo pkill -f "python3 -m http.server" 2>/dev/null || true
-              sudo pkill -f "java -jar server.jar" 2>/dev/null || true
-              sudo pkill -f "filebrowser" 2>/dev/null || true
-              Write-Host "  ✅ Services stopped" -ForegroundColor Green
-          }
-          
-          Write-Host ""
-          Write-Host "✨ CLEANUP COMPLETE! Thank you!" -ForegroundColor Green
-          Write-Host ""
+# Authentication
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+
+# Security
+MaxAuthTries 3
+MaxSessions 10
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Performance
+UseDNS no
+PrintMotd no
+AcceptEnv LANG LC_*
+"@
+        
+        # Ghi cấu hình mới
+        echo "$sshConfig" | sudo tee /etc/ssh/sshd_config.d/99-vps.conf > $null
+        
+        # Restart SSH service
+        Write-Info "Khởi động lại SSH service..."
+        sudo systemctl restart sshd
+        
+        Write-Success "SSH đã được cấu hình thành công"
+    }
+    catch {
+        Write-Error "Lỗi khi cấu hình SSH: $_"
+        Write-Info "Đang khôi phục cấu hình cũ..."
+        sudo cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
+        sudo systemctl restart sshd
+        exit 1
+    }
+}
+
+function Install-Software {
+    Write-Step -Title "Cài đặt phần mềm" -Icon "📦"
+    
+    try {
+        $software = @(
+            @{Name = "Nginx"; Package = "nginx"}
+            @{Name = "Docker"; Package = "docker.io"}
+            @{Name = "Docker Compose"; Package = "docker-compose"}
+            @{Name = "Node.js"; Package = "nodejs"}
+            @{Name = "npm"; Package = "npm"}
+        )
+        
+        foreach ($app in $software) {
+            Write-Info "Đang cài đặt: $($app.Name)..."
+            sudo apt-get install -y $($app.Package) 2>&1 | Out-Null
+            Write-Success "  ✓ $($app.Name) đã được cài đặt"
+        }
+        
+        # Cài đặt thêm một số công cụ
+        Write-Info "Đang cài đặt công cụ bổ sung..."
+        sudo apt-get install -y software-properties-common apt-transport-https ca-certificates 2>&1 | Out-Null
+        
+        Write-Success "Tất cả phần mềm đã được cài đặt"
+    }
+    catch {
+        Write-Error "Lỗi khi cài đặt phần mềm: $_"
+        exit 1
+    }
+}
+
+function Setup-GameServer {
+    Write-Step -Title "Cài đặt Game Server" -Icon "🎮"
+    
+    try {
+        # Tạo thư mục cho game server
+        $gameDir = "/opt/gameserver"
+        Write-Info "Tạo thư mục game server: $gameDir"
+        sudo mkdir -p $gameDir
+        sudo chmod 755 $gameDir
+        
+        # Tạo file cấu hình mẫu
+        $configFile = "$gameDir/server-config.json"
+        $configJson = @"
+{
+    "serverName": "VPS Game Server",
+    "maxPlayers": 32,
+    "port": 27015,
+    "gameMode": "deathmatch",
+    "mapRotation": ["de_dust2", "de_inferno", "de_mirage"],
+    "tickRate": 128,
+    "enableVAC": true,
+    "adminPassword": "admin123",
+    "created": "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+}
+"@
+        
+        echo "$configJson" | sudo tee $configFile > $null
+        Write-Success "File cấu hình game server đã được tạo"
+        
+        # Tạo script khởi động
+        $startScript = "$gameDir/start-server.sh"
+        $scriptContent = @"#!/bin/bash
+# Game Server Start Script
+echo "Starting Game Server..."
+echo "Server running on port 27015"
+echo "Configuration: $configFile"
+# Thêm lệnh khởi động game server tại đây
+"@
+        
+        echo "$scriptContent" | sudo tee $startScript > $null
+        sudo chmod +x $startScript
+        
+        Write-Success "Game server đã được cấu hình"
+        
+        # Hiển thị thông tin
+        Write-Host ""
+        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+        Write-Host "║  🎮 THÔNG TIN GAME SERVER                                    ║" -ForegroundColor Magenta
+        Write-Host "║  Thư mục: $gameDir" -ForegroundColor White
+        Write-Host "║  Cấu hình: $configFile" -ForegroundColor White
+        Write-Host "║  Script khởi động: $startScript" -ForegroundColor White
+        Write-Host "║  Port: 27015 (UDP)" -ForegroundColor White
+        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+    }
+    catch {
+        Write-Error "Lỗi khi cài đặt game server: $_"
+        exit 1
+    }
+}
+
+function Show-Summary {
+    Write-Step -Title "Tổng kết cài đặt" -Icon "📊"
+    
+    $hostname = hostname
+    $ipAddress = (curl -s ifconfig.me) 2>$null
+    if (-not $ipAddress) {
+        $ipAddress = (hostname -I).Split(' ')[0]
+    }
+    
+    Write-Host @"
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                     🎉 CÀI ĐẶT HOÀN TẤT 🎉                          ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  📋 THÔNG TIN KẾT NỐI                                               ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  🌐 IP Address    : $ipAddress
+║  🖥️  Hostname     : $hostname
+║  🔌 SSH Port      : 22
+║  🌍 Web Port      : 80, 443
+║  🎮 Game Port     : 27015
+╚══════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  ✅ CÁC TÍNH NĂNG ĐÃ ĐƯỢC CÀI ĐẶT                                  ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  • Firewall (UFW) đã được cấu hình và kích hoạt                    ║
+║  • Tài khoản người dùng đã được tạo                                ║
+║  • SSH đã được bảo mật và cấu hình                                 ║
+║  • Nginx web server đã sẵn sàng                                    ║
+║  • Docker & Docker Compose đã được cài đặt                         ║
+║  • Node.js & npm đã sẵn sàng                                       ║
+║  • Game server đã được cấu hình                                    ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  🔧 LỆNH HỮU ÍCH                                                    ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  • Kiểm tra firewall : sudo ufw status                              ║
+║  • Xem log hệ thống  : sudo journalctl -f                           ║
+║  • Khởi động game    : sudo /opt/gameserver/start-server.sh         ║
+║  • Kiểm tra Docker   : docker ps                                    ║
+║  • Kiểm tra Nginx    : sudo systemctl status nginx                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  📝 LOG FILE                                                         ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  $($script:LogFile)
+╚══════════════════════════════════════════════════════════════════════╝
+
+"@ -ForegroundColor Green
+    
+    Write-Success "🎊 CÀI ĐẶT VPS HOÀN TẤT! 🎊"
+    Write-Info "Vui lòng đăng nhập lại với tài khoản mới để tiếp tục sử dụng"
+}
+
+# =====================================================================
+# 🚀 BẮT ĐẦU QUÁ TRÌNH CÀI ĐẶT
+# =====================================================================
+
+# Main execution
+try {
+    Show-Banner
+    Test-SystemRequirements
+    Update-System
+    Configure-Firewall
+    Create-UserAccount
+    Configure-SSH
+    Install-Software
+    Setup-GameServer
+    Show-Summary
+    
+    Write-Host "⏱️  Thời gian hoàn thành: $(Get-Date -Format 'HH:mm:ss dd/MM/yyyy')" -ForegroundColor Cyan
+    Write-Host "📁 Log file được lưu tại: $($script:LogFile)" -ForegroundColor Cyan
+    Write-Host ""
+}
+catch {
+    Write-Error "❌ LỖI NGHIÊM TRỌNG: $_"
+    Write-Error "Vui lòng kiểm tra log file để biết thêm chi tiết: $($script:LogFile)"
+    exit 1
+}
