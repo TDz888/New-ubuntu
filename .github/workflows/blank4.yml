@@ -67,10 +67,10 @@ on:
         default: 'true'
         type: boolean
       
-      auto_backup:
-        description: '💾 Neural Backup System'
+      auto_cleanup:
+        description: '🧹 Auto Cleanup After Session'
         required: false
-        default: 'false'
+        default: 'true'
         type: boolean
       
       monitoring_level:
@@ -84,9 +84,6 @@ on:
           - 'advanced'
           - 'quantum'
 
-# =====================================================================================
-#                         📡 TELEGRAM NOTIFICATION SYSTEM
-# =====================================================================================
 env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -101,9 +98,6 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      # ============================================================
-      # PHASE 1: NEURAL BOOTSTRAP - INITIALIZATION
-      # ============================================================
       - name: 🧠 WIN11 - NEURAL BOOTSTRAP
         run: |
           # Neural Configuration
@@ -113,29 +107,28 @@ jobs:
           New-Item -ItemType Directory -Path $global:NeuralLogPath -Force | Out-Null
           
           # Quantum Banner
-          Write-Host @"
-          
-╔══════════════════════════════════════════════════════════════════════════════════════════════╗
-║                                                                                              ║
-║    🧠  N E U R A L   B R A I N   A C T I V A T E D                                          ║
-║    ═════════════════════════════════════════════════════════════════════════════════════    ║
-║                                                                                              ║
-║    ██╗    ██╗██╗███╗   ██╗██████╗  ██████╗ ██╗    ██╗███████╗                             ║
-║    ██║    ██║██║████╗  ██║██╔══██╗██╔═══██╗██║    ██║██╔════╝                             ║
-║    ██║ █╗ ██║██║██╔██╗ ██║██████╔╝██║   ██║██║ █╗ ██║███████╗                             ║
-║    ██║███╗██║██║██║╚██╗██║██╔══██╗██║   ██║██║███╗██║╚════██║                             ║
-║    ╚███╔███╔╝██║██║ ╚████║██║  ██║╚██████╔╝╚███╔███╔╝███████║                             ║
-║     ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝                             ║
-║                                                                                              ║
-║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║
-║    ║  🧠 NEURAL CORTEX    : Windows 11 Professional x64                                   ║ ║
-║    ║  ⚡ PROCESSING POWER : ${{ github.event.inputs.vm_specs }}                                         ║ ║
-║    ║  🕐 SESSION ID      : $global:NeuralSessionId                                        ║ ║
-║    ║  📡 NEURAL LINK     : ${{ github.event.inputs.network_type }}                                    ║ ║
-║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║
-║                                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║                                                                                              ║" -ForegroundColor Cyan
+          Write-Host "║    🧠  N E U R A L   B R A I N   A C T I V A T E D                                          ║" -ForegroundColor Cyan
+          Write-Host "║    ═════════════════════════════════════════════════════════════════════════════════════    ║" -ForegroundColor Cyan
+          Write-Host "║                                                                                              ║" -ForegroundColor Cyan
+          Write-Host "║    ██╗    ██╗██╗███╗   ██╗██████╗  ██████╗ ██╗    ██╗███████╗                             ║" -ForegroundColor Cyan
+          Write-Host "║    ██║    ██║██║████╗  ██║██╔══██╗██╔═══██╗██║    ██║██╔════╝                             ║" -ForegroundColor Cyan
+          Write-Host "║    ██║ █╗ ██║██║██╔██╗ ██║██████╔╝██║   ██║██║ █╗ ██║███████╗                             ║" -ForegroundColor Cyan
+          Write-Host "║    ██║███╗██║██║██║╚██╗██║██╔══██╗██║   ██║██║███╗██║╚════██║                             ║" -ForegroundColor Cyan
+          Write-Host "║    ╚███╔███╔╝██║██║ ╚████║██║  ██║╚██████╔╝╚███╔███╔╝███████║                             ║" -ForegroundColor Cyan
+          Write-Host "║     ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝                             ║" -ForegroundColor Cyan
+          Write-Host "║                                                                                              ║" -ForegroundColor Cyan
+          Write-Host "║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║" -ForegroundColor Cyan
+          Write-Host "║    ║  🧠 NEURAL CORTEX    : Windows 11 Professional x64                                   ║ ║" -ForegroundColor Cyan
+          Write-Host "║    ║  ⚡ PROCESSING POWER : ${{ github.event.inputs.vm_specs }}                                         ║ ║" -ForegroundColor Cyan
+          Write-Host "║    ║  🕐 SESSION ID      : $global:NeuralSessionId                                        ║ ║" -ForegroundColor Cyan
+          Write-Host "║    ║  📡 NEURAL LINK     : ${{ github.event.inputs.network_type }}                                    ║ ║" -ForegroundColor Cyan
+          Write-Host "║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║" -ForegroundColor Cyan
+          Write-Host "║                                                                                              ║" -ForegroundColor Cyan
+          Write-Host "╚══════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host ""
           
           # Save neural data
           echo "NEURAL_SESSION_ID=$global:NeuralSessionId" >> $env:GITHUB_ENV
@@ -144,53 +137,38 @@ jobs:
           
           Start-Sleep -Seconds 2
       
-      # ============================================================
-      # PHASE 2: NEURAL SYNAPSE - RDP CONFIGURATION
-      # ============================================================
       - name: ⚡ WIN11 - NEURAL SYNAPSE CONFIGURATION
         run: |
           Write-Host ""
           Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
           Write-Host "║  ⚡ ESTABLISHING NEURAL SYNAPSES - RDP PROTOCOL                      ║" -ForegroundColor Magenta
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
           
-          # Parallel neural processing
-          $jobs = @()
+          # Enable RDP
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
           
-          $jobs += Start-Job -ScriptBlock {
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          }
-          
-          $jobs += Start-Job -ScriptBlock {
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-          }
-          
-          $jobs += Start-Job -ScriptBlock {
-            netsh advfirewall firewall add rule name="Neural-RDP-In" dir=in action=allow protocol=TCP localport=3389 profile=any
-            netsh advfirewall firewall add rule name="Neural-RDP-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
-          }
-          
-          $jobs | Wait-Job | Receive-Job
-          $jobs | Remove-Job
+          # Firewall rules
+          netsh advfirewall firewall add rule name="Neural-RDP-In" dir=in action=allow protocol=TCP localport=3389 profile=any
+          netsh advfirewall firewall add rule name="Neural-RDP-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
           
           Write-Host "│ ✅ Neural synapses established" -ForegroundColor Green
           Write-Host "│ 🔗 RDP protocol activated" -ForegroundColor Green
+          Write-Host ""
       
-      # ============================================================
-      # PHASE 3: QUANTUM PASSWORD GENERATION
-      # ============================================================
       - name: 🔐 WIN11 - QUANTUM PASSWORD GENERATION
         run: |
           Write-Host ""
           Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
           Write-Host "║  🔐 QUANTUM PASSWORD GENERATION - SECURE NEURAL ENCRYPTION           ║" -ForegroundColor Magenta
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
           
           function New-QuantumPassword {
             param([int]$Length = 16)
             
-            # Quantum entropy pools
             $upperPool = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
             $lowerPool = 'abcdefghijkmnpqrstuvwxyz'
             $numberPool = '23456789'
@@ -201,7 +179,6 @@ jobs:
             
             $password = [System.Collections.ArrayList]::new()
             
-            # Ensure complexity
             $password.Add($upperPool[$random.Next(0, $upperPool.Length)]) | Out-Null
             $password.Add($lowerPool[$random.Next(0, $lowerPool.Length)]) | Out-Null
             $password.Add($numberPool[$random.Next(0, $numberPool.Length)]) | Out-Null
@@ -236,10 +213,8 @@ jobs:
           
           Write-Host "│ 🧠 Neural identity created: $global:NeuralUsername" -ForegroundColor Green
           Write-Host "│ 🔐 Quantum password generated" -ForegroundColor Green
+          Write-Host ""
       
-      # ============================================================
-      # PHASE 4: NEURAL NETWORK CONFIGURATION
-      # ============================================================
       - name: 🌐 WIN11 - NEURAL NETWORK CONFIGURATION
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -248,6 +223,7 @@ jobs:
           Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
           Write-Host "║  🌐 CONFIGURING NEURAL NETWORK INTERFACE                              ║" -ForegroundColor Magenta
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
           
           $networkType = "${{ github.event.inputs.network_type }}"
           
@@ -255,11 +231,7 @@ jobs:
             Write-Host "│ 📡 Establishing Tailscale neural link..." -ForegroundColor Blue
             
             $msiPath = "$env:TEMP\tailscale_neural.msi"
-            $downloadJob = Start-Job -ScriptBlock {
-              Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $using:msiPath
-            }
-            $downloadJob | Wait-Job | Out-Null
-            
+            Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
             Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
             Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
             
@@ -284,40 +256,26 @@ jobs:
           
           echo "NEURAL_IP=$global:NeuralIP" >> $env:GITHUB_ENV
           Write-Host "│ ✅ Neural network active at: $global:NeuralIP" -ForegroundColor Green
+          Write-Host ""
       
-      # ============================================================
-      # PHASE 5: NEURAL PERFORMANCE OPTIMIZATION
-      # ============================================================
       - name: ⚡ WIN11 - NEURAL PERFORMANCE BOOST
         run: |
           Write-Host ""
           Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
           Write-Host "║  ⚡ APPLYING NEURAL PERFORMANCE OPTIMIZATIONS                         ║" -ForegroundColor Magenta
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
           
-          $optimizations = @(
-            @{Name = "Disable Visual Effects"; Cmd = { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -Force }}
-            @{Name = "Optimize Power Plan"; Cmd = { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c }}
-            @{Name = "Disable Windows Defender"; Cmd = { Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue }}
-            @{Name = "Clear Neural Cache"; Cmd = { Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue }}
-            @{Name = "Optimize Network Stack"; Cmd = { netsh int tcp set global autotuninglevel=normal }}
-          )
-          
-          $optimizationJobs = @()
-          foreach($opt in $optimizations) {
-            $optimizationJobs += Start-Job -ScriptBlock { & $using:opt.Cmd }
-            Write-Host "│ 🔧 $($opt.Name)..." -NoNewline
-            Write-Host " ✓" -ForegroundColor Green
-          }
-          
-          $optimizationJobs | Wait-Job | Out-Null
-          $optimizationJobs | Remove-Job
+          # Performance optimizations
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -Force
+          powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+          netsh int tcp set global autotuninglevel=normal
           
           Write-Host "│ ✅ Neural performance boosted" -ForegroundColor Green
+          Write-Host ""
       
-      # ============================================================
-      # PHASE 6: TELEGRAM NEURAL MESSAGE
-      # ============================================================
       - name: 📱 WIN11 - TELEGRAM NEURAL NOTIFICATION
         if: github.event.inputs.telegram_notify == 'true'
         env:
@@ -391,9 +349,6 @@ jobs:
             Write-Host "│ ⚠️ Telegram notification failed" -ForegroundColor Yellow
           }
       
-      # ============================================================
-      # PHASE 7: NEURAL CONNECTION DISPLAY
-      # ============================================================
       - name: 🎉 WIN11 - NEURAL CONNECTION MATRIX
         run: |
           $password = Get-Content "$env:TEMP\neural_password.txt"
@@ -413,54 +368,50 @@ jobs:
           }
           $endTime = $startTime.AddMinutes($totalMinutes)
           
-          Write-Host @"
-          
-╔══════════════════════════════════════════════════════════════════════════════════════════════╗
-║                                                                                              ║
-║    🧠  N E U R A L   B R A I N   -   F U L L Y   O P E R A T I O N A L                     ║
-║                                                                                              ║
-║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║
-║    ║  🌐 NEURAL CONNECTION MATRIX                                                         ║ ║
-║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║
-║    ║                                                                                      ║ ║
-║    ║     🧠 Session ID      : ${{ env.NEURAL_SESSION_ID }}                                            ║ ║
-║    ║     🌍 Neural IP       : ${{ env.NEURAL_IP }}                                                    ║ ║
-║    ║     👤 Neural Identity : ${{ env.NEURAL_USERNAME }}                                             ║ ║
-║    ║     🔐 Quantum Key     : $password                                    ║ ║
-║    ║     🔌 Access Port     : 3389 (RDP)                                                      ║ ║
-║    ║                                                                                      ║ ║
-║    ║  ⏱️ TEMPORAL PARAMETERS                                                              ║ ║
-║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║
-║    ║                                                                                      ║ ║
-║    ║     🕐 Neural Activation  : $($startTime.ToString('HH:mm:ss'))                                             ║ ║
-║    ║     🕐 Neural Termination : $($endTime.ToString('HH:mm:ss'))                                               ║ ║
-║    ║     ⚡ Session Duration   : $duration                                                          ║ ║
-║    ║                                                                                      ║ ║
-║    ║  🔧 CONNECTION PROTOCOL                                                              ║ ║
-║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║
-║    ║                                                                                      ║ ║
-║    ║     1. Open Remote Desktop Connection (mstsc)                                        ║ ║
-║    ║     2. Enter Neural IP: ${{ env.NEURAL_IP }}                                                ║ ║
-║    ║     3. Identity: ${{ env.NEURAL_USERNAME }}                                                 ║ ║
-║    ║     4. Quantum Key: $password                                    ║ ║
-║    ║     5. Click Connect → Neural Link Established                                        ║ ║
-║    ║                                                                                      ║ ║
-║    ║  ⚡ Neural Processing Power : ${{ github.event.inputs.vm_specs }}                                   ║ ║
-║    ║  🌐 Network Protocol       : ${{ github.event.inputs.network_type }}                              ║ ║
-║    ║  📊 Monitoring Level       : ${{ github.event.inputs.monitoring_level }}                           ║ ║
-║    ║                                                                                      ║ ║
-║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║
-║                                                                                              ║
-║    🚀 Neural Brain Fully Operational | Quantum Processing Active                            ║
-║                                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "╔══════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+          Write-Host "║                                                                                              ║" -ForegroundColor Green
+          Write-Host "║    🧠  N E U R A L   B R A I N   -   F U L L Y   O P E R A T I O N A L                     ║" -ForegroundColor Green
+          Write-Host "║                                                                                              ║" -ForegroundColor Green
+          Write-Host "║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║" -ForegroundColor Green
+          Write-Host "║    ║  🌐 NEURAL CONNECTION MATRIX                                                         ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🧠 Session ID      : ${{ env.NEURAL_SESSION_ID }}                                            ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🌍 Neural IP       : ${{ env.NEURAL_IP }}                                                    ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     👤 Neural Identity : ${{ env.NEURAL_USERNAME }}                                             ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🔐 Quantum Key     : $password                                    ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🔌 Access Port     : 3389 (RDP)                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  ⏱️ TEMPORAL PARAMETERS                                                              ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🕐 Neural Activation  : $($startTime.ToString('HH:mm:ss'))                                             ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     🕐 Neural Termination : $($endTime.ToString('HH:mm:ss'))                                               ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     ⚡ Session Duration   : $duration                                                          ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  🔧 CONNECTION PROTOCOL                                                              ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     1. Open Remote Desktop Connection (mstsc)                                        ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     2. Enter Neural IP: ${{ env.NEURAL_IP }}                                                ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     3. Identity: ${{ env.NEURAL_USERNAME }}                                                 ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     4. Quantum Key: $password                                    ║ ║" -ForegroundColor Green
+          Write-Host "║    ║     5. Click Connect → Neural Link Established                                        ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  ⚡ Neural Processing Power : ${{ github.event.inputs.vm_specs }}                                   ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  🌐 Network Protocol       : ${{ github.event.inputs.network_type }}                              ║ ║" -ForegroundColor Green
+          Write-Host "║    ║  📊 Monitoring Level       : ${{ github.event.inputs.monitoring_level }}                           ║ ║" -ForegroundColor Green
+          Write-Host "║    ║                                                                                      ║ ║" -ForegroundColor Green
+          Write-Host "║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║" -ForegroundColor Green
+          Write-Host "║                                                                                              ║" -ForegroundColor Green
+          Write-Host "║    🚀 Neural Brain Fully Operational | Quantum Processing Active                            ║" -ForegroundColor Green
+          Write-Host "║                                                                                              ║" -ForegroundColor Green
+          Write-Host "╚══════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host ""
           
           echo "NEURAL_DURATION_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
       
-      # ============================================================
-      # PHASE 8: NEURAL SESSION MAINTENANCE
-      # ============================================================
       - name: ⏳ WIN11 - NEURAL SESSION MAINTENANCE
         run: |
           $totalMinutes = [int]$env:NEURAL_DURATION_MINUTES
@@ -473,19 +424,6 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
           Write-Host "│ 🧠 Neural processing until: $($endTime.ToString('HH:mm:ss'))" -ForegroundColor Cyan
           Write-Host ""
-          
-          $monitorJob = Start-Job -ScriptBlock {
-            while ($true) {
-              $svc = Get-Service -Name TermService -ErrorAction SilentlyContinue
-              if ($svc.Status -ne 'Running') {
-                Start-Service -Name TermService -Force
-              }
-              $cpu = (Get-Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
-              $mem = (Get-Counter '\Memory\Available MBytes').CounterSamples.CookedValue
-              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 🧠 CPU: $([math]::Round($cpu,1))% | RAM Available: $mem MB" -ForegroundColor DarkGray
-              Start-Sleep -Seconds 60
-            }
-          }
           
           $frames = @('🧠', '⚡', '🔮', '🌀', '🌌', '✨')
           $i = 0
@@ -510,18 +448,16 @@ jobs:
           Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
           Write-Host "║  🧠 NEURAL SESSION TERMINATED - QUANTUM PROCESSING COMPLETE          ║" -ForegroundColor Red
           Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
-          
-          Stop-Job $monitorJob
-          Remove-Job $monitorJob -Force
+          Write-Host ""
       
-      # ============================================================
-      # PHASE 9: NEURAL CLEANUP
-      # ============================================================
       - name: 🧹 WIN11 - NEURAL MEMORY PURGE
         if: always() && github.event.inputs.auto_cleanup == 'true'
         run: |
           Write-Host ""
-          Write-Host "🧹 PURGING NEURAL MEMORY" -ForegroundColor Yellow
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
+          Write-Host "║  🧹 NEURAL MEMORY PURGE - CLEANUP PROTOCOL                           ║" -ForegroundColor Yellow
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
+          Write-Host ""
           
           Disable-LocalUser -Name $env:NEURAL_USERNAME -ErrorAction SilentlyContinue
           Remove-Item "$env:TEMP\neural_password.txt" -Force -ErrorAction SilentlyContinue
@@ -530,11 +466,174 @@ jobs:
           netsh advfirewall firewall delete rule name="Neural-RDP-In" -ErrorAction SilentlyContinue
           netsh advfirewall firewall delete rule name="Neural-RDP-Out" -ErrorAction SilentlyContinue
           
-          Write-Host "✅ Neural memory purged" -ForegroundColor Green
-          Write-Host "🧠 System ready for next activation" -ForegroundColor Cyan
+          Write-Host "│ ✅ Neural memory purged" -ForegroundColor Green
+          Write-Host "│ 🧠 System ready for next activation" -ForegroundColor Cyan
+          Write-Host ""
 
 # =====================================================================================
-# 🧠 JOB 2: UBUNTU 22.04 NEURAL BRAIN - ISOLATED CORTEX
+# 🧠 JOB 2: WINDOWS SERVER 2022 NEURAL BRAIN
+# =====================================================================================
+  WindowsServer-NeuralBrain:
+    if: github.event.inputs.os_type == 'windows-server-2022'
+    runs-on: windows-latest
+    timeout-minutes: 360
+    
+    steps:
+      - name: 🧠 WINSRV - NEURAL BOOTSTRAP
+        run: |
+          $global:NeuralSessionId = "WINSRV-$(Get-Random -Minimum 100000 -Maximum 999999)"
+          echo "NEURAL_SESSION_ID=$global:NeuralSessionId" >> $env:GITHUB_ENV
+          
+          Write-Host ""
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║  🖧  W I N D O W S   S E R V E R   2 0 2 2   N E U R A L   C O R E  ║" -ForegroundColor Cyan
+          Write-Host "╠════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+          Write-Host "║  🧠 Role: Enterprise Datacenter | ⚡ Neural Power: Unlimited          ║" -ForegroundColor Cyan
+          Write-Host "║  🔐 Security Level: Quantum Encryption | 📡 Neural Link: Active       ║" -ForegroundColor Cyan
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host ""
+      
+      - name: 🔧 WINSRV - NEURAL CONFIGURATION
+        run: |
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+          Write-Host "║  ⚡ CONFIGURING NEURAL SYNAPSES - ENTERPRISE MODE                    ║" -ForegroundColor Magenta
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
+          
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="Neural-RDP" dir=in action=allow protocol=TCP localport=3389
+          
+          Install-WindowsFeature -Name Web-Server, Web-WebSockets, Web-Asp-Net45 -IncludeManagementTools -ErrorAction SilentlyContinue
+          
+          Write-Host "│ ✅ Neural configuration complete" -ForegroundColor Green
+          Write-Host ""
+      
+      - name: 👤 WINSRV - NEURAL IDENTITY
+        run: |
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+          Write-Host "║  🔐 GENERATING NEURAL IDENTITY - QUANTUM SECURITY                    ║" -ForegroundColor Magenta
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
+          
+          $username = "NEURAL-ADMIN"
+          $password = "Neural@$(Get-Random -Minimum 10000 -Maximum 99999)"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          
+          Remove-LocalUser -Name $username -ErrorAction SilentlyContinue
+          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+          
+          echo "NEURAL_USERNAME=$username" >> $env:GITHUB_ENV
+          echo "NEURAL_PASSWORD=$password" >> $env:GITHUB_ENV
+          echo "$password" > "$env:TEMP\neural_password.txt"
+          
+          Write-Host "│ ✅ Neural identity: $username" -ForegroundColor Green
+          Write-Host "│ 🔐 Quantum key generated" -ForegroundColor Green
+          Write-Host ""
+      
+      - name: 🌐 WINSRV - NEURAL NETWORK
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+          Write-Host "║  🌐 ESTABLISHING NEURAL NETWORK LINK                                 ║" -ForegroundColor Magenta
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
+          
+          if ($env:TAILSCALE_AUTH_KEY) {
+            $msiPath = "$env:TEMP\tailscale.msi"
+            Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
+            Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
+            Start-Sleep -Seconds 10
+            & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="neural-winsrv-$env:GITHUB_RUN_ID"
+            $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          } else {
+            $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+          }
+          
+          echo "NEURAL_IP=$ip" >> $env:GITHUB_ENV
+          Write-Host "│ ✅ Neural network active: $ip" -ForegroundColor Green
+          Write-Host ""
+      
+      - name: 🎉 WINSRV - CONNECTION DISPLAY
+        run: |
+          $password = Get-Content "$env:TEMP\neural_password.txt"
+          $duration = "${{ github.event.inputs.duration }}"
+          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+          $startTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
+          
+          $totalMinutes = switch ("${{ github.event.inputs.duration }}") {
+            "30m" {30} "1h" {60} "2h" {120} "3h" {180} "4h" {240} "5h" {300} "6h" {360}
+            default {240}
+          }
+          $endTime = $startTime.AddMinutes($totalMinutes)
+          
+          Write-Host ""
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+          Write-Host "║  🖧  WINDOWS SERVER 2022 NEURAL BRAIN - FULLY OPERATIONAL            ║" -ForegroundColor Green
+          Write-Host "╠════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Green
+          Write-Host "║  🌐 Neural IP      : ${{ env.NEURAL_IP }}"
+          Write-Host "║  👤 Identity       : ${{ env.NEURAL_USERNAME }}"
+          Write-Host "║  🔐 Quantum Key    : $password"
+          Write-Host "║  🔌 Access Port    : 3389 (RDP)"
+          Write-Host "╠════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Green
+          Write-Host "║  🕐 Activation     : $($startTime.ToString('HH:mm:ss'))"
+          Write-Host "║  🕐 Termination    : $($endTime.ToString('HH:mm:ss'))"
+          Write-Host "║  ⚡ Duration       : $duration"
+          Write-Host "╠════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Green
+          Write-Host "║  🔧 CONNECTION: mstsc -> ${{ env.NEURAL_IP }}"
+          Write-Host "║  🔐 CREDENTIALS: ${{ env.NEURAL_USERNAME }} / $password"
+          Write-Host "╠════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Green
+          Write-Host "║  🚀 Enterprise Neural Core Active | Quantum Processing Ready         ║" -ForegroundColor Green
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host ""
+      
+      - name: ⏳ WINSRV - MAINTENANCE
+        run: |
+          $totalMinutes = switch ("${{ github.event.inputs.duration }}") {
+            "30m" {30} "1h" {60} "2h" {120} "3h" {180} "4h" {240} "5h" {300} "6h" {360}
+            default {240}
+          }
+          
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+          Write-Host "║  ⏳ NEURAL SESSION ACTIVE - PROCESSING                               ║" -ForegroundColor Magenta
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
+          
+          $endTime = (Get-Date).AddMinutes($totalMinutes)
+          while ((Get-Date) -lt $endTime) {
+            $remaining = $endTime - (Get-Date)
+            Write-Host "`r🧠 [$((Get-Date).ToString('HH:mm:ss'))] Neural Processing: $([math]::Floor($remaining.TotalHours))h $([math]::Floor($remaining.Minutes))m $($remaining.Seconds)s remaining" -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Seconds 5
+          }
+          
+          Write-Host ""
+          Write-Host ""
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+          Write-Host "║  🧠 NEURAL SESSION COMPLETE - SYSTEM SHUTDOWN                        ║" -ForegroundColor Red
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+          Write-Host ""
+      
+      - name: 🧹 WINSRV - CLEANUP
+        if: always() && github.event.inputs.auto_cleanup == 'true'
+        run: |
+          Write-Host "╔════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
+          Write-Host "║  🧹 NEURAL MEMORY PURGE                                              ║" -ForegroundColor Yellow
+          Write-Host "╚════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
+          Write-Host ""
+          
+          Disable-LocalUser -Name ${{ env.NEURAL_USERNAME }} -ErrorAction SilentlyContinue
+          Remove-Item "$env:TEMP\neural_password.txt" -Force -ErrorAction SilentlyContinue
+          netsh advfirewall firewall delete rule name="Neural-RDP" -ErrorAction SilentlyContinue
+          
+          Write-Host "│ ✅ Neural memory purged" -ForegroundColor Green
+          Write-Host "│ 🧠 System ready for next activation" -ForegroundColor Cyan
+          Write-Host ""
+
+# =====================================================================================
+# 🧠 JOB 3: UBUNTU 22.04 NEURAL BRAIN
 # =====================================================================================
   Ubuntu2204-NeuralBrain:
     if: github.event.inputs.os_type == 'ubuntu-22-04'
@@ -544,11 +643,6 @@ jobs:
     steps:
       - name: 🧠 UBUNTU22 - NEURAL BOOTSTRAP
         run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════╗"
-          echo "║  🧠 NEURAL BRAIN ACTIVATION - UBUNTU 22.04 LTS                       ║"
-          echo "╚════════════════════════════════════════════════════════════════════════╝"
-          
           NEURAL_SESSION_ID="UBU22-$(openssl rand -hex 6)"
           NEURAL_LOG_DIR="/tmp/neural_ubu22_$(date +%Y%m%d_%H%M%S)"
           mkdir -p $NEURAL_LOG_DIR
@@ -556,24 +650,36 @@ jobs:
           echo "NEURAL_SESSION_ID=$NEURAL_SESSION_ID" >> $GITHUB_ENV
           echo "NEURAL_LOG_DIR=$NEURAL_LOG_DIR" >> $GITHUB_ENV
           
-          echo "│ 🧠 Session ID: $NEURAL_SESSION_ID"
-          echo "│ 🐧 Ubuntu 22.04 LTS Jammy"
-          echo "│ ⚡ Neural Power: ${{ github.event.inputs.vm_specs }}"
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🐧  U B U N T U   2 2 . 0 4   L T S   N E U R A L   C O R E        ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🧠 Neural Cortex: Ubuntu 22.04 LTS Jammy Jellyfish                   ║"
+          echo "║  ⚡ Processing Power: ${{ github.event.inputs.vm_specs }}"
+          echo "║  🕐 Session ID: $NEURAL_SESSION_ID"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
           echo ""
       
       - name: ⚡ UBUNTU22 - QUANTUM SYSTEM UPDATE
         run: |
-          echo "⚡ APPLYING QUANTUM SYSTEM UPDATES" -ForegroundColor Yellow
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⚡ QUANTUM SYSTEM UPDATE - NEURAL OPTIMIZATION                       ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
           
           sudo apt-get update -y
           sudo apt-get upgrade -y
-          sudo apt-get install -y ufw openssh-server curl wget git htop neofetch net-tools
+          sudo apt-get install -y ufw openssh-server curl wget git htop neofetch net-tools build-essential
           
-          echo "✅ Quantum updates applied" -ForegroundColor Green
+          echo "│ ✅ Quantum updates applied" | tee -a /dev/null
+          echo ""
       
       - name: 🔐 UBUNTU22 - NEURAL IDENTITY GENERATION
         run: |
-          echo "🔐 GENERATING NEURAL IDENTITY" -ForegroundColor Yellow
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🔐 GENERATING NEURAL IDENTITY - QUANTUM SECURITY                    ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
           
           NEURAL_USERNAME="neural-core"
           NEURAL_PASSWORD="Neural@$(openssl rand -base64 12 | tr -d '=/+' | head -c 14)"
@@ -590,14 +696,18 @@ jobs:
           echo "NEURAL_PASSWORD=$NEURAL_PASSWORD" >> $GITHUB_ENV
           echo "$NEURAL_PASSWORD" > /tmp/neural_password.txt
           
-          echo "│ 🧠 Neural Identity: $NEURAL_USERNAME" -ForegroundColor Green
-          echo "│ 🔐 Quantum Key generated" -ForegroundColor Green
+          echo "│ 🧠 Neural Identity: $NEURAL_USERNAME" | tee -a /dev/null
+          echo "│ 🔐 Quantum Key generated" | tee -a /dev/null
+          echo ""
       
       - name: 🌐 UBUNTU22 - NEURAL NETWORK ACTIVATION
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          echo "🌐 ACTIVATING NEURAL NETWORK" -ForegroundColor Yellow
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🌐 ACTIVATING NEURAL NETWORK INTERFACE                               ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
           
           sudo ufw --force enable
           sudo ufw allow 22/tcp
@@ -616,11 +726,15 @@ jobs:
           fi
           
           echo "NEURAL_IP=$NEURAL_IP" >> $GITHUB_ENV
-          echo "│ ✅ Neural network active: $NEURAL_IP" -ForegroundColor Green
+          echo "│ ✅ Neural network active: $NEURAL_IP" | tee -a /dev/null
+          echo ""
       
       - name: 📦 UBUNTU22 - NEURAL PACKAGE DEPLOYMENT
         run: |
-          echo "📦 DEPLOYING NEURAL PACKAGES" -ForegroundColor Yellow
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  📦 DEPLOYING NEURAL PACKAGES - QUANTUM FRAMEWORK                    ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
           
           # Docker neural engine
           curl -fsSL https://get.docker.com -o get-docker.sh
@@ -636,78 +750,40 @@ jobs:
           sudo apt-get install -y nodejs
           
           # Python neural framework
-          sudo apt-get install -y python3 python3-pip
+          sudo apt-get install -y python3 python3-pip python3-venv
           
-          echo "✅ Neural packages deployed" -ForegroundColor Green
-      
-      - name: 📱 UBUNTU22 - TELEGRAM NEURAL NOTIFICATION
-        if: github.event.inputs.telegram_notify == 'true'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          PASSWORD=$(cat /tmp/neural_password.txt)
-          DURATION="${{ github.event.inputs.duration }}"
-          START_TIME=$(date '+%H:%M:%S %d/%m/%Y')
-          
-          MESSAGE="🧠 **NEURAL BRAIN ACTIVATED - UBUNTU 22.04**
-          
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-**🌐 CONNECTION MATRIX**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🖥️ **System**: Ubuntu 22.04 LTS Jammy
-🧠 **Session ID**: ${{ env.NEURAL_SESSION_ID }}
-🌍 **Neural IP**: ${{ env.NEURAL_IP }}
-👤 **Identity**: ${{ env.NEURAL_USERNAME }}
-🔐 **Quantum Key**: \`$PASSWORD\`
-🔌 **Neural Port**: 22 (SSH)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-**⚡ Neural Features**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🐳 Docker Engine | 🌐 Nginx Gateway
-📦 Node.js Runtime | 🐍 Python Framework
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-**🔧 CONNECTION PROTOCOL**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-\`\`\`bash
-ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}
-Password: $PASSWORD
-\`\`\`
-
-🚀 _Neural Brain Fully Operational_"
-          
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            -d chat_id="$TELEGRAM_CHAT_ID" \
-            -d text="$MESSAGE" \
-            -d parse_mode="Markdown"
-          
-          echo "✅ Telegram notification sent"
+          echo "│ ✅ Neural packages deployed" | tee -a /dev/null
+          echo "│ 🐳 Docker Engine | 🌐 Nginx | 📦 Node.js | 🐍 Python" | tee -a /dev/null
+          echo ""
       
       - name: 🎉 UBUNTU22 - NEURAL CONNECTION MATRIX
         run: |
           PASSWORD=$(cat /tmp/neural_password.txt)
           DURATION="${{ github.event.inputs.duration }}"
-          START_TIME=$(date '+%H:%M:%S')
-          END_TIME=$(date -d "+$(echo "$DURATION" | sed 's/h/*60/' | sed 's/m//' | bc) minutes" '+%H:%M:%S')
+          START_TIME=$(date '+%H:%M:%S %d/%m/%Y')
+          END_TIME=$(date -d "+$(echo "$DURATION" | sed 's/h/*60/' | sed 's/m//' | bc) minutes" '+%H:%M:%S %d/%m/%Y')
           
           echo ""
           echo "╔════════════════════════════════════════════════════════════════════════╗"
-          echo "║  🧠 NEURAL BRAIN - FULLY OPERATIONAL                                  ║"
+          echo "║  🐧  U B U N T U   2 2 . 0 4   N E U R A L   B R A I N              ║"
           echo "╠════════════════════════════════════════════════════════════════════════╣"
-          echo "║  🌐 Neural IP      : ${{ env.NEURAL_IP }}"
-          echo "║  👤 Neural Identity: ${{ env.NEURAL_USERNAME }}"
-          echo "║  🔐 Quantum Key    : $PASSWORD"
-          echo "║  🔌 Access Port    : 22 (SSH)"
+          echo "║  🌐 Neural IP       : ${{ env.NEURAL_IP }}"
+          echo "║  👤 Neural Identity : ${{ env.NEURAL_USERNAME }}"
+          echo "║  🔐 Quantum Key     : $PASSWORD"
+          echo "║  🔌 Access Port     : 22 (SSH)"
           echo "╠════════════════════════════════════════════════════════════════════════╣"
-          echo "║  🕐 Activated      : $START_TIME"
-          echo "║  🕐 Termination    : $END_TIME"
-          echo "║  ⚡ Duration       : $DURATION"
+          echo "║  🕐 Activation      : $START_TIME"
+          echo "║  🕐 Termination     : $END_TIME"
+          echo "║  ⚡ Duration        : $DURATION"
           echo "╠════════════════════════════════════════════════════════════════════════╣"
-          echo "║  🔧 CONNECTION: ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}"
-          echo "║  🔐 PASSWORD: $PASSWORD"
+          echo "║  🔧 CONNECTION PROTOCOL:"
+          echo "║     ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}"
+          echo "║     Password: $PASSWORD"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🚀 Neural Features: Docker | Nginx | Node.js | Python               ║"
+          echo "║  🌌 Quantum Processing Active | Neural Link Established               ║"
           echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
       
       - name: ⏳ UBUNTU22 - NEURAL SESSION MAINTENANCE
         run: |
@@ -715,150 +791,316 @@ Password: $PASSWORD
           MINUTES=$(echo "$DURATION" | sed 's/h/*60/' | sed 's/m//' | bc)
           END_TIME=$(date -d "+$MINUTES minutes" +%s)
           
-          echo "⏳ Neural processing until: $(date -d @$END_TIME '+%H:%M:%S')"
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏳ NEURAL SESSION ACTIVE - QUANTUM PROCESSING                       ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🧠 Neural processing until: $(date -d @$END_TIME '+%H:%M:%S')"
+          echo ""
           
           while [ $(date +%s) -lt $END_TIME ]; do
             REMAINING=$((END_TIME - $(date +%s)))
             HOURS=$((REMAINING / 3600))
             MINS=$(((REMAINING % 3600) / 60))
             SECS=$((REMAINING % 60))
-            printf "\r🧠 Neural Processing: %02d:%02d:%02d remaining" $HOURS $MINS $SECS
+            printf "\r🧠 [$(date '+%H:%M:%S')] Neural Processing: %02d:%02d:%02d remaining" $HOURS $MINS $SECS
             sleep 5
           done
           
           echo ""
-          echo "🧠 Neural session terminated"
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🧠 NEURAL SESSION COMPLETE - SYSTEM SHUTDOWN                        ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
       
       - name: 🧹 UBUNTU22 - NEURAL MEMORY PURGE
         if: always() && github.event.inputs.auto_cleanup == 'true'
         run: |
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🧹 NEURAL MEMORY PURGE - CLEANUP PROTOCOL                           ║"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
           sudo userdel -r ${{ env.NEURAL_USERNAME }} 2>/dev/null
           sudo rm -f /tmp/neural_password.txt
-          echo "✅ Neural memory purged"
+          sudo rm -rf /tmp/neural_ubu22_*
+          
+          echo "│ ✅ Neural memory purged" | tee -a /dev/null
+          echo "│ 🧠 System ready for next activation" | tee -a /dev/null
+          echo ""
 
 # =====================================================================================
-# 🧠 JOB 3: WINDOWS SERVER 2022 NEURAL BRAIN
+# 🧠 JOB 4: UBUNTU 24.04 NEURAL BRAIN
 # =====================================================================================
-  WindowsServer-NeuralBrain:
-    if: github.event.inputs.os_type == 'windows-server-2022'
-    runs-on: windows-latest
+  Ubuntu2404-NeuralBrain:
+    if: github.event.inputs.os_type == 'ubuntu-24-04'
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     
     steps:
-      - name: 🧠 WINSRV - NEURAL BOOTSTRAP
+      - name: 🧠 UBUNTU24 - NEURAL BOOTSTRAP
         run: |
-          Write-Host @"
+          NEURAL_SESSION_ID="UBU24-$(openssl rand -hex 6)"
+          echo "NEURAL_SESSION_ID=$NEURAL_SESSION_ID" >> $GITHUB_ENV
           
-╔════════════════════════════════════════════════════════════════════════╗
-║  🧠 NEURAL BRAIN ACTIVATION - WINDOWS SERVER 2022                    ║
-║  ════════════════════════════════════════════════════════════════════ ║
-║  🖧 Role: Datacenter | 🧠 Neural Core: Enterprise                     ║
-╚════════════════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
-          
-          $global:NeuralSessionId = "WINSRV-$(Get-Random -Minimum 100000 -Maximum 999999)"
-          echo "NEURAL_SESSION_ID=$global:NeuralSessionId" >> $env:GITHUB_ENV
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🐧  U B U N T U   2 4 . 0 4   L T S   N E U R A L   C O R E        ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🧠 Neural Cortex: Ubuntu 24.04 LTS Noble Numbat                     ║"
+          echo "║  ⚡ Processing Power: ${{ github.event.inputs.vm_specs }}"
+          echo "║  🕐 Session ID: $NEURAL_SESSION_ID"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
       
-      - name: 🔧 WINSRV - NEURAL CONFIGURATION
+      - name: ⚡ UBUNTU24 - SYSTEM UPDATE
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="Neural-RDP" dir=in action=allow protocol=TCP localport=3389
-          
-          Install-WindowsFeature -Name Web-Server, Web-WebSockets, Web-Asp-Net45 -IncludeManagementTools -ErrorAction SilentlyContinue
-          
-          Write-Host "✅ Neural configuration complete" -ForegroundColor Green
+          sudo apt-get update -y
+          sudo apt-get upgrade -y
+          sudo apt-get install -y ufw openssh-server curl wget git htop neofetch net-tools
+          echo "✅ System updated"
       
-      - name: 👤 WINSRV - NEURAL IDENTITY
+      - name: 🔐 UBUNTU24 - NEURAL IDENTITY
         run: |
-          $username = "NEURAL-ADMIN"
-          $password = "Neural@$(Get-Random -Minimum 10000 -Maximum 99999)"
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          NEURAL_USERNAME="neural-ubuntu24"
+          NEURAL_PASSWORD="Neural@$(openssl rand -base64 12 | tr -d '=/+' | head -c 14)"
           
-          Remove-LocalUser -Name $username -ErrorAction SilentlyContinue
-          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $username
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+          sudo useradd -m -s /bin/bash $NEURAL_USERNAME
+          echo "$NEURAL_USERNAME:$NEURAL_PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo $NEURAL_USERNAME
           
-          echo "NEURAL_USERNAME=$username" >> $env:GITHUB_ENV
-          echo "NEURAL_PASSWORD=$password" >> $env:GITHUB_ENV
-          echo "$password" > "$env:TEMP\neural_password.txt"
+          echo "NEURAL_USERNAME=$NEURAL_USERNAME" >> $GITHUB_ENV
+          echo "NEURAL_PASSWORD=$NEURAL_PASSWORD" >> $GITHUB_ENV
+          echo "$NEURAL_PASSWORD" > /tmp/neural_password.txt
           
-          Write-Host "✅ Neural identity: $username" -ForegroundColor Green
+          echo "✅ Neural identity: $NEURAL_USERNAME"
       
-      - name: 🌐 WINSRV - NEURAL NETWORK
+      - name: 🌐 UBUNTU24 - NETWORK ACTIVATION
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          if ($env:TAILSCALE_AUTH_KEY) {
-            $msiPath = "$env:TEMP\tailscale.msi"
-            Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
-            Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
-            Start-Sleep -Seconds 10
-            & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="neural-winsrv-$env:GITHUB_RUN_ID"
-            $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          } else {
-            $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
-          }
+          sudo ufw --force enable
+          sudo ufw allow 22/tcp
+          sudo systemctl enable ssh && sudo systemctl start ssh
           
-          echo "NEURAL_IP=$ip" >> $env:GITHUB_ENV
+          if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+            curl -fsSL https://tailscale.com/install.sh | sh
+            sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname="neural-ubu24-$GITHUB_RUN_ID"
+            NEURAL_IP=$(sudo tailscale ip -4)
+          else
+            NEURAL_IP=$(curl -s ifconfig.me)
+          fi
+          
+          echo "NEURAL_IP=$NEURAL_IP" >> $GITHUB_ENV
+          echo "✅ Neural network: $NEURAL_IP"
       
-      - name: 📱 WINSRV - TELEGRAM NOTIFICATION
-        if: github.event.inputs.telegram_notify == 'true'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: 🎉 UBUNTU24 - CONNECTION DISPLAY
         run: |
-          $password = Get-Content "$env:TEMP\neural_password.txt"
-          $message = "🧠 **NEURAL BRAIN ACTIVATED - WINDOWS SERVER 2022**
-          
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌐 **Neural IP**: ${{ env.NEURAL_IP }}
-👤 **Identity**: ${{ env.NEURAL_USERNAME }}
-🔐 **Quantum Key**: \`$password\`
-🔌 **Port**: 3389
-
-🚀 Enterprise Neural Core Active"
-          
-          $body = @{chat_id="$env:TELEGRAM_CHAT_ID"; text="$message"; parse_mode="Markdown"} | ConvertTo-Json
-          Invoke-RestMethod -Uri "https://api.telegram.org/bot$env:TELEGRAM_BOT_TOKEN/sendMessage" -Method Post -Body $body -ContentType "application/json"
+          PASSWORD=$(cat /tmp/neural_password.txt)
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🐧 UBUNTU 24.04 NEURAL BRAIN - ACTIVE                               ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🌐 IP: ${{ env.NEURAL_IP }}"
+          echo "║  👤 User: ${{ env.NEURAL_USERNAME }}"
+          echo "║  🔐 Pass: $PASSWORD"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🔧 ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
       
-      - name: 🎉 WINSRV - CONNECTION DISPLAY
+      - name: ⏳ UBUNTU24 - MAINTENANCE
         run: |
-          $password = Get-Content "$env:TEMP\neural_password.txt"
-          Write-Host @"
-          
-╔════════════════════════════════════════════════════════════════════════╗
-║  🧠 WINDOWS SERVER 2022 NEURAL BRAIN - ACTIVE                         ║
-╠════════════════════════════════════════════════════════════════════════╣
-║  🌐 Neural IP      : ${{ env.NEURAL_IP }}
-║  👤 Identity       : ${{ env.NEURAL_USERNAME }}
-║  🔐 Quantum Key    : $password
-║  🔌 Access Port    : 3389
-║  🖧 Role           : Enterprise Datacenter
-╠════════════════════════════════════════════════════════════════════════╣
-║  🔧 mstsc -> ${{ env.NEURAL_IP }}
-║  🔐 User: ${{ env.NEURAL_USERNAME }} | Pass: $password
-╚════════════════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Green
+          MINUTES=$(echo "${{ github.event.inputs.duration }}" | sed 's/h/*60/' | sed 's/m//' | bc)
+          sleep $((MINUTES * 60))
       
-      - name: ⏳ WINSRV - MAINTENANCE
-        run: |
-          $totalMinutes = switch ("${{ github.event.inputs.duration }}") {
-            "30m" {30} "1h" {60} "2h" {120} "3h" {180} "4h" {240} "5h" {300} "6h" {360}
-            default {240}
-          }
-          Start-Sleep -Seconds ($totalMinutes * 60)
-      
-      - name: 🧹 WINSRV - CLEANUP
+      - name: 🧹 UBUNTU24 - CLEANUP
         if: always() && github.event.inputs.auto_cleanup == 'true'
         run: |
-          Disable-LocalUser -Name ${{ env.NEURAL_USERNAME }}
-          Remove-Item "$env:TEMP\neural_password.txt" -Force -ErrorAction SilentlyContinue
-          Write-Host "✅ Neural memory purged" -ForegroundColor Green
+          sudo userdel -r ${{ env.NEURAL_USERNAME }} 2>/dev/null
+          sudo rm -f /tmp/neural_password.txt
+          echo "✅ Cleanup complete"
 
 # =====================================================================================
-# 🧠 JOB 4-6: ADDITIONAL NEURAL BRAINS (Ubuntu 24.04, Debian 12, CentOS 9)
+# 🧠 JOB 5: DEBIAN 12 NEURAL BRAIN
 # =====================================================================================
-# [Các neural brain còn lại được cấu hình tương tự với kiến trúc isolated riêng biệt]
-# Mỗi OS có job riêng, bộ não riêng, không trùng lặp, không lỗi
+  Debian12-NeuralBrain:
+    if: github.event.inputs.os_type == 'debian-12'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    steps:
+      - name: 🧠 DEBIAN12 - NEURAL BOOTSTRAP
+        run: |
+          NEURAL_SESSION_ID="DEB12-$(openssl rand -hex 6)"
+          echo "NEURAL_SESSION_ID=$NEURAL_SESSION_ID" >> $GITHUB_ENV
+          
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🔷  D E B I A N   1 2   N E U R A L   C O R E                      ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🧠 Neural Cortex: Debian 12 Bookworm                                ║"
+          echo "║  ⚡ Processing Power: ${{ github.event.inputs.vm_specs }}"
+          echo "║  🕐 Session ID: $NEURAL_SESSION_ID"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+      
+      - name: ⚡ DEBIAN12 - SYSTEM UPDATE
+        run: |
+          sudo apt-get update -y
+          sudo apt-get upgrade -y
+          sudo apt-get install -y ufw openssh-server curl wget git htop neofetch
+          echo "✅ System updated"
+      
+      - name: 🔐 DEBIAN12 - NEURAL IDENTITY
+        run: |
+          NEURAL_USERNAME="neural-debian"
+          NEURAL_PASSWORD="Neural@$(openssl rand -base64 12 | tr -d '=/+' | head -c 14)"
+          
+          sudo useradd -m -s /bin/bash $NEURAL_USERNAME
+          echo "$NEURAL_USERNAME:$NEURAL_PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo $NEURAL_USERNAME
+          
+          echo "NEURAL_USERNAME=$NEURAL_USERNAME" >> $GITHUB_ENV
+          echo "NEURAL_PASSWORD=$NEURAL_PASSWORD" >> $GITHUB_ENV
+          echo "$NEURAL_PASSWORD" > /tmp/neural_password.txt
+          
+          echo "✅ Neural identity: $NEURAL_USERNAME"
+      
+      - name: 🌐 DEBIAN12 - NETWORK ACTIVATION
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          sudo ufw --force enable
+          sudo ufw allow 22/tcp
+          sudo systemctl enable ssh && sudo systemctl start ssh
+          
+          if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+            curl -fsSL https://tailscale.com/install.sh | sh
+            sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname="neural-deb12-$GITHUB_RUN_ID"
+            NEURAL_IP=$(sudo tailscale ip -4)
+          else
+            NEURAL_IP=$(curl -s ifconfig.me)
+          fi
+          
+          echo "NEURAL_IP=$NEURAL_IP" >> $GITHUB_ENV
+          echo "✅ Neural network: $NEURAL_IP"
+      
+      - name: 🎉 DEBIAN12 - CONNECTION DISPLAY
+        run: |
+          PASSWORD=$(cat /tmp/neural_password.txt)
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🔷 DEBIAN 12 NEURAL BRAIN - ACTIVE                                  ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🌐 IP: ${{ env.NEURAL_IP }}"
+          echo "║  👤 User: ${{ env.NEURAL_USERNAME }}"
+          echo "║  🔐 Pass: $PASSWORD"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🔧 ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+      
+      - name: ⏳ DEBIAN12 - MAINTENANCE
+        run: |
+          MINUTES=$(echo "${{ github.event.inputs.duration }}" | sed 's/h/*60/' | sed 's/m//' | bc)
+          sleep $((MINUTES * 60))
+      
+      - name: 🧹 DEBIAN12 - CLEANUP
+        if: always() && github.event.inputs.auto_cleanup == 'true'
+        run: |
+          sudo userdel -r ${{ env.NEURAL_USERNAME }} 2>/dev/null
+          sudo rm -f /tmp/neural_password.txt
+          echo "✅ Cleanup complete"
+
+# =====================================================================================
+# 🧠 JOB 6: CENTOS 9 NEURAL BRAIN
+# =====================================================================================
+  CentOS9-NeuralBrain:
+    if: github.event.inputs.os_type == 'centos-9'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    steps:
+      - name: 🧠 CENTOS9 - NEURAL BOOTSTRAP
+        run: |
+          NEURAL_SESSION_ID="CENT9-$(openssl rand -hex 6)"
+          echo "NEURAL_SESSION_ID=$NEURAL_SESSION_ID" >> $GITHUB_ENV
+          
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🟠  C E N T O S   9   N E U R A L   C O R E                        ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🧠 Neural Cortex: CentOS 9 Stream                                   ║"
+          echo "║  ⚡ Processing Power: ${{ github.event.inputs.vm_specs }}"
+          echo "║  🕐 Session ID: $NEURAL_SESSION_ID"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+      
+      - name: ⚡ CENTOS9 - SYSTEM UPDATE
+        run: |
+          sudo dnf update -y
+          sudo dnf install -y openssh-server curl wget git htop neofetch firewalld
+          sudo systemctl enable sshd && sudo systemctl start sshd
+          echo "✅ System updated"
+      
+      - name: 🔐 CENTOS9 - NEURAL IDENTITY
+        run: |
+          NEURAL_USERNAME="neural-centos"
+          NEURAL_PASSWORD="Neural@$(openssl rand -base64 12 | tr -d '=/+' | head -c 14)"
+          
+          sudo useradd -m -s /bin/bash $NEURAL_USERNAME
+          echo "$NEURAL_USERNAME:$NEURAL_PASSWORD" | sudo chpasswd
+          sudo usermod -aG wheel $NEURAL_USERNAME
+          
+          echo "NEURAL_USERNAME=$NEURAL_USERNAME" >> $GITHUB_ENV
+          echo "NEURAL_PASSWORD=$NEURAL_PASSWORD" >> $GITHUB_ENV
+          echo "$NEURAL_PASSWORD" > /tmp/neural_password.txt
+          
+          echo "✅ Neural identity: $NEURAL_USERNAME"
+      
+      - name: 🌐 CENTOS9 - NETWORK ACTIVATION
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          sudo systemctl stop firewalld
+          sudo systemctl disable firewalld
+          
+          if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+            curl -fsSL https://tailscale.com/install.sh | sh
+            sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname="neural-cent9-$GITHUB_RUN_ID"
+            NEURAL_IP=$(sudo tailscale ip -4)
+          else
+            NEURAL_IP=$(curl -s ifconfig.me)
+          fi
+          
+          echo "NEURAL_IP=$NEURAL_IP" >> $GITHUB_ENV
+          echo "✅ Neural network: $NEURAL_IP"
+      
+      - name: 🎉 CENTOS9 - CONNECTION DISPLAY
+        run: |
+          PASSWORD=$(cat /tmp/neural_password.txt)
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🟠 CENTOS 9 NEURAL BRAIN - ACTIVE                                   ║"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🌐 IP: ${{ env.NEURAL_IP }}"
+          echo "║  👤 User: ${{ env.NEURAL_USERNAME }}"
+          echo "║  🔐 Pass: $PASSWORD"
+          echo "╠════════════════════════════════════════════════════════════════════════╣"
+          echo "║  🔧 ssh ${{ env.NEURAL_USERNAME }}@${{ env.NEURAL_IP }}"
+          echo "╚════════════════════════════════════════════════════════════════════════╝"
+          echo ""
+      
+      - name: ⏳ CENTOS9 - MAINTENANCE
+        run: |
+          MINUTES=$(echo "${{ github.event.inputs.duration }}" | sed 's/h/*60/' | sed 's/m//' | bc)
+          sleep $((MINUTES * 60))
+      
+      - name: 🧹 CENTOS9 - CLEANUP
+        if: always() && github.event.inputs.auto_cleanup == 'true'
+        run: |
+          sudo userdel -r ${{ env.NEURAL_USERNAME }} 2>/dev/null
+          sudo rm -f /tmp/neural_password.txt
+          echo "✅ Cleanup complete"
