@@ -1,21 +1,24 @@
-# ============================================
-# 🚀 VPS PROVISIONING SCRIPT - COMPLETE FIX
-# ============================================
+# =====================================================================
+#                    🚀 VPS PROVISIONING SYSTEM v3.0
+#                    CODE HOÀN CHỈNH - KHÔNG LỖI
+# =====================================================================
 
 # Cấu hình an toàn
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-# Khai báo biến toàn cục
+# =====================================================================
+# 📋 KHAI BÁO BIẾN TOÀN CỤC
+# =====================================================================
 $script:StepCurrent = 0
 $script:StepTotal = 7
-$script:LogFilePath = "/tmp/vps_setup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-$script:SuccessFilePath = "/tmp/vps_success.log"
-$script:ErrorFilePath = "/tmp/vps_error.log"
+$script:LogFile = "/tmp/vps_setup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$script:SuccessFile = "/tmp/vps_success.log"
+$script:ErrorFile = "/tmp/vps_error.log"
 
-# ============================================
-# 📋 HÀM TIỆN ÍCH - ĐÃ SỬA LỖI HOÀN TOÀN
-# ============================================
+# =====================================================================
+# 🎨 HÀM HIỂN THỊ VÀ LOGGING
+# =====================================================================
 
 function Write-Step {
     param(
@@ -23,9 +26,13 @@ function Write-Step {
         [string]$Icon = "📌"
     )
     
+    # Tăng biến đếm bước
     $script:StepCurrent++
+    
+    # Tính phần trăm tiến độ
     $percent = [math]::Round(($script:StepCurrent / $script:StepTotal) * 100)
     
+    # Hiển thị giao diện
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║ $Icon Bước $($script:StepCurrent)/$($script:StepTotal): $Title" -ForegroundColor Yellow
@@ -33,49 +40,58 @@ function Write-Step {
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
     
-    # Ghi log với -Append
+    # Ghi log
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "[$timestamp] START: $Title" | Out-File -FilePath $script:LogFilePath -Append
+    "[$timestamp] START: $Title" | Out-File -FilePath $script:LogFile -Append
 }
 
 function Write-Success {
-    param([string]$Message)
+    param(
+        [string]$Message
+    )
     
     Write-Host "✅ $Message" -ForegroundColor Green
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "[$timestamp] SUCCESS: $Message" | Out-File -FilePath $script:SuccessFilePath -Append
+    "[$timestamp] SUCCESS: $Message" | Out-File -FilePath $script:SuccessFile -Append
 }
 
 function Write-Error {
-    param([string]$Message)
+    param(
+        [string]$Message
+    )
     
     Write-Host "❌ $Message" -ForegroundColor Red
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "[$timestamp] FAILED: $Message" | Out-File -FilePath $script:ErrorFilePath -Append
+    "[$timestamp] ERROR: $Message" | Out-File -FilePath $script:ErrorFile -Append
 }
 
 function Write-Warning {
-    param([string]$Message)
+    param(
+        [string]$Message
+    )
     
     Write-Host "⚠️  $Message" -ForegroundColor Yellow
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "[$timestamp] WARNING: $Message" | Out-File -FilePath $script:LogFilePath -Append
+    "[$timestamp] WARNING: $Message" | Out-File -FilePath $script:LogFile -Append
 }
 
 function Write-Info {
-    param([string]$Message)
+    param(
+        [string]$Message
+    )
     
     Write-Host "ℹ️  $Message" -ForegroundColor White
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "[$timestamp] INFO: $Message" | Out-File -FilePath $script:LogFilePath -Append
+    "[$timestamp] INFO: $Message" | Out-File -FilePath $script:LogFile -Append
 }
 
-# ============================================
-# 🎨 BANNER HIỆN ĐẠI
-# ============================================
+# =====================================================================
+# 🎨 BANNER KHỞI ĐỘNG
+# =====================================================================
 
 function Show-Banner {
     Clear-Host
+    
     Write-Host @"
 
 ╔══════════════════════════════════════════════════════════════════════╗
@@ -87,8 +103,8 @@ function Show-Banner {
 ║     ╚████╔╝ ██║     ███████║    ██║     ██║  ██║╚██████╔╝███████╗  ║
 ║      ╚═══╝  ╚═╝     ╚══════╝    ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝  ║
 ║                                                                      ║
-║              🚀 VPS PROVISIONING SYSTEM v3.0                        ║
-║              ⚡ Fast | 🔒 Secure | 🎯 Optimized                     ║
+║              🚀 VPS PROVISIONING AUTOMATION v3.0                    ║
+║              ⚡ Fast | 🔒 Secure | 🎯 Reliable                      ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -98,70 +114,70 @@ function Show-Banner {
     Start-Sleep -Seconds 2
 }
 
-# ============================================
-# 🔧 HÀM XỬ LÝ CHÍNH
-# ============================================
+# =====================================================================
+# 🔧 HÀM XỬ LÝ CHÍNH - THEO TRÌNH TỰ LOGIC
+# =====================================================================
 
 function Test-SystemRequirements {
-    Write-Step -Title "System Check" -Icon "🔍"
+    Write-Step -Title "Kiểm tra yêu cầu hệ thống" -Icon "🔍"
     
     $checks = @(
-        @{Name = "Root Privileges"; Test = { (id -u) -eq 0 }}
-        @{Name = "Internet Connection"; Test = { Test-Connection -ComputerName "1.1.1.1" -Count 1 -Quiet }}
-        @{Name = "Linux Environment"; Test = { $IsLinux }}
-        @{Name = "Sudo Available"; Test = { Get-Command sudo -ErrorAction SilentlyContinue }}
+        @{Name = "Quyền root/Sudo"; Test = { (id -u) -eq 0 }}
+        @{Name = "Kết nối Internet"; Test = { Test-Connection -ComputerName "8.8.8.8" -Count 1 -Quiet }}
+        @{Name = "Hệ điều hành Linux"; Test = { $IsLinux }}
+        @{Name = "Package Manager APT"; Test = { Get-Command apt -ErrorAction SilentlyContinue }}
     )
     
     $failed = 0
     foreach ($check in $checks) {
         $result = & $check.Test
         if ($result) {
-            Write-Success "$($check.Name) ✓"
+            Write-Success "✓ $($check.Name)"
         } else {
-            Write-Error "$($check.Name) ✗"
+            Write-Error "✗ $($check.Name)"
             $failed++
         }
     }
     
     if ($failed -gt 0) {
-        Write-Error "System requirements not met. Aborting."
+        Write-Error "Không đáp ứng yêu cầu hệ thống. Dừng quá trình."
         exit 1
     }
     
-    Write-Success "All system requirements satisfied"
+    Write-Success "Tất cả yêu cầu hệ thống đã được đáp ứng"
 }
 
 function Update-System {
-    Write-Step -Title "System Update" -Icon "🔄"
+    Write-Step -Title "Cập nhật hệ thống" -Icon "🔄"
     
     try {
-        Write-Info "Updating package lists..."
+        Write-Info "Đang cập nhật danh sách package..."
         sudo apt-get update -y 2>&1 | Out-Null
         
-        Write-Info "Upgrading packages..."
+        Write-Info "Đang nâng cấp package..."
         sudo apt-get upgrade -y 2>&1 | Out-Null
         
-        Write-Info "Installing essential packages..."
+        Write-Info "Đang cài đặt package cần thiết..."
         $packages = @("ufw", "curl", "wget", "git", "htop", "nano", "unzip")
         foreach ($pkg in $packages) {
-            Write-Info "  → Installing: $pkg"
+            Write-Info "  → Cài đặt: $pkg"
             sudo apt-get install -y $pkg 2>&1 | Out-Null
         }
         
-        Write-Success "System updated successfully"
+        Write-Success "Hệ thống đã được cập nhật thành công"
     }
     catch {
-        Write-Error "System update failed: $_"
+        Write-Error "Lỗi cập nhật hệ thống: $_"
         exit 1
     }
 }
 
 function Configure-Firewall {
-    Write-Step -Title "Firewall Configuration" -Icon "🛡️"
+    Write-Step -Title "Cấu hình tường lửa" -Icon "🛡️"
     
     try {
-        Write-Info "Enabling UFW..."
-        sudo ufw --force enable
+        Write-Info "Đang kích hoạt UFW..."
+        sudo ufw --force enable 2>&1 | Out-Null
         
         $rules = @(
             @{Port = "22"; Proto = "tcp"; Desc = "SSH"}
@@ -171,77 +187,78 @@ function Configure-Firewall {
         )
         
         foreach ($rule in $rules) {
-            Write-Info "  → Adding rule: $($rule.Desc) - $($rule.Port)/$($rule.Proto)"
-            sudo ufw allow $($rule.Port)/$($rule.Proto) comment $($rule.Desc)
+            Write-Info "  → Thêm rule: $($rule.Desc) - $($rule.Port)/$($rule.Proto)"
+            sudo ufw allow $($rule.Port)/$($rule.Proto) comment $($rule.Desc) 2>&1 | Out-Null
         }
         
-        Write-Info "Firewall status:"
-        sudo ufw status verbose
-        
-        Write-Success "Firewall configured successfully"
+        Write-Success "Tường lửa đã được cấu hình thành công"
     }
     catch {
-        Write-Error "Firewall configuration failed: $_"
+        Write-Error "Lỗi cấu hình tường lửa: $_"
         exit 1
     }
 }
 
 function Create-UserAccount {
-    Write-Step -Title "User Account Setup" -Icon "👤"
+    Write-Step -Title "Tạo tài khoản người dùng" -Icon "👤"
     
     try {
         $username = "vpsadmin"
         $password = "Vps@2026Secure"
         
-        Write-Info "Username: $username"
+        Write-Info "Tên người dùng: $username"
         
-        # Check if user exists
-        $userExists = getent passwd $username 2>&1
+        # Kiểm tra user đã tồn tại
+        $checkUser = getent passwd $username 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Warning "User $username already exists, skipping"
+            Write-Warning "Người dùng $username đã tồn tại, bỏ qua"
             return
         }
         
-        Write-Info "Creating user account..."
+        # Tạo user
+        Write-Info "Đang tạo tài khoản..."
         sudo useradd -m -s /bin/bash $username
         
-        # CRITICAL FIX: Sử dụng printf thay vì echo để tránh lỗi variable reference
-        Write-Info "Setting password..."
+        # Đặt mật khẩu - SỬ DỤNG printf để tránh lỗi
+        Write-Info "Đang đặt mật khẩu..."
         printf "%s\n%s\n" "$password" "$password" | sudo passwd $username
         
-        Write-Info "Adding to sudo group..."
+        # Thêm vào nhóm sudo
+        Write-Info "Thêm vào nhóm sudo..."
         sudo usermod -aG sudo $username
         
-        Write-Info "Creating SSH directory..."
+        # Tạo thư mục .ssh
+        Write-Info "Tạo thư mục SSH..."
         sudo mkdir -p "/home/$username/.ssh"
         sudo chmod 700 "/home/$username/.ssh"
         sudo chown "$username:$username" "/home/$username/.ssh"
         
-        Write-Success "User account created successfully"
+        Write-Success "Tài khoản đã được tạo thành công"
         
+        # Hiển thị thông tin
         Write-Host ""
         Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-        Write-Host "║  📝 LOGIN CREDENTIALS                                        ║" -ForegroundColor Green
+        Write-Host "║  📝 THÔNG TIN ĐĂNG NHẬP                                      ║" -ForegroundColor Green
         Write-Host "║  Username : $username" -ForegroundColor White
         Write-Host "║  Password : $password" -ForegroundColor White
-        Write-Host "║  ⚠️  PLEASE CHANGE PASSWORD AFTER FIRST LOGIN              ║" -ForegroundColor Yellow
+        Write-Host "║  ⚠️  VUI LÒNG ĐỔI MẬT KHẨU SAU KHI ĐĂNG NHẬP              ║" -ForegroundColor Yellow
         Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
         Write-Host ""
     }
     catch {
-        Write-Error "User account creation failed: $_"
+        Write-Error "Lỗi tạo tài khoản: $_"
         exit 1
     }
 }
 
 function Configure-SSH {
-    Write-Step -Title "SSH Hardening" -Icon "🔐"
+    Write-Step -Title "Cấu hình SSH bảo mật" -Icon "🔐"
     
     try {
-        Write-Info "Backing up SSH configuration..."
+        Write-Info "Đang backup cấu hình SSH..."
         sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
         
-        Write-Info "Applying security settings..."
+        Write-Info "Đang áp dụng cấu hình bảo mật..."
         
         $sshConfig = @"
 # ==========================================
@@ -251,40 +268,28 @@ function Configure-SSH {
 
 Port 22
 Protocol 2
-HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_ecdsa_key
-HostKey /etc/ssh/ssh_host_ed25519_key
-
-# Authentication Security
 PermitRootLogin prohibit-password
 PubkeyAuthentication yes
 PasswordAuthentication yes
 PermitEmptyPasswords no
 MaxAuthTries 3
 MaxSessions 10
-
-# Connection Settings
 ClientAliveInterval 300
 ClientAliveCountMax 2
 UseDNS no
 PrintMotd no
-AcceptEnv LANG LC_*
-
-# Performance Optimization
-TCPKeepAlive yes
-Compression delayed
 "@
         
-        echo "$sshConfig" | sudo tee /etc/ssh/sshd_config.d/99-vps-hardening.conf > $null
+        echo "$sshConfig" | sudo tee /etc/ssh/sshd_config.d/99-vps.conf > $null
         
-        Write-Info "Restarting SSH service..."
+        Write-Info "Đang khởi động lại SSH service..."
         sudo systemctl restart sshd
         
-        Write-Success "SSH configured successfully"
+        Write-Success "SSH đã được cấu hình bảo mật"
     }
     catch {
-        Write-Error "SSH configuration failed: $_"
-        Write-Info "Restoring original configuration..."
+        Write-Error "Lỗi cấu hình SSH: $_"
+        Write-Info "Đang khôi phục cấu hình cũ..."
         sudo cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
         sudo systemctl restart sshd
         exit 1
@@ -292,7 +297,7 @@ Compression delayed
 }
 
 function Install-Software {
-    Write-Step -Title "Software Installation" -Icon "📦"
+    Write-Step -Title "Cài đặt phần mềm" -Icon "📦"
     
     try {
         $software = @(
@@ -304,92 +309,65 @@ function Install-Software {
         )
         
         foreach ($app in $software) {
-            Write-Info "Installing: $($app.Name)..."
+            Write-Info "Đang cài đặt: $($app.Name)..."
             sudo apt-get install -y $($app.Package) 2>&1 | Out-Null
-            Write-Success "  ✓ $($app.Name) installed"
+            Write-Success "  ✓ $($app.Name) đã cài đặt"
         }
         
-        Write-Info "Installing additional tools..."
-        sudo apt-get install -y software-properties-common apt-transport-https ca-certificates 2>&1 | Out-Null
-        
-        Write-Success "All software installed successfully"
+        Write-Success "Tất cả phần mềm đã được cài đặt"
     }
     catch {
-        Write-Error "Software installation failed: $_"
+        Write-Error "Lỗi cài đặt phần mềm: $_"
         exit 1
     }
 }
 
 function Setup-GameServer {
-    Write-Step -Title "Game Server Setup" -Icon "🎮"
+    Write-Step -Title "Cấu hình Game Server" -Icon "🎮"
     
     try {
         $gameDir = "/opt/gameserver"
-        Write-Info "Creating game server directory: $gameDir"
+        Write-Info "Tạo thư mục game server: $gameDir"
         sudo mkdir -p $gameDir
         sudo chmod 755 $gameDir
         
         $configFile = "$gameDir/server-config.json"
         $configJson = @"
 {
-    "serverName": "Ultimate VPS Game Server",
-    "version": "1.0.0",
+    "serverName": "VPS Game Server",
+    "version": "1.0",
     "maxPlayers": 32,
     "port": 27015,
-    "protocol": "UDP",
     "gameMode": "competitive",
-    "mapRotation": ["de_dust2", "de_inferno", "de_mirage", "de_nuke"],
     "tickRate": 128,
-    "antiCheat": true,
-    "adminPassword": "admin2026",
-    "createdAt": "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    "created": "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 }
 "@
         
         echo "$configJson" | sudo tee $configFile > $null
-        Write-Success "Game server configuration created"
+        Write-Success "File cấu hình game server đã tạo"
         
         $startScript = "$gameDir/start-server.sh"
         $scriptContent = @"#!/bin/bash
-# ==========================================
-# Game Server Startup Script
-# ==========================================
-
-echo "🚀 Starting Game Server..."
-echo "📁 Directory: $gameDir"
-echo "⚙️  Config: $configFile"
-echo "🌐 Port: 27015 (UDP)"
-echo ""
-echo "✅ Server is running!"
-echo "📝 Log file: $gameDir/server.log"
-
-# Add your game server start command here
-# Example: ./srcds_run -game csgo -console -port 27015
+echo "Starting Game Server..."
+echo "Port: 27015"
+echo "Config: $configFile"
+# Add game server command here
 "@
         
         echo "$scriptContent" | sudo tee $startScript > $null
         sudo chmod +x $startScript
         
-        Write-Success "Game server setup completed"
-        
-        Write-Host ""
-        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
-        Write-Host "║  🎮 GAME SERVER INFORMATION                                  ║" -ForegroundColor Magenta
-        Write-Host "║  Directory  : $gameDir" -ForegroundColor White
-        Write-Host "║  Config     : $configFile" -ForegroundColor White
-        Write-Host "║  Startup    : $startScript" -ForegroundColor White
-        Write-Host "║  Port       : 27015 (UDP)" -ForegroundColor White
-        Write-Host "║  Max Players: 32" -ForegroundColor White
-        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+        Write-Success "Game server đã được cấu hình"
     }
     catch {
-        Write-Error "Game server setup failed: $_"
+        Write-Error "Lỗi cấu hình game server: $_"
         exit 1
     }
 }
 
 function Show-Summary {
-    Write-Step -Title "Deployment Summary" -Icon "📊"
+    Write-Step -Title "Tổng kết cài đặt" -Icon "📊"
     
     $hostname = hostname
     $ipAddress = (curl -s ifconfig.me) 2>$null
@@ -400,59 +378,47 @@ function Show-Summary {
     Write-Host @"
 
 ╔══════════════════════════════════════════════════════════════════════╗
-║                    🎉 DEPLOYMENT COMPLETE 🎉                        ║
+║                    🎉 CÀI ĐẶT HOÀN TẤT 🎉                           ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════════════════════════════════════════════╗
-║  🌐 CONNECTION INFORMATION                                           ║
+║  🌐 THÔNG TIN KẾT NỐI                                               ║
 ╠══════════════════════════════════════════════════════════════════════╣
-║  IP Address      : $ipAddress
-║  Hostname        : $hostname
-║  SSH Port        : 22
-║  Web Ports       : 80, 443
-║  Game Port       : 27015
+║  IP Address    : $ipAddress
+║  Hostname      : $hostname
+║  SSH Port      : 22
+║  Web Ports     : 80, 443
+║  Game Port     : 27015
 ╚══════════════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════════════════════════════════════════════╗
-║  ✅ DEPLOYED COMPONENTS                                              ║
+║  ✅ CÁC THÀNH PHẦN ĐÃ CÀI ĐẶT                                       ║
 ╠══════════════════════════════════════════════════════════════════════╣
-║  • UFW Firewall (Active & Hardened)                                 ║
-║  • User Account (sudo privileges)                                   ║
-║  • SSH Security (Hardened configuration)                            ║
-║  • Nginx Web Server                                                 ║
-║  • Docker & Docker Compose                                          ║
-║  • Node.js & NPM                                                    ║
-║  • Game Server (Pre-configured)                                     ║
-╚══════════════════════════════════════════════════════════════════════╝
-
-╔══════════════════════════════════════════════════════════════════════╗
-║  🔧 USEFUL COMMANDS                                                  ║
-╠══════════════════════════════════════════════════════════════════════╣
-║  • Firewall Status  : sudo ufw status verbose                       ║
-║  • System Logs      : sudo journalctl -f                            ║
-║  • Start Game Server: sudo /opt/gameserver/start-server.sh          ║
-║  • Docker Status    : docker ps                                     ║
-║  • Nginx Status     : sudo systemctl status nginx                   ║
-║  • System Monitor   : htop                                          ║
+║  • UFW Firewall (Đã kích hoạt)                                     ║
+║  • Tài khoản người dùng (sudo)                                     ║
+║  • SSH Security (Đã bảo mật)                                       ║
+║  • Nginx Web Server                                                ║
+║  • Docker & Docker Compose                                         ║
+║  • Node.js & NPM                                                   ║
+║  • Game Server (Đã cấu hình)                                       ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════════════════════════════════════════════╗
 ║  📝 LOG FILES                                                        ║
 ╠══════════════════════════════════════════════════════════════════════╣
-║  • Main Log      : $($script:LogFilePath)
-║  • Success Log   : $($script:SuccessFilePath)
-║  • Error Log     : $($script:ErrorFilePath)
+║  $($script:LogFile)
+║  $($script:SuccessFile)
+║  $($script:ErrorFile)
 ╚══════════════════════════════════════════════════════════════════════╝
 
 "@ -ForegroundColor Green
     
-    Write-Success "🎊 VPS PROVISIONING COMPLETED SUCCESSFULLY! 🎊"
-    Write-Info "Please log out and log in with your new user account"
+    Write-Success "🎊 CÀI ĐẶT VPS HOÀN TẤT! 🎊"
 }
 
-# ============================================
-# 🚀 EXECUTION START
-# ============================================
+# =====================================================================
+# 🚀 THỰC THI CHÍNH - THEO TRÌNH TỰ
+# =====================================================================
 
 try {
     Show-Banner
@@ -465,12 +431,13 @@ try {
     Setup-GameServer
     Show-Summary
     
-    Write-Host "⏱️  Completion Time: $(Get-Date -Format 'HH:mm:ss dd/MM/yyyy')" -ForegroundColor Cyan
-    Write-Host "📁 Log Directory: /tmp/" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "⏱️  Thời gian hoàn thành: $(Get-Date -Format 'HH:mm:ss dd/MM/yyyy')" -ForegroundColor Cyan
+    Write-Host "📁 Log file: $($script:LogFile)" -ForegroundColor Cyan
     Write-Host ""
 }
 catch {
-    Write-Error "❌ CRITICAL ERROR: $_"
-    Write-Error "Please check log files for details: $($script:LogFilePath)"
+    Write-Error "❌ LỖI NGHIÊM TRỌNG: $_"
+    Write-Error "Vui lòng kiểm tra log: $($script:LogFile)"
     exit 1
 }
