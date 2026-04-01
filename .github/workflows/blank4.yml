@@ -76,8 +76,6 @@ jobs:
       session_id: ${{ steps.init.outputs.session_id }}
       duration_minutes: ${{ steps.init.outputs.duration_minutes }}
       termination_time: ${{ steps.init.outputs.termination_time }}
-      fallback_count: ${{ steps.init.outputs.fallback_count }}
-      active_worker: ${{ steps.init.outputs.active_worker }}
     steps:
       - name: 🧠 MASTER BRAIN INITIALIZATION
         id: init
@@ -99,9 +97,6 @@ jobs:
           TERM_TIME=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S")
           echo "termination_time=$TERM_TIME" >> $GITHUB_OUTPUT
           
-          echo "fallback_count=0" >> $GITHUB_OUTPUT
-          echo "active_worker=none" >> $GITHUB_OUTPUT
-          
           echo ""
           echo "╔════════════════════════════════════════════════════════════════════╗"
           echo "║                    🧠 MASTER BRAIN ACTIVATED 🧠                     ║"
@@ -109,7 +104,6 @@ jobs:
           echo "║  Session ID: $SESSION_ID"
           echo "║  Duration: $DUR minutes"
           echo "║  Termination: $TERM_TIME"
-          echo "║  Fallback Mode: ENABLED (Max 6 attempts)"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
@@ -128,10 +122,8 @@ jobs:
       rdp_port: ${{ steps.rdp.outputs.rdp_port }}
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
-      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 🪟 WINDOWS CORTEX - INITIALIZATION
+      - name: 🪟 WINDOWS CORTEX - SETUP
         run: |
           Write-Host ""
           Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
@@ -139,20 +131,17 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
       
-      - name: 🔧 RDP CONFIGURATION
-        continue-on-error: true
+      - name: 🔧 CONFIGURE RDP
         run: |
-          Write-Host "🔄 Configuring RDP..." -ForegroundColor Yellow
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=3389 profile=any
+          netsh advfirewall firewall add rule name="RDP-Allow" dir=in action=allow protocol=TCP localport=3389
           Start-Service -Name TermService -ErrorAction SilentlyContinue
       
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
-          Write-Host "👤 Creating user account..." -ForegroundColor Yellow
-          $username = "neural_user_$((Get-Random -Minimum 1000 -Maximum 9999))"
+          $username = "neural_$((Get-Random -Minimum 1000 -Maximum 9999))"
           $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | % {[char]$_})
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
           
@@ -162,42 +151,25 @@ jobs:
           
           echo "username=$username" >> $env:GITHUB_OUTPUT
           echo "password=$password" >> $env:GITHUB_OUTPUT
-          Write-Host "✅ User created: $username" -ForegroundColor Green
       
-      - name: 🔌 RDP PORT CONFIGURATION
-        id: rdp
-        run: |
-          $port = 3389
-          echo "rdp_port=$port" >> $env:GITHUB_OUTPUT
-      
-      - name: 🌐 IP ADDRESS RETRIEVAL
+      - name: 🌐 GET IP
         id: ip
         run: |
-          $publicIP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content.Trim()
-          echo "ip_address=$publicIP" >> $env:GITHUB_OUTPUT
+          $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content.Trim()
+          echo "ip_address=$ip" >> $env:GITHUB_OUTPUT
       
-      - name: 🌐 TAILSCALE SETUP
-        id: tailscale
-        continue-on-error: true
+      - name: 🔌 SET PORT
+        id: rdp
         run: |
-          $tailscaleIP = ""
-          echo "tailscale_ip=$tailscaleIP" >> $env:GITHUB_OUTPUT
+          echo "rdp_port=3389" >> $env:GITHUB_OUTPUT
       
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
-          Write-Host "✅ WINDOWS CORTEX ACTIVE" -ForegroundColor Green
           echo "status=active" >> $env:GITHUB_OUTPUT
-      
-      - name: ❌ ERROR HANDLER
-        id: error
-        if: failure()
-        run: |
-          echo "error_message=Windows Cortex initialization failed" >> $env:GITHUB_OUTPUT
-          echo "status=failed" >> $env:GITHUB_OUTPUT
 
 # =====================================================================================
-#                    🐧 UBUNTU 22.04 CORTEX - SECONDARY WORKER
+#                    🐧 UBUNTU 22.04 CORTEX
 # =====================================================================================
 
   ubuntu22_cortex:
@@ -210,63 +182,42 @@ jobs:
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
       ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      cloudflare_url: ${{ steps.cloudflare.outputs.cloudflare_url }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 🐧 UBUNTU 22.04 CORTEX - INITIALIZATION
+      - name: 🐧 UBUNTU 22.04 SETUP
         run: |
           echo ""
           echo "╔════════════════════════════════════════════════════════════╗"
           echo "║           🐧 UBUNTU 22.04 CORTEX ACTIVATED 🐧              ║"
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: 🔧 SYSTEM SETUP
-        run: |
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl wget
+          sudo apt install -y -qq openssh-server
       
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
           USERNAME="ubuntu22_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-          
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
           sudo usermod -aG sudo "$USERNAME"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
       
-      - name: 🔌 SSH CONFIGURATION
+      - name: 🔌 CONFIGURE SSH
         id: ssh
         run: |
-          PORT=22
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart ssh
-          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
+          echo "ssh_port=22" >> $GITHUB_OUTPUT
       
-      - name: ☁️ CLOUDFLARE TUNNEL
-        id: cloudflare
-        continue-on-error: true
-        run: |
-          echo "cloudflare_url=" >> $GITHUB_OUTPUT
-      
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
           echo "status=active" >> $GITHUB_OUTPUT
-      
-      - name: ❌ ERROR HANDLER
-        id: error
-        if: failure()
-        run: |
-          echo "error_message=Ubuntu 22.04 Cortex failed" >> $GITHUB_OUTPUT
-          echo "status=failed" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    🐧 UBUNTU 24.04 CORTEX - TERTIARY WORKER
+#                    🐧 UBUNTU 24.04 CORTEX
 # =====================================================================================
 
   ubuntu24_cortex:
@@ -279,56 +230,42 @@ jobs:
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
       ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      cloudflare_url: ${{ steps.cloudflare.outputs.cloudflare_url }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 🐧 UBUNTU 24.04 CORTEX - INITIALIZATION
+      - name: 🐧 UBUNTU 24.04 SETUP
         run: |
           echo ""
           echo "╔════════════════════════════════════════════════════════════╗"
           echo "║           🐧 UBUNTU 24.04 CORTEX ACTIVATED 🐧              ║"
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: 🔧 SYSTEM SETUP
-        run: |
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl wget
+          sudo apt install -y -qq openssh-server
       
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
           USERNAME="ubuntu24_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-          
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
           sudo usermod -aG sudo "$USERNAME"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
       
-      - name: 🔌 SSH CONFIGURATION
+      - name: 🔌 CONFIGURE SSH
         id: ssh
         run: |
-          PORT=22
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart ssh
-          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
+          echo "ssh_port=22" >> $GITHUB_OUTPUT
       
-      - name: ☁️ CLOUDFLARE TUNNEL
-        id: cloudflare
-        continue-on-error: true
-        run: |
-          echo "cloudflare_url=" >> $GITHUB_OUTPUT
-      
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
           echo "status=active" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    🐍 DEBIAN 12 CORTEX - FOURTH WORKER
+#                    🐍 DEBIAN 12 CORTEX
 # =====================================================================================
 
   debian_cortex:
@@ -343,49 +280,42 @@ jobs:
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
       ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 🐍 DEBIAN 12 CORTEX - INITIALIZATION
+      - name: 🐍 DEBIAN 12 SETUP
         run: |
           echo ""
           echo "╔════════════════════════════════════════════════════════════╗"
           echo "║            🐍 DEBIAN 12 CORTEX ACTIVATED 🐍                ║"
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: 🔧 SYSTEM SETUP
-        run: |
           apt update -qq
-          apt install -y -qq openssh-server sudo curl wget
+          apt install -y -qq openssh-server sudo
       
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
           USERNAME="debian_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-          
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG sudo "$USERNAME"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
       
-      - name: 🔌 SSH CONFIGURATION
+      - name: 🔌 CONFIGURE SSH
         id: ssh
         run: |
-          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           service ssh restart
-          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
+          echo "ssh_port=22" >> $GITHUB_OUTPUT
       
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
           echo "status=active" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    📦 CENTOS 9 CORTEX - FIFTH WORKER
+#                    📦 CENTOS 9 CORTEX
 # =====================================================================================
 
   centos_cortex:
@@ -400,49 +330,41 @@ jobs:
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
       ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 📦 CENTOS 9 CORTEX - INITIALIZATION
+      - name: 📦 CENTOS 9 SETUP
         run: |
           echo ""
           echo "╔════════════════════════════════════════════════════════════╗"
           echo "║            📦 CENTOS 9 CORTEX ACTIVATED 📦                 ║"
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
+          dnf install -y openssh-server sudo
       
-      - name: 🔧 SYSTEM SETUP
-        run: |
-          dnf install -y epel-release
-          dnf install -y openssh-server sudo curl wget
-      
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
           USERNAME="centos_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-          
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG wheel "$USERNAME"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
       
-      - name: 🔌 SSH CONFIGURATION
+      - name: 🔌 CONFIGURE SSH
         id: ssh
         run: |
-          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           systemctl restart sshd
-          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
+          echo "ssh_port=22" >> $GITHUB_OUTPUT
       
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
           echo "status=active" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    🔷 ALMALINUX 9 CORTEX - SIXTH WORKER
+#                    🔷 ALMALINUX 9 CORTEX
 # =====================================================================================
 
   almalinux_cortex:
@@ -457,9 +379,8 @@ jobs:
       username: ${{ steps.user.outputs.username }}
       password: ${{ steps.user.outputs.password }}
       ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
     steps:
-      - name: 🔷 ALMALINUX 9 CORTEX - INITIALIZATION
+      - name: 🔷 ALMALINUX 9 SETUP
         run: |
           echo ""
           echo "╔════════════════════════════════════════════════════════════╗"
@@ -467,40 +388,33 @@ jobs:
           echo "║              [FINAL FALLBACK WORKER]                        ║"
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
+          dnf install -y openssh-server sudo
       
-      - name: 🔧 SYSTEM SETUP
-        run: |
-          dnf install -y epel-release
-          dnf install -y openssh-server sudo curl wget
-      
-      - name: 👤 USER CREATION
+      - name: 👤 CREATE USER
         id: user
         run: |
-          USERNAME="almalinux_$((RANDOM % 9000 + 1000))"
+          USERNAME="alma_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-          
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG wheel "$USERNAME"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
       
-      - name: 🔌 SSH CONFIGURATION
+      - name: 🔌 CONFIGURE SSH
         id: ssh
         run: |
-          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           systemctl restart sshd
-          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
+          echo "ssh_port=22" >> $GITHUB_OUTPUT
       
-      - name: 📊 STATUS CHECK
+      - name: ✅ STATUS
         id: status
         run: |
           echo "status=active" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    📡 CONTROL HUB - TELEGRAM NOTIFICATION CENTER
+#                    📡 CONTROL HUB - TELEGRAM NOTIFICATION
 # =====================================================================================
 
   control_hub:
@@ -508,172 +422,90 @@ jobs:
     if: always() && github.event.inputs.telegram_notify == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 📡 SENDING TELEGRAM NOTIFICATION
+      - name: 📡 SEND TELEGRAM NOTIFICATION
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Create message file to avoid YAML issues
-          MESSAGE_FILE="/tmp/telegram_msg.txt"
+          MSG="🧠 NEURAL MASTER SYSTEM v3.0"
+          MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="$MSG"$'\n'"🔑 Session ID: ${{ needs.master_brain.outputs.session_id }}"
+          MSG="$MSG"$'\n'"⏱️ Duration: ${{ github.event.inputs.duration }}"
+          MSG="$MSG"$'\n'"⏰ Termination: ${{ needs.master_brain.outputs.termination_time }}"
+          MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          # Header
-          cat > "$MESSAGE_FILE" << 'EOF'
-🧠 *NEURAL MASTER SYSTEM v3.0* 🧠
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EOF
-          
-          # Session Info
-          echo "🔑 *Session ID:* \`${{ needs.master_brain.outputs.session_id }}\`" >> "$MESSAGE_FILE"
-          echo "⏱️ *Duration:* \`${{ github.event.inputs.duration }}\`" >> "$MESSAGE_FILE"
-          echo "⏰ *Termination:* \`${{ needs.master_brain.outputs.termination_time }}\`" >> "$MESSAGE_FILE"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> "$MESSAGE_FILE"
-          
-          # Windows 11 Section
           if [ "${{ needs.windows_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-🪟 *WINDOWS 11 CORTEX* 🪟
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* Remote Desktop Protocol
-🌐 *IP Address:* `${{ needs.windows_cortex.outputs.ip_address }}`
-🔌 *Port:* `${{ needs.windows_cortex.outputs.rdp_port }}`
-👤 *Username:* `${{ needs.windows_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.windows_cortex.outputs.password }}`
-
-💻 *How to Connect:*
-• Windows: Search "Remote Desktop Connection"
-• macOS: Microsoft Remote Desktop from App Store
-• Android/iOS: Microsoft Remote Desktop app
-• Enter: `${{ needs.windows_cortex.outputs.ip_address }}:${{ needs.windows_cortex.outputs.rdp_port }}`
-EOF
+            MSG="$MSG"$'\n\n'"🪟 WINDOWS 11 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"🌐 IP: ${{ needs.windows_cortex.outputs.ip_address }}"
+            MSG="$MSG"$'\n'"🔌 Port: ${{ needs.windows_cortex.outputs.rdp_port }}"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.windows_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.windows_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'""
+            MSG="$MSG"$'\n'"💻 Connect: Remote Desktop Connection"
+            MSG="$MSG"$'\n'"   Enter: ${{ needs.windows_cortex.outputs.ip_address }}:3389"
           fi
           
-          # Ubuntu 22.04 Section
           if [ "${{ needs.ubuntu22_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-🐧 *UBUNTU 22.04 CORTEX* 🐧
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* SSH Secure Shell
-👤 *Username:* `${{ needs.ubuntu22_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.ubuntu22_cortex.outputs.password }}`
-🔌 *SSH Port:* `${{ needs.ubuntu22_cortex.outputs.ssh_port }}`
-
-💻 *How to Connect:*
-• Windows: Use PuTTY or Windows Terminal
-• Linux/Mac: Open terminal and run:
-  `ssh ${{ needs.ubuntu22_cortex.outputs.username }}@<ip-address> -p ${{ needs.ubuntu22_cortex.outputs.ssh_port }}`
-• Enter password when prompted
-EOF
+            MSG="$MSG"$'\n\n'"🐧 UBUNTU 22.04 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.ubuntu22_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.ubuntu22_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'"🔌 SSH Port: ${{ needs.ubuntu22_cortex.outputs.ssh_port }}"
+            MSG="$MSG"$'\n'""
+            MSG="$MSG"$'\n'"💻 Connect: ssh ${{ needs.ubuntu22_cortex.outputs.username }}@<ip> -p 22"
           fi
           
-          # Ubuntu 24.04 Section
           if [ "${{ needs.ubuntu24_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-🐧 *UBUNTU 24.04 CORTEX* 🐧
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* SSH Secure Shell
-👤 *Username:* `${{ needs.ubuntu24_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.ubuntu24_cortex.outputs.password }}`
-🔌 *SSH Port:* `${{ needs.ubuntu24_cortex.outputs.ssh_port }}`
-
-💻 *How to Connect:*
-• Windows: Use PuTTY or Windows Terminal
-• Linux/Mac: Open terminal and run:
-  `ssh ${{ needs.ubuntu24_cortex.outputs.username }}@<ip-address> -p ${{ needs.ubuntu24_cortex.outputs.ssh_port }}`
-• Enter password when prompted
-EOF
+            MSG="$MSG"$'\n\n'"🐧 UBUNTU 24.04 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.ubuntu24_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.ubuntu24_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'"🔌 SSH Port: ${{ needs.ubuntu24_cortex.outputs.ssh_port }}"
+            MSG="$MSG"$'\n'""
+            MSG="$MSG"$'\n'"💻 Connect: ssh ${{ needs.ubuntu24_cortex.outputs.username }}@<ip> -p 22"
           fi
           
-          # Debian Section
           if [ "${{ needs.debian_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-🐍 *DEBIAN 12 CORTEX* 🐍
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* SSH Secure Shell
-👤 *Username:* `${{ needs.debian_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.debian_cortex.outputs.password }}`
-🔌 *SSH Port:* `${{ needs.debian_cortex.outputs.ssh_port }}`
-
-💻 *How to Connect:*
-• Windows: Use PuTTY or Windows Terminal
-• Linux/Mac: Open terminal and run:
-  `ssh ${{ needs.debian_cortex.outputs.username }}@<ip-address> -p ${{ needs.debian_cortex.outputs.ssh_port }}`
-• Debian is lightweight and stable
-EOF
+            MSG="$MSG"$'\n\n'"🐍 DEBIAN 12 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.debian_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.debian_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'"🔌 SSH Port: ${{ needs.debian_cortex.outputs.ssh_port }}"
           fi
           
-          # CentOS Section
           if [ "${{ needs.centos_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-📦 *CENTOS 9 CORTEX* 📦
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* SSH Secure Shell
-👤 *Username:* `${{ needs.centos_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.centos_cortex.outputs.password }}`
-🔌 *SSH Port:* `${{ needs.centos_cortex.outputs.ssh_port }}`
-
-💻 *How to Connect:*
-• Windows: Use PuTTY or Windows Terminal
-• Linux/Mac: Open terminal and run:
-  `ssh ${{ needs.centos_cortex.outputs.username }}@<ip-address> -p ${{ needs.centos_cortex.outputs.ssh_port }}`
-• Enterprise-grade stability
-EOF
+            MSG="$MSG"$'\n\n'"📦 CENTOS 9 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.centos_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.centos_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'"🔌 SSH Port: ${{ needs.centos_cortex.outputs.ssh_port }}"
           fi
           
-          # AlmaLinux Section
           if [ "${{ needs.almalinux_cortex.outputs.status }}" = "active" ]; then
-            cat >> "$MESSAGE_FILE" << 'EOF'
-
-🔷 *ALMALINUX 9 CORTEX* 🔷
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 *Connection Type:* SSH Secure Shell
-👤 *Username:* `${{ needs.almalinux_cortex.outputs.username }}`
-🔐 *Password:* `${{ needs.almalinux_cortex.outputs.password }}`
-🔌 *SSH Port:* `${{ needs.almalinux_cortex.outputs.ssh_port }}`
-
-💻 *How to Connect:*
-• Windows: Use PuTTY or Windows Terminal
-• Linux/Mac: Open terminal and run:
-  `ssh ${{ needs.almalinux_cortex.outputs.username }}@<ip-address> -p ${{ needs.almalinux_cortex.outputs.ssh_port }}`
-• RHEL-compatible distribution
-EOF
+            MSG="$MSG"$'\n\n'"🔷 ALMALINUX 9 CORTEX"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 User: ${{ needs.almalinux_cortex.outputs.username }}"
+            MSG="$MSG"$'\n'"🔐 Pass: ${{ needs.almalinux_cortex.outputs.password }}"
+            MSG="$MSG"$'\n'"🔌 SSH Port: ${{ needs.almalinux_cortex.outputs.ssh_port }}"
           fi
           
-          # Footer
-          cat >> "$MESSAGE_FILE" << 'EOF'
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🟢 *System Status:* `ACTIVE`
-🔄 *Fallback Mode:* `ENABLED`
-⚡ *Performance:* `${{ github.event.inputs.performance_mode }}`
-
-✨ *Neural Link Established* ✨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 *Quick Tips:*
-• Copy password carefully (case-sensitive)
-• Use copy-paste to avoid typos
-• Connection may take 1-2 minutes
-• Session auto-terminates after duration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EOF
+          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="$MSG"$'\n'"🟢 Status: ACTIVE"
+          MSG="$MSG"$'\n'"⚡ Performance: ${{ github.event.inputs.performance_mode }}"
+          MSG="$MSG"$'\n'"✨ Neural Link Established"
           
-          # Send message
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
-              -d text="$(cat "$MESSAGE_FILE")" \
+              -d text="$MSG" \
               -d parse_mode="Markdown" \
               -d disable_web_page_preview="true" > /dev/null 2>&1
-            echo "✅ Telegram notification sent"
-          else
-            echo "⚠️ Telegram credentials not configured"
+            echo "Telegram sent"
           fi
 
 # =====================================================================================
-#                    ⏱️ RUNTIME MANAGER - SESSION KEEPER
+#                    ⏱️ RUNTIME MANAGER
 # =====================================================================================
 
   runtime_manager:
@@ -681,38 +513,18 @@ EOF
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: ⏱️ RUNTIME MANAGEMENT
+      - name: ⏱️ KEEP ALIVE
         run: |
           DUR=${{ needs.master_brain.outputs.duration_minutes }}
           END=$(( $(date +%s) + DUR * 60 ))
-          
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║              ⏱️  RUNTIME MANAGER ACTIVE ⏱️                 ║"
-          echo "╠════════════════════════════════════════════════════════════╣"
-          echo "║  📅 Start: $(date)"
-          echo "║  ⏰ End:   $(date -d @$END)"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
-          
+          echo "Runtime active until: $(date -d @$END)"
           while [ $(date +%s) -lt $END ]; do
-            REMAIN=$((END - $(date +%s)))
-            H=$((REMAIN / 3600))
-            M=$(((REMAIN % 3600) / 60))
-            S=$((REMAIN % 60))
-            printf "\r⏳ [ACTIVE] Time remaining: %02d:%02d:%02d" $H $M $S
-            sleep 10
+            sleep 60
           done
-          
-          echo ""
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║         ✅ SESSION COMPLETED - SYSTEM SHUTDOWN ✅          ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "Runtime completed"
 
 # =====================================================================================
-#                    🧹 MEMORY PURGE - CLEANUP SYSTEM
+#                    🧹 MEMORY PURGE
 # =====================================================================================
 
   memory_purge:
@@ -720,15 +532,7 @@ EOF
     if: always() && github.event.inputs.auto_cleanup == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 🧹 MEMORY PURGE
+      - name: 🧹 CLEANUP
         run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║              🧹 MEMORY PURGE - CLEANUP 🧹                  ║"
-          echo "╠════════════════════════════════════════════════════════════╣"
-          echo "║  ✓ All neural data destroyed                               ║"
-          echo "║  ✓ Session credentials removed                             ║"
-          echo "║  ✓ System ready for next activation                        ║"
-          echo "║  ✓ Quantum memory cleared                                  ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "Memory purge complete"
+          echo "All neural data destroyed"
