@@ -1,648 +1,255 @@
-# =====================================================================================
-#                    🧠 PREMIUM VM GENERATOR v1.0 - ULTIMATE QUANTUM EDITION
-#              Neural Network Architecture | Multi-OS Isolated Brain System
-# =====================================================================================
-# Version: 1.0.0
-# Architecture: Isolated Neural Modules (INM)
-# Features: Zero Collision | Quantum Processing | Neural Auto-Heal
-# Stability: Enterprise Grade | Military Encryption | Self-Optimizing
-# =====================================================================================
-
-name: 🧠 PREMIUM VM GENERATOR v1.0 - ULTIMATE QUANTUM EDITION
+name: 🧠 Neural VM Quantum System v4 - Full Control
 
 on:
-  workflow_dispatch:
-    inputs:
-      os_type:
-        description: '🧠 SELECT NEURAL CORTEX'
-        required: true
-        default: 'windows-11'
-        type: choice
-        options:
-          - 'windows-11'
-          - 'windows-server-2022'
-          - 'ubuntu-22-04'
-          - 'ubuntu-24-04'
-          - 'debian-12'
-          - 'centos-9'
-      
-      vm_specs:
-        description: '⚡ NEURAL PROCESSING POWER'
-        required: true
-        default: 'standard-4gb'
-        type: choice
-        options:
-          - 'lightning-2gb'
-          - 'standard-4gb'
-          - 'turbo-8gb'
-          - 'quantum-16gb'
-      
-      duration:
-        description: '⏱️ QUANTUM SESSION DURATION'
-        required: false
-        default: '4h'
-        type: choice
-        options:
-          - '30m'
-          - '1h'
-          - '2h'
-          - '3h'
-          - '4h'
-          - '5h'
-          - '6h'
-      
-      network_type:
-        description: '🌐 NEURAL NETWORK PROTOCOL'
-        required: false
-        default: 'tailscale'
-        type: choice
-        options:
-          - 'tailscale'
-          - 'direct-ip'
-      
-      telegram_notify:
-        description: '📱 TELEGRAM NEURAL LINK'
-        required: false
-        default: 'true'
-        type: boolean
-      
-      auto_cleanup:
-        description: '🧹 NEURAL MEMORY PURGE'
-        required: false
-        default: 'true'
-        type: boolean
-      
-      neural_healing:
-        description: '💊 NEURAL AUTO-HEAL SYSTEM'
-        required: false
-        default: 'true'
-        type: boolean
+workflow_dispatch:
+inputs:
+duration:
+description: "Duration"
+required: true
+default: "2h"
+type: choice
+options:
+- "1h"
+- "2h"
+- "4h"
 
 env:
-  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-# =====================================================================================
-# 🧠 NEURAL CORTEX 1: WINDOWS 11 - QUANTUM BRAIN
-# =====================================================================================
+defaults:
+run:
+shell: pwsh
+
 jobs:
-  NeuralCortex_Windows11:
-    if: github.event.inputs.os_type == 'windows-11'
-    runs-on: windows-latest
-    timeout-minutes: 360
-    
-    steps:
-      # ============================================================
-      # PHASE 1: NEURAL AWAKENING - BOOTSTRAP SEQUENCE
-      # ============================================================
-      - name: 🧠 [CORTEX-01] NEURAL AWAKENING SEQUENCE
-        run: |
-          # Initialize Neural Parameters
-          $script:NeuralCortex = "WINDOWS_11_QUANTUM"
-          $script:NeuralSessionId = "CORTEX-$(Get-Random -Minimum 100000 -Maximum 999999)-$(Get-Date -Format 'HHmmss')"
-          $script:NeuralBirth = Get-Date
-          $script:NeuralLogPath = "$env:TEMP\neural_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-          New-Item -ItemType Directory -Path $script:NeuralLogPath -Force | Out-Null
-          
-          # Calculate Quantum Timeline
-          $durationMap = @{
-            "30m" = 30; "1h" = 60; "2h" = 120; "3h" = 180
-            "4h" = 240; "5h" = 300; "6h" = 360
-          }
-          $script:NeuralDuration = $durationMap["${{ github.event.inputs.duration }}"]
-          if (-not $script:NeuralDuration) { $script:NeuralDuration = 240 }
-          
-          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
-          $script:NeuralAwakening = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
-          $script:NeuralTermination = $script:NeuralAwakening.AddMinutes($script:NeuralDuration)
-          
-          # Render Neural Interface
-          $bannerLines = @(
-            "╔══════════════════════════════════════════════════════════════════════════════════════════════╗"
-            "║                                                                                              ║"
-            "║    🧠  N E U R A L   C O R T E X   -   A W A K E N I N G   S E Q U E N C E                 ║"
-            "║    ═════════════════════════════════════════════════════════════════════════════════════    ║"
-            "║                                                                                              ║"
-            "║    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    ║"
-            "║    ░                                                                                    ░    ║"
-            "║    ░   ██╗    ██╗██╗███╗   ██╗██████╗  ██████╗ ██╗    ██╗███████╗                       ░    ║"
-            "║    ░   ██║    ██║██║████╗  ██║██╔══██╗██╔═══██╗██║    ██║██╔════╝                       ░    ║"
-            "║    ░   ██║ █╗ ██║██║██╔██╗ ██║██████╔╝██║   ██║██║ █╗ ██║███████╗                       ░    ║"
-            "║    ░   ██║███╗██║██║██║╚██╗██║██╔══██╗██║   ██║██║███╗██║╚════██║                       ░    ║"
-            "║    ░   ╚███╔███╔╝██║██║ ╚████║██║  ██║╚██████╔╝╚███╔███╔╝███████║                       ░    ║"
-            "║    ░    ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝                       ░    ║"
-            "║    ░                                                                                    ░    ║"
-            "║    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    ║"
-            "║                                                                                              ║"
-            "║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║"
-            "║    ║  🧬 NEURAL CORTEX ID    : $script:NeuralCortex                                        ║ ║"
-            "║    ║  🆔 SESSION SIGNATURE  : $script:NeuralSessionId                                      ║ ║"
-            "║    ║  ⚡ PROCESSING POWER   : ${{ github.event.inputs.vm_specs }}                                         ║ ║"
-            "║    ║  🌐 NEURAL LINK TYPE   : ${{ github.event.inputs.network_type }}                                    ║ ║"
-            "║    ║  🕐 AWAKENING TIME     : $($script:NeuralAwakening.ToString('HH:mm:ss dd/MM/yyyy'))               ║ ║"
-            "║    ║  🕐 TERMINATION TIME   : $($script:NeuralTermination.ToString('HH:mm:ss dd/MM/yyyy'))             ║ ║"
-            "║    ║  ⏱️ QUANTUM DURATION   : ${{ github.event.inputs.duration }}                                                    ║ ║"
-            "║    ║  💊 AUTO-HEAL SYSTEM   : ${{ github.event.inputs.neural_healing }}                                          ║ ║"
-            "║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║"
-            "║                                                                                              ║"
-            "╚══════════════════════════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $bannerLines) {
-            Write-Host $line -ForegroundColor Cyan
-          }
-          
-          # Export Neural State
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_CORTEX=$script:NeuralCortex"
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_SESSION_ID=$script:NeuralSessionId"
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_DURATION_MINUTES=$script:NeuralDuration"
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_AWAKENING=$($script:NeuralAwakening.ToString('HH:mm:ss dd/MM/yyyy'))"
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_TERMINATION=$($script:NeuralTermination.ToString('HH:mm:ss dd/MM/yyyy'))"
-          
-          Start-Sleep -Seconds 2
-      
-      # ============================================================
-      # PHASE 2: NEURAL SYNAPSE - CONNECTION PROTOCOL
-      # ============================================================
-      - name: ⚡ [CORTEX-01] NEURAL SYNAPSE ESTABLISHMENT
-        run: |
-          $phaseBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  ⚡ ESTABLISHING NEURAL SYNAPSES - QUANTUM CONNECTION PROTOCOL       ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🧬 Initializing RDP Protocol | 🔐 Configuring Security Layers        ║"
-            "║  🌐 Opening Neural Ports | 🛡️ Quantum Firewall Integration            ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $phaseBanner) {
-            Write-Host $line -ForegroundColor Magenta
-          }
-          Write-Host ""
-          
-          # Neural Synapse Configuration with Auto-Heal
-          $synapseJobs = @()
-          
-          $synapseJobs += Start-Job -Name "RDP-Config" -ScriptBlock {
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-            return $true
-          }
-          
-          $synapseJobs += Start-Job -Name "Firewall-Config" -ScriptBlock {
-            netsh advfirewall firewall add rule name="Neural-Synapse-In" dir=in action=allow protocol=TCP localport=3389 profile=any
-            netsh advfirewall firewall add rule name="Neural-Synapse-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
-            netsh advfirewall firewall add rule name="Neural-ICMP" dir=in action=allow protocol=ICMPv4
-            return $true
-          }
-          
-          $results = $synapseJobs | Wait-Job | Receive-Job
-          $synapseJobs | Remove-Job
-          
-          Write-Host "│ ✅ Neural synapses established successfully" -ForegroundColor Green
-          Write-Host "│ 🔗 Quantum RDP protocol activated on port 3389" -ForegroundColor Green
-          Write-Host "│ 🛡️ Firewall rules configured with quantum encryption" -ForegroundColor Green
-          Write-Host ""
-      
-      # ============================================================
-      # PHASE 3: QUANTUM IDENTITY - NEURAL AUTHENTICATION
-      # ============================================================
-      - name: 🔐 [CORTEX-01] QUANTUM IDENTITY GENERATION
-        run: |
-          $phaseBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  🔐 QUANTUM IDENTITY GENERATION - NEURAL AUTHENTICATION SYSTEM       ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🧬 Creating Neural Identity | 🔑 Generating Quantum Encryption Key   ║"
-            "║  🛡️ Military Grade Security | 💊 Auto-Heal Authentication             ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $phaseBanner) {
-            Write-Host $line -ForegroundColor Magenta
-          }
-          Write-Host ""
-          
-          function New-NeuralIdentity {
-            param(
-              [int]$Length = 24,
-              [switch]$MilitaryGrade
-            )
-            
-            $quantumPools = @{
-              Upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-              Lower = 'abcdefghijkmnpqrstuvwxyz'
-              Numbers = '23456789'
-              Symbols = '!@#$%&*+=?'
-              Extended = if ($MilitaryGrade) { '_|~^' } else { '' }
-            }
-            
-            $random = [System.Random]::new()
-            $identity = [System.Collections.ArrayList]::new()
-            
-            # Mandatory complexity
-            $identity.Add($quantumPools.Upper[$random.Next(0, $quantumPools.Upper.Length)]) | Out-Null
-            $identity.Add($quantumPools.Lower[$random.Next(0, $quantumPools.Lower.Length)]) | Out-Null
-            $identity.Add($quantumPools.Numbers[$random.Next(0, $quantumPools.Numbers.Length)]) | Out-Null
-            $identity.Add($quantumPools.Symbols[$random.Next(0, $quantumPools.Symbols.Length)]) | Out-Null
-            
-            $allChars = $quantumPools.Upper + $quantumPools.Lower + $quantumPools.Numbers + $quantumPools.Symbols + $quantumPools.Extended
-            
-            for ($i = 4; $i -lt $Length; $i++) {
-              $identity.Add($allChars[$random.Next(0, $allChars.Length)]) | Out-Null
-            }
-            
-            $shuffled = $identity.ToArray() | Sort-Object { Get-Random }
-            return -join $shuffled
-          }
-          
-          $script:NeuralIdentity = "NEURAL-$(Get-Random -Minimum 1000 -Maximum 9999)"
-          $script:QuantumKey = New-NeuralIdentity -Length 24 -MilitaryGrade
-          $secureKey = ConvertTo-SecureString $script:QuantumKey -AsPlainText -Force
-          
-          Remove-LocalUser -Name $script:NeuralIdentity -ErrorAction SilentlyContinue
-          
-          $userParams = @{
-            Name = $script:NeuralIdentity
-            Password = $secureKey
-            AccountNeverExpires = $true
-            Description = "Quantum Neural Identity - Windows 11 Cortex"
-          }
-          New-LocalUser @userParams
-          Set-LocalUser -Name $script:NeuralIdentity -PasswordNeverExpires $true
-          
-          Add-LocalGroupMember -Group "Administrators" -Member $script:NeuralIdentity
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $script:NeuralIdentity
-          Add-LocalGroupMember -Group "Users" -Member $script:NeuralIdentity
-          Enable-LocalUser -Name $script:NeuralIdentity
-          
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_IDENTITY=$script:NeuralIdentity"
-          Add-Content -Path $env:GITHUB_ENV -Value "QUANTUM_KEY=$script:QuantumKey"
-          $script:QuantumKey | Out-File -FilePath "$env:TEMP\quantum_key.txt" -Encoding ascii
-          
-          Write-Host "│ 🧬 Neural Identity Created: $script:NeuralIdentity" -ForegroundColor Green
-          Write-Host "│ 🔑 Quantum Encryption Key: $script:QuantumKey" -ForegroundColor Green
-          Write-Host "│ 🛡️ Security Level: Military Grade (AES-256)" -ForegroundColor Green
-          Write-Host "│ 💊 Auto-Heal Authentication: Active" -ForegroundColor Green
-          Write-Host ""
-      
-      # ============================================================
-      # PHASE 4: NEURAL NETWORK - QUANTUM LINK
-      # ============================================================
-      - name: 🌐 [CORTEX-01] QUANTUM NEURAL NETWORK
-        env:
-          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          $phaseBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  🌐 QUANTUM NEURAL NETWORK - ESTABLISHING QUANTUM LINK               ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  📡 Scanning Neural Pathways | 🔗 Establishing Quantum Entanglement    ║"
-            "║  🛰️ Satellite Uplink | 🌍 Global Neural Mesh Network                   ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $phaseBanner) {
-            Write-Host $line -ForegroundColor Magenta
-          }
-          Write-Host ""
-          
-          $networkType = "${{ github.event.inputs.network_type }}"
-          $script:NeuralIP = $null
-          
-          switch ($networkType) {
-            "tailscale" {
-              if ($env:TAILSCALE_AUTH_KEY) {
-                Write-Host "│ 📡 Establishing Tailscale Quantum Mesh..." -ForegroundColor Blue
-                
-                $tailscaleInstaller = "$env:TEMP\tailscale_quantum.msi"
-                $null = Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $tailscaleInstaller
-                $installProcess = Start-Process msiexec.exe -ArgumentList "/i `"$tailscaleInstaller`" /quiet /norestart" -Wait -PassThru
-                Remove-Item $tailscaleInstaller -Force -ErrorAction SilentlyContinue
-                
-                $retryCount = 0
-                while ($retryCount -lt 20 -and -not $script:NeuralIP) {
-                  Start-Sleep -Seconds 3
-                  $tsPath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-                  if (Test-Path $tsPath) {
-                    $hostname = "neural-w11-$env:GITHUB_RUN_ID"
-                    $null = & $tsPath up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=$hostname --accept-routes --accept-dns --ssh
-                    
-                    $ipAttempt = 0
-                    while ($ipAttempt -lt 10 -and -not $script:NeuralIP) {
-                      $ip = & $tsPath ip -4 2>&1
-                      if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
-                        $script:NeuralIP = $ip
-                        break
-                      }
-                      Start-Sleep -Seconds 2
-                      $ipAttempt++
-                    }
-                  }
-                  $retryCount++
-                }
-              }
-            }
-            default {
-              Write-Host "│ 🌍 Establishing Direct Quantum Link..." -ForegroundColor Blue
-              $script:NeuralIP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
-            }
-          }
-          
-          if (-not $script:NeuralIP) {
-            Write-Host "│ ⚠️ Quantum Link Fallback: Direct IP" -ForegroundColor Yellow
-            $script:NeuralIP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
-          }
-          
-          Add-Content -Path $env:GITHUB_ENV -Value "NEURAL_IP=$script:NeuralIP"
-          
-          Write-Host "│ ✅ Quantum Neural Network Active" -ForegroundColor Green
-          Write-Host "│ 🌐 Neural IP Address: $script:NeuralIP" -ForegroundColor Green
-          Write-Host "│ 🔗 Quantum Entanglement: Established" -ForegroundColor Green
-          Write-Host ""
-      
-      # ============================================================
-      # PHASE 5: NEURAL OPTIMIZATION - QUANTUM BOOST
-      # ============================================================
-      - name: ⚡ [CORTEX-01] QUANTUM NEURAL OPTIMIZATION
-        run: |
-          $phaseBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  ⚡ QUANTUM NEURAL OPTIMIZATION - PERFORMANCE BOOST                   ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🚀 Applying Quantum Optimizations | ⚡ Neural Processing Acceleration  ║"
-            "║  💾 Memory Optimization | 🔧 System Tuning | 🛡️ Security Hardening     ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $phaseBanner) {
-            Write-Host $line -ForegroundColor Magenta
-          }
-          Write-Host ""
-          
-          $optimizationModules = @{
-            "Visual Effects" = { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -Force -ErrorAction SilentlyContinue }
-            "Power Profile" = { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>$null }
-            "Defender Shield" = { Set-MpPreference -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue }
-            "Neural Cache" = { Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue }
-            "Network Stack" = { netsh int tcp set global autotuninglevel=normal 2>$null }
-            "System Cache" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "LargeSystemCache" -Value 1 -Force -ErrorAction SilentlyContinue }
-            "Processor Scheduling" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38 -Force -ErrorAction SilentlyContinue }
-          }
-          
-          $successCount = 0
-          foreach ($module in $optimizationModules.Keys) {
-            Write-Host "│ 🔧 Optimizing $module..." -NoNewline
-            try {
-              & $optimizationModules[$module]
-              Write-Host " ✓" -ForegroundColor Green
-              $successCount++
-            } catch {
-              Write-Host " ⚠️" -ForegroundColor Yellow
-            }
-          }
-          
-          Write-Host ""
-          Write-Host "│ ✅ Quantum Optimization Complete: $successCount/7 modules optimized" -ForegroundColor Green
-          Write-Host "│ ⚡ Neural Processing Speed: MAXIMUM" -ForegroundColor Green
-          Write-Host "│ 🧬 System Ready for Quantum Operations" -ForegroundColor Green
-          Write-Host ""
-      
-      # ============================================================
-      # PHASE 6: TELEGRAM QUANTUM LINK
-      # ============================================================
-      - name: 📡 [CORTEX-01] TELEGRAM QUANTUM TRANSMISSION
-        if: github.event.inputs.telegram_notify == 'true'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          $quantumKey = Get-Content "$env:TEMP\quantum_key.txt" -ErrorAction SilentlyContinue
-          
-          $telegramMessage = @(
-            "🧠 **QUANTUM NEURAL CORTEX ACTIVATED**"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ""
-            "**🧬 NEURAL SPECIFICATIONS**"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            "🖥️ **System**: Windows 11 Professional x64"
-            "🧠 **Cortex ID**: `${{ env.NEURAL_CORTEX }}`"
-            "🆔 **Session**: `${{ env.NEURAL_SESSION_ID }}`"
-            "⚡ **Power**: ${{ github.event.inputs.vm_specs }}"
-            ""
-            "**🌐 QUANTUM CONNECTION**"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            "🌍 **Neural IP**: `${{ env.NEURAL_IP }}`"
-            "👤 **Identity**: `${{ env.NEURAL_IDENTITY }}`"
-            "🔑 **Quantum Key**: `$quantumKey`"
-            "🔌 **Port**: 3389 (RDP)"
-            "🌐 **Protocol**: ${{ github.event.inputs.network_type }}"
-            ""
-            "**⏱️ QUANTUM TIMELINE**"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            "🕐 **Awakening**: ${{ env.NEURAL_AWAKENING }}"
-            "🕐 **Termination**: ${{ env.NEURAL_TERMINATION }}"
-            "⏱️ **Duration**: ${{ github.event.inputs.duration }}"
-            ""
-            "**🔧 QUANTUM CONNECTION PROTOCOL**"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            "```"
-            "1. Open Remote Desktop (mstsc)"
-            "2. Connect to: ${{ env.NEURAL_IP }}"
-            "3. Identity: ${{ env.NEURAL_IDENTITY }}"
-            "4. Quantum Key: $quantumKey"
-            "5. Neural Link Established"
-            "```"
-            ""
-            "💊 **Auto-Heal System**: ${{ github.event.inputs.neural_healing }}"
-            "🚀 _Quantum Neural Cortex Fully Operational_"
-          ) -join "`n"
-          
-          if ($env:TELEGRAM_BOT_TOKEN -and $env:TELEGRAM_CHAT_ID) {
-            try {
-              $payload = @{
-                chat_id = $env:TELEGRAM_CHAT_ID
-                text = $telegramMessage
-                parse_mode = "Markdown"
-              } | ConvertTo-Json
-              
-              $response = Invoke-RestMethod -Uri "https://api.telegram.org/bot$env:TELEGRAM_BOT_TOKEN/sendMessage" -Method Post -Body $payload -ContentType "application/json" -ErrorAction Stop
-              Write-Host "│ 📡 Quantum transmission successful" -ForegroundColor Green
-            } catch {
-              Write-Host "│ ⚠️ Quantum transmission failed: Neural interference" -ForegroundColor Yellow
-            }
-          }
-      
-      # ============================================================
-      # PHASE 7: NEURAL CONSOLE - CONNECTION MATRIX
-      # ============================================================
-      - name: 🎯 [CORTEX-01] NEURAL CONSOLE - CONNECTION MATRIX
-        run: |
-          $quantumKey = Get-Content "$env:TEMP\quantum_key.txt" -ErrorAction SilentlyContinue
-          
-          $connectionMatrix = @(
-            "╔══════════════════════════════════════════════════════════════════════════════════════════════╗"
-            "║                                                                                              ║"
-            "║    🧠  Q U A N T U M   N E U R A L   C O R T E X   -   A C T I V E                         ║"
-            "║    ═════════════════════════════════════════════════════════════════════════════════════    ║"
-            "║                                                                                              ║"
-            "║    ╔══════════════════════════════════════════════════════════════════════════════════════╗ ║"
-            "║    ║  🌐 QUANTUM CONNECTION MATRIX                                                        ║ ║"
-            "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║     🧬 Cortex ID      : ${{ env.NEURAL_CORTEX }}                                            ║ ║"
-            "║    ║     🆔 Session        : ${{ env.NEURAL_SESSION_ID }}                                            ║ ║"
-            "║    ║     🌍 Neural IP      : ${{ env.NEURAL_IP }}                                                    ║ ║"
-            "║    ║     👤 Identity       : ${{ env.NEURAL_IDENTITY }}                                             ║ ║"
-            "║    ║     🔑 Quantum Key    : $quantumKey                                    ║ ║"
-            "║    ║     🔌 Access Port    : 3389 (RDP Quantum Protocol)                                        ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║  ⏱️ QUANTUM TIMELINE                                                               ║ ║"
-            "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║     🕐 Awakening       : ${{ env.NEURAL_AWAKENING }}                                             ║ ║"
-            "║    ║     🕐 Termination     : ${{ env.NEURAL_TERMINATION }}                                               ║ ║"
-            "║    ║     ⏱️ Duration       : ${{ github.event.inputs.duration }}                                                          ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║  🔧 QUANTUM CONNECTION PROTOCOL                                                     ║ ║"
-            "║    ║  ═══════════════════════════════════════════════════════════════════════════════════ ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║     mstsc /v:${{ env.NEURAL_IP }}                                                          ║ ║"
-            "║    ║     Identity: ${{ env.NEURAL_IDENTITY }}                                                   ║ ║"
-            "║    ║     Quantum Key: $quantumKey                                    ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ║  ⚡ Neural Power       : ${{ github.event.inputs.vm_specs }}                                   ║ ║"
-            "║    ║  🌐 Network Protocol  : ${{ github.event.inputs.network_type }}                              ║ ║"
-            "║    ║  💊 Auto-Heal         : ${{ github.event.inputs.neural_healing }}                                          ║ ║"
-            "║    ║                                                                                      ║ ║"
-            "║    ╚══════════════════════════════════════════════════════════════════════════════════════╝ ║"
-            "║                                                                                              ║"
-            "║    🚀 Quantum Neural Cortex: ONLINE | 🧬 Neural State: STABLE | ⚡ Processing: MAXIMUM      ║"
-            "║    🔐 Encryption: AES-256 | 🛡️ Security: Military Grade | 💊 Auto-Heal: ACTIVE             ║"
-            "║                                                                                              ║"
-            "╚══════════════════════════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $connectionMatrix) {
-            Write-Host $line -ForegroundColor Green
-          }
-      
-      # ============================================================
-      # PHASE 8: NEURAL MAINTENANCE - QUANTUM PROCESSING
-      # ============================================================
-      - name: ⏳ [CORTEX-01] QUANTUM NEURAL MAINTENANCE
-        run: |
-          $durationMinutes = [int]"${{ env.NEURAL_DURATION_MINUTES }}"
-          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
-          $terminationTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone).AddMinutes($durationMinutes)
-          
-          $maintenanceHeader = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  ⏳ QUANTUM NEURAL MAINTENANCE - ACTIVE PROCESSING                    ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🧬 Neural Processing Until: $($terminationTime.ToString('HH:mm:ss dd/MM/yyyy'))"
-            "║  💊 Auto-Heal System: MONITORING | 🧠 Neural State: OPTIMAL            ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $maintenanceHeader) {
-            Write-Host $line -ForegroundColor Magenta
-          }
-          Write-Host ""
-          
-          $neuralFrames = @('🧠', '⚡', '🔮', '🌀', '🌌', '✨', '💫', '🌟', '⚛️', '🔷')
-          $frameIndex = 0
-          
-          do {
-            $currentTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
-            $remaining = $terminationTime - $currentTime
-            
-            if ($remaining.TotalSeconds -le 0) { break }
-            
-            $hours = [math]::Max(0, [math]::Floor($remaining.TotalHours))
-            $minutes = [math]::Max(0, [math]::Floor($remaining.TotalMinutes % 60))
-            $seconds = [math]::Max(0, [math]::Floor($remaining.TotalSeconds % 60))
-            
-            $frame = $neuralFrames[$frameIndex % $neuralFrames.Length]
-            $progressPercent = (($durationMinutes * 60 - $remaining.TotalSeconds) / ($durationMinutes * 60)) * 100
-            
-            Write-Host "`r$frame [$($currentTime.ToString('HH:mm:ss'))] Quantum Processing: $hours`h $minutes`m $seconds`s | Progress: $([math]::Round($progressPercent,1))%" -NoNewline -ForegroundColor Cyan
-            
-            $frameIndex++
-            Start-Sleep -Seconds 3
-            
-            # Auto-Heal Check - Verify RDP Service
-            if ($frameIndex % 10 -eq 0) {
-              $rdpService = Get-Service -Name TermService -ErrorAction SilentlyContinue
-              if ($rdpService.Status -ne 'Running') {
-                Write-Host "`n│ 💊 Auto-Heal: Restoring RDP Service..." -ForegroundColor Yellow
-                Start-Service -Name TermService -Force
-              }
-            }
-          } while ($remaining.TotalSeconds -gt 0)
-          
-          Write-Host ""
-          Write-Host ""
-          $terminationBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  🧠 QUANTUM NEURAL SESSION TERMINATED - PROCESSING COMPLETE           ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  ✅ All quantum processes completed successfully                       ║"
-            "║  🧬 Neural Cortex: SHUTDOWN | 💊 Auto-Heal: STANDBY                    ║"
-            "║  🚀 Ready for next quantum activation                                  ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $terminationBanner) {
-            Write-Host $line -ForegroundColor Red
-          }
-      
-      # ============================================================
-      # PHASE 9: NEURAL MEMORY PURGE - QUANTUM RESET
-      # ============================================================
-      - name: 🧹 [CORTEX-01] QUANTUM NEURAL MEMORY PURGE
-        if: always() && github.event.inputs.auto_cleanup == 'true'
-        run: |
-          $purgeBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  🧹 QUANTUM NEURAL MEMORY PURGE - SYSTEM RESET                        ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🧬 Purging Neural Data | 🔑 Destroying Quantum Keys                   ║"
-            "║  🛡️ Resetting Security Protocols | 💊 Auto-Heal System Standby         ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $purgeBanner) {
-            Write-Host $line -ForegroundColor Yellow
-          }
-          Write-Host ""
-          
-          # Purge Neural Identity
-          Disable-LocalUser -Name $env:NEURAL_IDENTITY -ErrorAction SilentlyContinue
-          Write-Host "│ 🧬 Neural Identity: PURGED" -ForegroundColor Yellow
-          
-          # Destroy Quantum Keys
-          Remove-Item "$env:TEMP\quantum_key.txt" -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:TEMP\neural_*" -Recurse -Force -ErrorAction SilentlyContinue
-          Write-Host "│ 🔑 Quantum Keys: DESTROYED" -ForegroundColor Yellow
-          
-          # Remove Neural Firewall Rules
-          netsh advfirewall firewall delete rule name="Neural-Synapse-In" -ErrorAction SilentlyContinue
-          netsh advfirewall firewall delete rule name="Neural-Synapse-Out" -ErrorAction SilentlyContinue
-          netsh advfirewall firewall delete rule name="Neural-ICMP" -ErrorAction SilentlyContinue
-          Write-Host "│ 🔥 Firewall Rules: REMOVED" -ForegroundColor Yellow
-          
-          Write-Host ""
-          $completionBanner = @(
-            "╔════════════════════════════════════════════════════════════════════════╗"
-            "║  ✅ QUANTUM NEURAL MEMORY PURGED - SYSTEM READY                       ║"
-            "║  ════════════════════════════════════════════════════════════════════ ║"
-            "║  🧬 Neural State: RESET | 🧠 Quantum Core: STANDBY                     ║"
-            "║  💊 Auto-Heal System: ARMED | 🚀 Ready for Next Activation             ║"
-            "╚════════════════════════════════════════════════════════════════════════╝"
-          )
-          
-          foreach ($line in $completionBanner) {
-            Write-Host $line -ForegroundColor Green
-          }
+
+# ================= CORE =================
+
+core:
+runs-on: ubuntu-latest
+outputs:
+session: ${{ steps.s.outputs.session }}
+duration: ${{ steps.s.outputs.duration }}
+steps:
+- id: s
+run: |
+SESSION="CORTEX-$(date +%s)"
+echo "session=$SESSION" >> $GITHUB_OUTPUT
+
+```
+      case "${{ github.event.inputs.duration }}" in
+        1h) D=60 ;;
+        2h) D=120 ;;
+        4h) D=240 ;;
+        *) D=120 ;;
+      esac
+
+      echo "duration=$D" >> $GITHUB_OUTPUT
+      echo "[CORE] READY $SESSION"
+```
+
+# ================= WINDOWS =================
+
+windows:
+needs: core
+runs-on: windows-latest
+timeout-minutes: 360
+
+```
+steps:
+  - name: Init
+    run: |
+      [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+      echo "SESSION=${{ needs.core.outputs.session }}" >> $env:GITHUB_ENV
+      echo "DURATION=${{ needs.core.outputs.duration }}" >> $env:GITHUB_ENV
+      echo "STATE=INIT" >> $env:GITHUB_ENV
+```
+
+# USER
+
+```
+  - name: User
+    run: |
+      function Gen {
+        $c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+        -join ((1..16)|%{ $c[(Get-Random -Max $c.Length)] })
+      }
+
+      $u="win$(Get-Random -Min 1000 -Max 9999)"
+      $p=Gen
+      $s=ConvertTo-SecureString $p -AsPlainText -Force
+
+      New-LocalUser -Name $u -Password $s -ErrorAction SilentlyContinue
+      Add-LocalGroupMember -Group Administrators -Member $u
+
+      echo "W_USER=$u" >> $env:GITHUB_ENV
+      echo "W_PASS=$p" >> $env:GITHUB_ENV
+      $p | Out-File "$env:TEMP\k.txt"
+```
+
+# RDP + RANDOM PORT
+
+```
+  - name: RDP
+    run: |
+      $port = Get-Random -Minimum 2000 -Maximum 9000
+
+      Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
+      netsh advfirewall firewall add rule name="rdp" dir=in action=allow protocol=TCP localport=$port
+
+      echo "W_PORT=$port" >> $env:GITHUB_ENV
+```
+
+# IP
+
+```
+  - name: IP
+    run: |
+      try { $ip=(Invoke-WebRequest https://api.ipify.org).Content }
+      catch { $ip="0.0.0.0" }
+      echo "W_IP=$ip" >> $env:GITHUB_ENV
+```
+
+# WATCHDOG
+
+```
+  - name: Watchdog
+    run: |
+      Start-Job {
+        while ($true) {
+          Start-Sleep 20
+          $s=Get-Service TermService
+          if ($s.Status -ne "Running") { Start-Service TermService }
+        }
+      } | Out-Null
+```
+
+# ================= UBUNTU =================
+
+linux:
+needs: core
+runs-on: ubuntu-latest
+
+```
+steps:
+  - name: Init
+    run: |
+      echo "SESSION=${{ needs.core.outputs.session }}" >> $GITHUB_ENV
+      echo "DURATION=${{ needs.core.outputs.duration }}" >> $GITHUB_ENV
+```
+
+# USER
+
+```
+  - name: User
+    run: |
+      USER="u$(shuf -i1000-9999 -n1)"
+      PASS=$(tr -dc A-Za-z0-9 </dev/urandom | head -c16)
+
+      sudo useradd -m $USER
+      echo "$USER:$PASS" | sudo chpasswd
+
+      echo "L_USER=$USER" >> $GITHUB_ENV
+      echo "L_PASS=$PASS" >> $GITHUB_ENV
+```
+
+# SSH
+
+```
+  - name: SSH
+    run: |
+      sudo apt update -y
+      sudo apt install -y openssh-server
+      sudo systemctl enable ssh
+      sudo systemctl start ssh
+```
+
+# CLOUDFLARE TUNNEL (NO PORT)
+
+```
+  - name: Tunnel
+    run: |
+      curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cf
+      chmod +x cf
+
+      ./cf tunnel --url ssh://localhost:22 > tunnel.txt 2>&1 &
+
+      sleep 5
+      URL=$(grep -o 'https://.*trycloudflare.com' tunnel.txt | head -n1)
+
+      echo "L_TUNNEL=$URL" >> $GITHUB_ENV
+```
+
+# WATCHDOG
+
+```
+  - name: Watchdog
+    run: |
+      while true; do
+        systemctl is-active ssh || sudo systemctl restart ssh
+        sleep 20
+      done &
+```
+
+# ================= CONTROL =================
+
+control:
+needs: [windows, linux]
+runs-on: ubuntu-latest
+
+```
+steps:
+  - name: Send Panel
+    run: |
+      MSG="VM READY
+```
+
+WINDOWS
+IP: $W_IP
+PORT: $W_PORT
+USER: $W_USER
+PASS: $W_PASS
+
+LINUX
+TUNNEL: $L_TUNNEL
+USER: $L_USER
+PASS: $L_PASS
+
+SESSION: ${{ needs.core.outputs.session }}
+"
+
+```
+      curl -s -X POST https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage \
+        -d chat_id=$TELEGRAM_CHAT_ID \
+        -d text="$MSG" || true
+```
+
+# ================= RUNTIME =================
+
+runtime:
+needs: [windows, linux]
+runs-on: ubuntu-latest
+
+```
+steps:
+  - name: Loop
+    run: |
+      END=$(( $(date +%s) + ${{ needs.core.outputs.duration }}*60 ))
+
+      while [ $(date +%s) -lt $END ]; do
+        echo "[RUNNING] $(date)"
+        sleep 15
+      done
+```
+
+# ================= CLEAN =================
+
+cleanup:
+if: always()
+needs: [runtime]
+runs-on: ubuntu-latest
+
+```
+steps:
+  - run: echo "[DONE]"
+```
