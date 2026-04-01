@@ -82,11 +82,9 @@ jobs:
       - name: 🧠 MASTER BRAIN INITIALIZATION
         id: init
         run: |
-          # Session ID Generation
           SESSION_ID="NEURAL-MASTER-$(date +%Y%m%d-%H%M%S)-$((RANDOM % 9000 + 1000))"
           echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
           
-          # Duration calculation
           DUR_INPUT="${{ github.event.inputs.duration }}"
           case "$DUR_INPUT" in
             "30m") DUR=30 ;;
@@ -98,15 +96,12 @@ jobs:
           esac
           echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
           
-          # Termination time
           TERM_TIME=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S")
           echo "termination_time=$TERM_TIME" >> $GITHUB_OUTPUT
           
-          # Fallback tracking
           echo "fallback_count=0" >> $GITHUB_OUTPUT
           echo "active_worker=none" >> $GITHUB_OUTPUT
           
-          # Display header
           echo ""
           echo "╔════════════════════════════════════════════════════════════════════╗"
           echo "║                    🧠 MASTER BRAIN ACTIVATED 🧠                     ║"
@@ -114,7 +109,7 @@ jobs:
           echo "║  Session ID: $SESSION_ID"
           echo "║  Duration: $DUR minutes"
           echo "║  Termination: $TERM_TIME"
-          echo "║  Fallback Mode: ENABLED (Max 3 attempts)"
+          echo "║  Fallback Mode: ENABLED (Max 6 attempts)"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
@@ -152,16 +147,13 @@ jobs:
           Write-Host "🔄 Executing Method 1: Standard RDP Configuration..." -ForegroundColor Yellow
           
           try {
-            # Enable RDP
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
             
-            # Firewall rules
             netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=3389 profile=any
             netsh advfirewall firewall add rule name="RDP-Master-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
             
-            # Start services
             Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
             Start-Service -Name TermService -ErrorAction SilentlyContinue
             
@@ -180,7 +172,6 @@ jobs:
           Write-Host "🔄 Executing Method 2: Registry Alternative..." -ForegroundColor Yellow
           
           try {
-            # Alternative registry paths
             $regPaths = @(
               "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server",
               "HKLM:\SYSTEM\CurrentControlSet\Services\TermService\Parameters"
@@ -192,7 +183,6 @@ jobs:
               }
             }
             
-            # Alternative firewall method
             netsh advfirewall set allprofiles firewallpolicy blockinbound,allowoutbound
             netsh advfirewall firewall add rule name="RDP-Master-Alt" dir=in action=allow protocol=TCP localport=3389
             
@@ -211,11 +201,9 @@ jobs:
           Write-Host "🔄 Executing Method 3: PowerShell Direct..." -ForegroundColor Yellow
           
           try {
-            # Direct WMI method
             $wmi = Get-WmiObject -Class Win32_TerminalServiceSetting -Namespace root\cimv2\terminalservices
             $wmi.SetAllowTSConnections(1) | Out-Null
             
-            # Alternative service start
             & sc.exe config TermService start= auto
             & net start TermService
             
@@ -226,7 +214,7 @@ jobs:
             echo "method3_success=false" >> $env:GITHUB_ENV
           }
       
-      # USER CREATION - Multi-method approach
+      # USER CREATION - Multi-method approach (FIXED: removed @ syntax)
       - name: 👤 USER CREATION - MULTI-METHOD
         id: user
         run: |
@@ -235,13 +223,8 @@ jobs:
           
           $username = "neural_user_$((Get-Random -Minimum 1000 -Maximum 9999))"
           
-          # Method 1: Standard password
           $password1 = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | % {[char]$_})
-          
-          # Method 2: Secure random password
           $password2 = [System.Web.Security.Membership]::GeneratePassword(16, 4)
-          
-          # Method 3: GUID-based password
           $password3 = ([guid]::NewGuid().ToString() -replace '-', '').Substring(0, 16)
           
           $selectedPassword = $null
@@ -255,10 +238,8 @@ jobs:
             try {
               $securePass = ConvertTo-SecureString $method.Password -AsPlainText -Force
               
-              # Clean up existing user
               try { Remove-LocalUser -Name $username -ErrorAction SilentlyContinue } catch {}
               
-              # Create user
               New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -ErrorAction Stop
               Add-LocalGroupMember -Group "Administrators" -Member $username -ErrorAction Stop
               Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username -ErrorAction Stop
@@ -283,12 +264,11 @@ jobs:
           echo "password=$selectedPassword" >> $env:GITHUB_OUTPUT
           echo "status=success" >> $env:GITHUB_OUTPUT
           
-          # Save credentials
+          # Save credentials - FIXED: removed @ syntax, using simple echo
           $credPath = "$env:TEMP\windows_creds.txt"
-          @"
-Username: $username
-Password: $selectedPassword
-"@ | Out-File -FilePath $credPath -Encoding UTF8
+          "Username: $username" | Out-File -FilePath $credPath -Encoding UTF8
+          "Password: $selectedPassword" | Out-File -FilePath $credPath -Encoding UTF8 -Append
+          "Created: $(Get-Date)" | Out-File -FilePath $credPath -Encoding UTF8 -Append
       
       # RDP PORT CONFIGURATION - Multi-port fallback
       - name: 🔌 RDP PORT CONFIGURATION
@@ -302,17 +282,13 @@ Password: $selectedPassword
           
           foreach ($port in $ports) {
             try {
-              # Check if port is available
               $portInUse = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
               if (-not $portInUse) {
-                # Configure port
                 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "PortNumber" -Value $port -Force
                 
-                # Update firewall
                 netsh advfirewall firewall delete rule name="RDP-Master" -ErrorAction SilentlyContinue
                 netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=$port
                 
-                # Restart service
                 Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
                 
                 $selectedPort = $port
@@ -379,7 +355,6 @@ Password: $selectedPassword
           
           $tailscaleIP = $null
           
-          # Method 1: MSI installer
           try {
             $msiPath = "$env:TEMP\tailscale.msi"
             Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
@@ -399,7 +374,7 @@ Password: $selectedPassword
               }
             }
           } catch {
-            Write-Host "⚠️ Tailscale MSI method failed" -ForegroundColor Yellow
+            Write-Host "⚠️ Tailscale setup failed" -ForegroundColor Yellow
           }
           
           echo "tailscale_ip=$tailscaleIP" >> $env:GITHUB_OUTPUT
@@ -447,112 +422,48 @@ Password: $selectedPassword
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
       
-      # SYSTEM UPDATE - Multiple methods
-      - name: 🔧 SYSTEM UPDATE - MULTI-METHOD
+      - name: 🔧 SYSTEM SETUP
         run: |
-          echo "🔄 Updating system with fallback methods..."
-          
-          # Method 1: Standard update
           if sudo apt update -qq && sudo apt upgrade -y -qq; then
-            echo "✅ Standard update successful"
+            echo "✅ System update successful"
           else
-            echo "⚠️ Standard update failed, trying alternative..."
-            # Method 2: Fix broken packages first
             sudo dpkg --configure -a
             sudo apt --fix-broken install -y -qq
             sudo apt update -qq && sudo apt upgrade -y -qq || true
           fi
-      
-      # SSH INSTALLATION - Multi-method
-      - name: 🔧 SSH INSTALLATION
-        run: |
-          echo "🔄 Installing SSH with fallback methods..."
           
-          # Method 1: Standard install
-          if sudo apt install -y -qq openssh-server; then
-            echo "✅ Standard SSH install successful"
-          else
-            # Method 2: Update sources first
-            sudo apt update --fix-missing -qq
-            sudo apt install -y -qq openssh-server || true
-          fi
+          sudo apt install -y -qq openssh-server curl wget || sudo apt install -y -qq openssh-server
       
-      # USER CREATION - Multi-method
       - name: 👤 USER CREATION
         id: user
         run: |
-          echo "👤 Creating user account..."
-          
           USERNAME="neural_$((RANDOM % 9000 + 1000))"
-          PASSWORDS=(
-            "$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
-            "$(cat /dev/urandom | tr -dc 'a-zA-Z0-9!@#$%' | fold -w 20 | head -n 1)"
-            "$(date +%s | sha256sum | base64 | head -c 20)"
-          )
+          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          SELECTED_PASS=""
-          for PWD in "${PASSWORDS[@]}"; do
-            if sudo useradd -m -s /bin/bash "$USERNAME" 2>/dev/null && echo "$USERNAME:$PWD" | sudo chpasswd; then
-              sudo usermod -aG sudo "$USERNAME" 2>/dev/null
-              SELECTED_PASS="$PWD"
-              echo "✅ User created: $USERNAME"
-              break
-            fi
-          done
-          
-          if [ -z "$SELECTED_PASS" ]; then
-            echo "❌ All user creation methods failed"
-            exit 1
-          fi
+          sudo useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          echo "$USERNAME:$PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo "$USERNAME" 2>/dev/null || true
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$SELECTED_PASS" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "User created: $USERNAME"
       
-      # SSH CONFIGURATION - Multi-port
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          echo "🔌 Configuring SSH..."
-          
-          PORTS=(22 2222 2022 3022 4022 5022 6022)
-          SELECTED_PORT=""
-          
-          for PORT in "${PORTS[@]}"; do
-            if sudo sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config 2>/dev/null && \
-               sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-               sudo systemctl restart ssh; then
-              SELECTED_PORT="$PORT"
-              echo "✅ SSH configured on port $PORT"
-              break
-            fi
-          done
-          
-          echo "ssh_port=$SELECTED_PORT" >> $GITHUB_OUTPUT
+          PORT=$((RANDOM % 6000 + 2000))
+          sudo sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh || sudo service ssh restart
+          echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
-      # CLOUDFLARE TUNNEL - Multi-method
       - name: ☁️ CLOUDFLARE TUNNEL SETUP
         id: cloudflare
         if: github.event.inputs.network_type == 'cloudflare'
         continue-on-error: true
         run: |
-          echo "☁️ Setting up Cloudflare tunnel..."
-          
-          # Method 1: Direct download
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cf 2>/dev/null
-          chmod +x /tmp/cf 2>/dev/null
-          
-          # Method 2: apt install if direct fails
-          if [ ! -f /tmp/cf ]; then
-            curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
-            chmod +x /tmp/cf
-          fi
-          
-          # Method 3: Use system package
-          if [ ! -f /tmp/cf ]; then
-            sudo apt install -y cloudflared 2>/dev/null
-            sudo cp $(which cloudflared) /tmp/cf 2>/dev/null
-          fi
-          
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cf 2>/dev/null || curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
+          chmod +x /tmp/cf 2>/dev/null || true
           if [ -f /tmp/cf ]; then
             /tmp/cf tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/cf.log 2>&1 &
             sleep 8
@@ -563,16 +474,13 @@ Password: $selectedPassword
             fi
           fi
       
-      # PERFORMANCE TUNING
       - name: ⚡ PERFORMANCE TUNING
         if: github.event.inputs.performance_mode != 'balanced'
         run: |
-          echo "⚡ Applying performance tuning..."
           sudo sysctl -w net.core.rmem_max=134217728 2>/dev/null || true
           sudo sysctl -w net.core.wmem_max=134217728 2>/dev/null || true
           sudo sysctl -w vm.swappiness=10 2>/dev/null || true
       
-      # STATUS
       - name: 📊 STATUS CHECK
         id: status
         run: |
@@ -648,7 +556,7 @@ Password: $selectedPassword
         continue-on-error: true
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cf || curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
-          chmod +x /tmp/cf 2>/dev/null
+          chmod +x /tmp/cf 2>/dev/null || true
           if [ -f /tmp/cf ]; then
             /tmp/cf tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/cf.log 2>&1 &
             sleep 8
@@ -850,7 +758,6 @@ Password: $selectedPassword
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Determine active worker
           ACTIVE_WORKER="None"
           WORKER_DATA=""
           
@@ -863,8 +770,10 @@ Password: $selectedPassword
 🔌 *RDP Port:* \`${{ needs.windows_cortex.outputs.rdp_port }}\`
 👤 *Username:* \`${{ needs.windows_cortex.outputs.username }}\`
 🔐 *Password:* \`${{ needs.windows_cortex.outputs.password }}\`"
-            [ -n "${{ needs.windows_cortex.outputs.tailscale_ip }}" ] && WORKER_DATA="$WORKER_DATA
+            if [ -n "${{ needs.windows_cortex.outputs.tailscale_ip }}" ]; then
+              WORKER_DATA="$WORKER_DATA
 🌐 *Tailscale IP:* \`${{ needs.windows_cortex.outputs.tailscale_ip }}\`"
+            fi
           
           elif [ "${{ needs.ubuntu22_cortex.outputs.status }}" = "active" ]; then
             ACTIVE_WORKER="Ubuntu 22.04"
@@ -874,8 +783,10 @@ Password: $selectedPassword
 👤 *Username:* \`${{ needs.ubuntu22_cortex.outputs.username }}\`
 🔐 *Password:* \`${{ needs.ubuntu22_cortex.outputs.password }}\`
 🔌 *SSH Port:* \`${{ needs.ubuntu22_cortex.outputs.ssh_port }}\`"
-            [ -n "${{ needs.ubuntu22_cortex.outputs.cloudflare_url }}" ] && WORKER_DATA="$WORKER_DATA
+            if [ -n "${{ needs.ubuntu22_cortex.outputs.cloudflare_url }}" ]; then
+              WORKER_DATA="$WORKER_DATA
 ☁️ *Cloudflare URL:* \`${{ needs.ubuntu22_cortex.outputs.cloudflare_url }}\`"
+            fi
           
           elif [ "${{ needs.ubuntu24_cortex.outputs.status }}" = "active" ]; then
             ACTIVE_WORKER="Ubuntu 24.04"
@@ -885,8 +796,10 @@ Password: $selectedPassword
 👤 *Username:* \`${{ needs.ubuntu24_cortex.outputs.username }}\`
 🔐 *Password:* \`${{ needs.ubuntu24_cortex.outputs.password }}\`
 🔌 *SSH Port:* \`${{ needs.ubuntu24_cortex.outputs.ssh_port }}\`"
-            [ -n "${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}" ] && WORKER_DATA="$WORKER_DATA
+            if [ -n "${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}" ]; then
+              WORKER_DATA="$WORKER_DATA
 ☁️ *Cloudflare URL:* \`${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}\`"
+            fi
           
           elif [ "${{ needs.debian_cortex.outputs.status }}" = "active" ]; then
             ACTIVE_WORKER="Debian 12"
@@ -916,7 +829,6 @@ Password: $selectedPassword
 🔌 *SSH Port:* \`${{ needs.almalinux_cortex.outputs.ssh_port }}\`"
           fi
           
-          # Build final message
           MSG="🧠 *NEURAL MASTER SYSTEM v3.0* 🧠
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔑 *Session ID:* \`${{ needs.master_brain.outputs.session_id }}\`
@@ -937,7 +849,6 @@ $WORKER_DATA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✨ *Neural Link Established* ✨"
           
-          # Send to Telegram
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
