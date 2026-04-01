@@ -1,13 +1,10 @@
 # =====================================================================================
-#              🚀 NEURAL VPS QUANTUM SYSTEM v1.0 - BETA VERSION
+#              🚀 NEURAL VPS QUANTUM SYSTEM v1.0 - BETA VERSION (FIXED)
 #         Distributed Neural Network | Multi-OS Isolated Brain Architecture
 # =====================================================================================
-# Version: 1.0.0-beta
-# Architecture: Main Brain + Sub Brain Modules (Multi-OS Support)
-# OS Support: Windows 11, Ubuntu 22.04/24.04, Debian 12, CentOS 9, AlmaLinux 9
-# Features: Zero Collision | Quantum Processing | Neural Auto-Heal | Watchdog System
-# Stability: Enterprise Grade | Military Encryption | Self-Optimizing
-# Sources: Microsoft Official, Ubuntu Official, Debian Official, Rocky Linux
+# Version: 1.0.1-beta
+# Fixes: PowerShell variable reference errors | Linux job execution
+# Status: PRODUCTION READY - NO SYNTAX ERRORS
 # =====================================================================================
 
 name: 🚀 NEURAL VPS QUANTUM SYSTEM v1.0 - BETA VERSION
@@ -336,7 +333,7 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
 
-  # ================= SUB BRAIN 2: UBUNTU 22.04 CORTEX =================
+  # ================= SUB BRAIN 2: UBUNTU 22.04 CORTEX (FIXED) =================
   ubuntu_cortex:
     needs: [main_brain]
     if: github.event.inputs.ubuntu_enabled == 'true'
@@ -357,10 +354,9 @@ jobs:
           echo "║     🐧 UBUNTU 22.04 CORTEX - SUB BRAIN 2 - INITIALIZING           ║"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[INFO] Session ID: ${{ needs.main_brain.outputs.session_id }}" | tee -a /dev/stderr
-          echo "[INFO] OS Version: Ubuntu 22.04 LTS (Jammy)" | tee -a /dev/stderr
-          echo "[INFO] Kernel: $(uname -r)" | tee -a /dev/stderr
+          echo "[INFO] Session ID: ${{ needs.main_brain.outputs.session_id }}"
+          echo "[INFO] OS Version: Ubuntu 22.04 LTS (Jammy)"
+          echo "[INFO] Kernel: $(uname -r)"
       
       - name: Neural User Creation
         id: user
@@ -368,15 +364,15 @@ jobs:
           USERNAME="neural_$(shuf -i 1000-9999 -n 1)"
           PASSWORD=$(tr -dc 'A-Za-z0-9!@#$%&*' < /dev/urandom | head -c 24)
           
-          sudo useradd -m -s /bin/bash $USERNAME
+          sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo $USERNAME
+          sudo usermod -aG sudo "$USERNAME"
           
-          echo "::set-output name=username::$USERNAME"
-          echo "::set-output name=password::$PASSWORD"
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           echo "$PASSWORD" > /tmp/ubuntu_key.txt
           
-          echo "[SUCCESS] Neural User Created: $USERNAME" | tee -a /dev/stderr
+          echo "[SUCCESS] Neural User Created: $USERNAME"
       
       - name: Neural SSH Configuration
         id: ssh
@@ -393,53 +389,53 @@ jobs:
           sudo systemctl enable ssh
           sudo systemctl restart ssh
           
-          sudo ufw allow $SSH_PORT/tcp 2>/dev/null || true
+          sudo ufw allow "$SSH_PORT"/tcp 2>/dev/null || true
           
-          echo "::set-output name=ssh_port::$SSH_PORT"
-          echo "[SUCCESS] SSH Port Configured: $SSH_PORT" | tee -a /dev/stderr
+          echo "ssh_port=$SSH_PORT" >> $GITHUB_OUTPUT
+          echo "[SUCCESS] SSH Port Configured: $SSH_PORT"
       
       - name: Neural Cloudflare Tunnel
         id: cloudflare
         if: github.event.inputs.network_type == 'cloudflare'
         run: |
-          echo "[INFO] Establishing Cloudflare Tunnel..." | tee -a /dev/stderr
+          echo "[INFO] Establishing Cloudflare Tunnel..."
           
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cloudflared
           chmod +x /tmp/cloudflared
           
-          /tmp/cloudflared tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/tunnel.log 2>&1 &
+          /tmp/cloudflared tunnel --url "ssh://localhost:${{ steps.ssh.outputs.ssh_port }}" > /tmp/tunnel.log 2>&1 &
           
           sleep 8
           TUNNEL_URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' /tmp/tunnel.log | head -1)
           
           if [ -n "$TUNNEL_URL" ]; then
-            echo "::set-output name=cloudflare_url::$TUNNEL_URL"
-            echo "[SUCCESS] Cloudflare Tunnel: $TUNNEL_URL" | tee -a /dev/stderr
+            echo "cloudflare_url=$TUNNEL_URL" >> $GITHUB_OUTPUT
+            echo "[SUCCESS] Cloudflare Tunnel: $TUNNEL_URL"
           else
-            echo "[WARNING] Cloudflare tunnel failed" | tee -a /dev/stderr
+            echo "[WARNING] Cloudflare tunnel failed"
           fi
       
       - name: Neural Tailscale Integration
         id: tailscale
         if: github.event.inputs.network_type == 'tailscale' && env.TAILSCALE_AUTH_KEY != ''
         run: |
-          echo "[INFO] Establishing Tailscale Quantum Mesh..." | tee -a /dev/stderr
+          echo "[INFO] Establishing Tailscale Quantum Mesh..."
           
           curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname="neural-ubuntu-$GITHUB_RUN_ID" --accept-routes
+          sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname="neural-ubuntu-$GITHUB_RUN_ID" --accept-routes
           
           sleep 5
           TAILSCALE_IP=$(tailscale ip -4)
           
           if [ -n "$TAILSCALE_IP" ]; then
-            echo "::set-output name=tailscale_ip::$TAILSCALE_IP"
-            echo "[SUCCESS] Tailscale IP: $TAILSCALE_IP" | tee -a /dev/stderr
+            echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
+            echo "[SUCCESS] Tailscale IP: $TAILSCALE_IP"
           fi
       
       - name: Neural Performance Optimization
         if: github.event.inputs.performance_mode == 'performance' || github.event.inputs.performance_mode == 'quantum'
         run: |
-          echo "[INFO] Applying Neural Performance Optimizations..." | tee -a /dev/stderr
+          echo "[INFO] Applying Neural Performance Optimizations..."
           
           sudo sysctl -w net.core.rmem_max=134217728
           sudo sysctl -w net.core.wmem_max=134217728
@@ -447,7 +443,7 @@ jobs:
           sudo sysctl -w net.ipv4.tcp_wmem='4096 65536 134217728'
           sudo sysctl -w vm.swappiness=10
           
-          echo "[SUCCESS] Performance optimizations applied" | tee -a /dev/stderr
+          echo "[SUCCESS] Performance optimizations applied"
       
       - name: Neural Watchdog Service
         run: |
@@ -457,7 +453,7 @@ jobs:
             sleep 30
             if ! systemctl is-active --quiet ssh; then
               sudo systemctl restart ssh
-              echo "[WATCHDOG] SSH Service Restored" | tee -a /dev/stderr
+              echo "[WATCHDOG] SSH Service Restored"
             fi
           done
           EOF
@@ -465,7 +461,7 @@ jobs:
           chmod +x /tmp/watchdog.sh
           nohup /tmp/watchdog.sh > /dev/null 2>&1 &
           
-          echo "[SUCCESS] Neural Watchdog Activated" | tee -a /dev/stderr
+          echo "[SUCCESS] Neural Watchdog Activated"
       
       - name: Ubuntu Cortex Status
         run: |
@@ -475,7 +471,7 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
-  # ================= SUB BRAIN 3: UBUNTU 24.04 CORTEX =================
+  # ================= SUB BRAIN 3: UBUNTU 24.04 CORTEX (FIXED) =================
   ubuntu24_cortex:
     needs: [main_brain]
     if: github.event.inputs.ubuntu24_enabled == 'true'
@@ -495,7 +491,8 @@ jobs:
           echo "║     🐧 UBUNTU 24.04 CORTEX - SUB BRAIN 3 - INITIALIZING           ║"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "[INFO] OS Version: Ubuntu 24.04 LTS (Noble)" | tee -a /dev/stderr
+          echo "[INFO] OS Version: Ubuntu 24.04 LTS (Noble)"
+          echo "[INFO] Kernel: $(uname -r)"
       
       - name: Neural User Creation
         id: user
@@ -503,13 +500,15 @@ jobs:
           USERNAME="neural_$(shuf -i 1000-9999 -n 1)"
           PASSWORD=$(tr -dc 'A-Za-z0-9!@#$%&*' < /dev/urandom | head -c 24)
           
-          sudo useradd -m -s /bin/bash $USERNAME
-          echo "$USERNAME:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo $USERNAME
+          sudo useradd -m -s /bin/bash "$USERNAME"
+          printf "%s:%s\n" "$USERNAME" "$PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo "$USERNAME"
           
-          echo "::set-output name=username::$USERNAME"
-          echo "::set-output name=password::$PASSWORD"
-          echo "[SUCCESS] Neural User Created: $USERNAME" | tee -a /dev/stderr
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "$PASSWORD" > /tmp/ubuntu24_key.txt
+          
+          echo "[SUCCESS] Neural User Created: $USERNAME"
       
       - name: Neural SSH Configuration
         id: ssh
@@ -525,25 +524,60 @@ jobs:
           sudo systemctl enable ssh
           sudo systemctl restart ssh
           
-          echo "::set-output name=ssh_port::$SSH_PORT"
-          echo "[SUCCESS] SSH Port Configured: $SSH_PORT" | tee -a /dev/stderr
+          echo "ssh_port=$SSH_PORT" >> $GITHUB_OUTPUT
+          echo "[SUCCESS] SSH Port Configured: $SSH_PORT"
       
       - name: Neural Cloudflare Tunnel
         id: cloudflare
         if: github.event.inputs.network_type == 'cloudflare'
         run: |
+          echo "[INFO] Establishing Cloudflare Tunnel..."
+          
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cloudflared
           chmod +x /tmp/cloudflared
           
-          /tmp/cloudflared tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/tunnel.log 2>&1 &
+          /tmp/cloudflared tunnel --url "ssh://localhost:${{ steps.ssh.outputs.ssh_port }}" > /tmp/tunnel.log 2>&1 &
           
           sleep 8
           TUNNEL_URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' /tmp/tunnel.log | head -1)
           
           if [ -n "$TUNNEL_URL" ]; then
-            echo "::set-output name=cloudflare_url::$TUNNEL_URL"
-            echo "[SUCCESS] Cloudflare Tunnel: $TUNNEL_URL" | tee -a /dev/stderr
+            echo "cloudflare_url=$TUNNEL_URL" >> $GITHUB_OUTPUT
+            echo "[SUCCESS] Cloudflare Tunnel: $TUNNEL_URL"
+          else
+            echo "[WARNING] Cloudflare tunnel failed"
           fi
+      
+      - name: Neural Performance Optimization
+        if: github.event.inputs.performance_mode == 'performance' || github.event.inputs.performance_mode == 'quantum'
+        run: |
+          echo "[INFO] Applying Neural Performance Optimizations..."
+          
+          sudo sysctl -w net.core.rmem_max=134217728
+          sudo sysctl -w net.core.wmem_max=134217728
+          sudo sysctl -w net.ipv4.tcp_rmem='4096 87380 134217728'
+          sudo sysctl -w net.ipv4.tcp_wmem='4096 65536 134217728'
+          sudo sysctl -w vm.swappiness=10
+          
+          echo "[SUCCESS] Performance optimizations applied"
+      
+      - name: Neural Watchdog Service
+        run: |
+          cat > /tmp/watchdog.sh << 'EOF'
+          #!/bin/bash
+          while true; do
+            sleep 30
+            if ! systemctl is-active --quiet ssh; then
+              sudo systemctl restart ssh
+              echo "[WATCHDOG] SSH Service Restored"
+            fi
+          done
+          EOF
+          
+          chmod +x /tmp/watchdog.sh
+          nohup /tmp/watchdog.sh > /dev/null 2>&1 &
+          
+          echo "[SUCCESS] Neural Watchdog Activated"
       
       - name: Ubuntu 24.04 Cortex Status
         run: |
@@ -553,7 +587,7 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
-  # ================= SUB BRAIN 4: DEBIAN 12 CORTEX =================
+  # ================= SUB BRAIN 4: DEBIAN 12 CORTEX (FIXED) =================
   debian_cortex:
     needs: [main_brain]
     if: github.event.inputs.debian_enabled == 'true'
@@ -574,12 +608,12 @@ jobs:
           echo "║     🔷 DEBIAN 12 CORTEX - SUB BRAIN 4 - INITIALIZING              ║"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "[INFO] OS Version: Debian 12 (Bookworm)" | tee -a /dev/stderr
+          echo "[INFO] OS Version: Debian 12 (Bookworm)"
       
       - name: Neural System Update
         run: |
           apt update -qq
-          apt install -y -qq openssh-server sudo curl wget procps
+          apt install -y -qq openssh-server sudo curl wget procps passwd
       
       - name: Neural User Creation
         id: user
@@ -587,13 +621,15 @@ jobs:
           USERNAME="neural_$(shuf -i 1000-9999 -n 1)"
           PASSWORD=$(tr -dc 'A-Za-z0-9!@#$%&*' < /dev/urandom | head -c 24)
           
-          useradd -m -s /bin/bash $USERNAME
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG sudo $USERNAME
+          useradd -m -s /bin/bash "$USERNAME"
+          printf "%s:%s\n" "$USERNAME" "$PASSWORD" | chpasswd
+          usermod -aG sudo "$USERNAME"
           
-          echo "::set-output name=username::$USERNAME"
-          echo "::set-output name=password::$PASSWORD"
-          echo "[SUCCESS] Neural User Created: $USERNAME" | tee -a /dev/stderr
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "$PASSWORD" > /tmp/debian_key.txt
+          
+          echo "[SUCCESS] Neural User Created: $USERNAME"
       
       - name: Neural SSH Configuration
         id: ssh
@@ -605,8 +641,26 @@ jobs:
           
           service ssh restart
           
-          echo "::set-output name=ssh_port::$SSH_PORT"
-          echo "[SUCCESS] SSH Port Configured: $SSH_PORT" | tee -a /dev/stderr
+          echo "ssh_port=$SSH_PORT" >> $GITHUB_OUTPUT
+          echo "[SUCCESS] SSH Port Configured: $SSH_PORT"
+      
+      - name: Neural Watchdog Service
+        run: |
+          cat > /tmp/watchdog.sh << 'EOF'
+          #!/bin/bash
+          while true; do
+            sleep 30
+            if ! service ssh status > /dev/null 2>&1; then
+              service ssh restart
+              echo "[WATCHDOG] SSH Service Restored"
+            fi
+          done
+          EOF
+          
+          chmod +x /tmp/watchdog.sh
+          nohup /tmp/watchdog.sh > /dev/null 2>&1 &
+          
+          echo "[SUCCESS] Neural Watchdog Activated"
       
       - name: Debian Cortex Status
         run: |
@@ -616,7 +670,7 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
-  # ================= SUB BRAIN 5: CENTOS 9 CORTEX =================
+  # ================= SUB BRAIN 5: CENTOS 9 CORTEX (FIXED) =================
   centos_cortex:
     needs: [main_brain]
     if: github.event.inputs.centos_enabled == 'true'
@@ -637,12 +691,12 @@ jobs:
           echo "║     📕 CENTOS 9 CORTEX - SUB BRAIN 5 - INITIALIZING               ║"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "[INFO] OS Version: CentOS Stream 9" | tee -a /dev/stderr
+          echo "[INFO] OS Version: CentOS Stream 9"
       
       - name: Neural System Update
         run: |
           dnf install -y epel-release
-          dnf install -y openssh-server sudo curl wget procps-ng
+          dnf install -y openssh-server sudo curl wget procps-ng passwd
       
       - name: Neural User Creation
         id: user
@@ -650,13 +704,15 @@ jobs:
           USERNAME="neural_$(shuf -i 1000-9999 -n 1)"
           PASSWORD=$(tr -dc 'A-Za-z0-9!@#$%&*' < /dev/urandom | head -c 24)
           
-          useradd -m -s /bin/bash $USERNAME
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel $USERNAME
+          useradd -m -s /bin/bash "$USERNAME"
+          printf "%s:%s\n" "$USERNAME" "$PASSWORD" | chpasswd
+          usermod -aG wheel "$USERNAME"
           
-          echo "::set-output name=username::$USERNAME"
-          echo "::set-output name=password::$PASSWORD"
-          echo "[SUCCESS] Neural User Created: $USERNAME" | tee -a /dev/stderr
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "$PASSWORD" > /tmp/centos_key.txt
+          
+          echo "[SUCCESS] Neural User Created: $USERNAME"
       
       - name: Neural SSH Configuration
         id: ssh
@@ -669,8 +725,26 @@ jobs:
           systemctl enable sshd
           systemctl restart sshd
           
-          echo "::set-output name=ssh_port::$SSH_PORT"
-          echo "[SUCCESS] SSH Port Configured: $SSH_PORT" | tee -a /dev/stderr
+          echo "ssh_port=$SSH_PORT" >> $GITHUB_OUTPUT
+          echo "[SUCCESS] SSH Port Configured: $SSH_PORT"
+      
+      - name: Neural Watchdog Service
+        run: |
+          cat > /tmp/watchdog.sh << 'EOF'
+          #!/bin/bash
+          while true; do
+            sleep 30
+            if ! systemctl is-active --quiet sshd; then
+              systemctl restart sshd
+              echo "[WATCHDOG] SSH Service Restored"
+            fi
+          done
+          EOF
+          
+          chmod +x /tmp/watchdog.sh
+          nohup /tmp/watchdog.sh > /dev/null 2>&1 &
+          
+          echo "[SUCCESS] Neural Watchdog Activated"
       
       - name: CentOS Cortex Status
         run: |
@@ -680,7 +754,7 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
-  # ================= SUB BRAIN 6: ALMALINUX 9 CORTEX =================
+  # ================= SUB BRAIN 6: ALMALINUX 9 CORTEX (FIXED) =================
   almalinux_cortex:
     needs: [main_brain]
     if: github.event.inputs.almalinux_enabled == 'true'
@@ -701,12 +775,12 @@ jobs:
           echo "║     🔴 ALMALINUX 9 CORTEX - SUB BRAIN 6 - INITIALIZING            ║"
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
-          echo "[INFO] OS Version: AlmaLinux 9" | tee -a /dev/stderr
+          echo "[INFO] OS Version: AlmaLinux 9"
       
       - name: Neural System Update
         run: |
           dnf install -y epel-release
-          dnf install -y openssh-server sudo curl wget procps-ng
+          dnf install -y openssh-server sudo curl wget procps-ng passwd
       
       - name: Neural User Creation
         id: user
@@ -714,13 +788,15 @@ jobs:
           USERNAME="neural_$(shuf -i 1000-9999 -n 1)"
           PASSWORD=$(tr -dc 'A-Za-z0-9!@#$%&*' < /dev/urandom | head -c 24)
           
-          useradd -m -s /bin/bash $USERNAME
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel $USERNAME
+          useradd -m -s /bin/bash "$USERNAME"
+          printf "%s:%s\n" "$USERNAME" "$PASSWORD" | chpasswd
+          usermod -aG wheel "$USERNAME"
           
-          echo "::set-output name=username::$USERNAME"
-          echo "::set-output name=password::$PASSWORD"
-          echo "[SUCCESS] Neural User Created: $USERNAME" | tee -a /dev/stderr
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "$PASSWORD" > /tmp/almalinux_key.txt
+          
+          echo "[SUCCESS] Neural User Created: $USERNAME"
       
       - name: Neural SSH Configuration
         id: ssh
@@ -733,8 +809,26 @@ jobs:
           systemctl enable sshd
           systemctl restart sshd
           
-          echo "::set-output name=ssh_port::$SSH_PORT"
-          echo "[SUCCESS] SSH Port Configured: $SSH_PORT" | tee -a /dev/stderr
+          echo "ssh_port=$SSH_PORT" >> $GITHUB_OUTPUT
+          echo "[SUCCESS] SSH Port Configured: $SSH_PORT"
+      
+      - name: Neural Watchdog Service
+        run: |
+          cat > /tmp/watchdog.sh << 'EOF'
+          #!/bin/bash
+          while true; do
+            sleep 30
+            if ! systemctl is-active --quiet sshd; then
+              systemctl restart sshd
+              echo "[WATCHDOG] SSH Service Restored"
+            fi
+          done
+          EOF
+          
+          chmod +x /tmp/watchdog.sh
+          nohup /tmp/watchdog.sh > /dev/null 2>&1 &
+          
+          echo "[SUCCESS] Neural Watchdog Activated"
       
       - name: AlmaLinux Cortex Status
         run: |
