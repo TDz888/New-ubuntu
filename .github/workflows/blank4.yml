@@ -23,6 +23,26 @@ on:
           - 3h
           - 4h
           - max
+      features:
+        description: 🎁 Additional Features
+        required: false
+        type: choice
+        default: basic
+        options:
+          - basic
+          - web
+          - game
+          - full
+      install_software:
+        description: 📦 Install Software
+        required: false
+        type: choice
+        default: none
+        options:
+          - none
+          - docker
+          - lamp
+          - nodejs
 
 jobs:
   generate-vps:
@@ -39,6 +59,8 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
           Write-Host "✅ System ready!" -ForegroundColor Green
+          Write-Host "🎁 Features: ${{ github.event.inputs.features }}" -ForegroundColor Magenta
+          Write-Host "📦 Software: ${{ github.event.inputs.install_software }}" -ForegroundColor Magenta
 
       - name: 🔧 Configure Windows RDP
         if: contains(github.event.inputs.os_type, 'windows')
@@ -95,9 +117,11 @@ jobs:
               Write-Host "✅ Windows user created" -ForegroundColor Green
           } else {
               $tempFile = [System.IO.Path]::GetTempFileName()
-              "$username`:$password" | Out-File -FilePath $tempFile -Encoding ASCII
+              $userPass = "$username`:$password"
+              [System.IO.File]::WriteAllText($tempFile, $userPass)
+              
               sudo useradd -m -s /bin/bash $username 2>$null
-              sudo chpasswd < $tempFile
+              sudo bash -c "chpasswd < $tempFile"
               sudo usermod -aG sudo $username
               Remove-Item $tempFile -Force
               Write-Host "✅ Linux user created" -ForegroundColor Green
@@ -110,6 +134,99 @@ jobs:
           Write-Host "📋 Username: $username" -ForegroundColor White
           Write-Host "📋 Password: $password" -ForegroundColor White
           Write-Host "🎯 User account ready!" -ForegroundColor Green
+
+      - name: 📦 Install Additional Software
+        if: contains(github.event.inputs.os_type, 'ubuntu')
+        shell: bash
+        run: |
+          echo -e "\n📦 Installing software..."
+          
+          if [ "${{ github.event.inputs.install_software }}" = "docker" ]; then
+              echo "🐳 Installing Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker ${{ env.VPS_USER }}
+              echo "✅ Docker installed!" 
+          fi
+          
+          if [ "${{ github.event.inputs.install_software }}" = "lamp" ]; then
+              echo "🌐 Installing LAMP stack..."
+              sudo apt update -qq
+              sudo apt install -y apache2 mysql-server php php-mysql
+              echo "✅ LAMP installed!"
+          fi
+          
+          if [ "${{ github.event.inputs.install_software }}" = "nodejs" ]; then
+              echo "📜 Installing Node.js..."
+              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+              sudo apt install -y nodejs
+              echo "✅ Node.js installed!"
+          fi
+
+      - name: 🎮 Setup Game Server
+        if: contains(github.event.inputs.features, 'game') && contains(github.event.inputs.os_type, 'ubuntu')
+        shell: bash
+        run: |
+          echo -e "\n🎮 Setting up game server..."
+          
+          # Minecraft server
+          mkdir -p ~/minecraft
+          cd ~/minecraft
+          wget -O server.jar https://piston-data.mojang.com/v1/objects/.../server.jar
+          echo "eula=true" > eula.txt
+          nohup java -jar server.jar nogui &
+          echo "✅ Minecraft server running on port 25565"
+          
+          # Open firewall
+          sudo ufw allow 25565
+
+      - name: 🌐 Setup Web UI
+        if: contains(github.event.inputs.features, 'web') && contains(github.event.inputs.os_type, 'ubuntu')
+        shell: bash
+        run: |
+          echo -e "\n🌐 Setting up Web UI..."
+          
+          # Create simple status page
+          sudo mkdir -p /var/www/vps-status
+          sudo tee /var/www/vps-status/index.html > /dev/null << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>VPS Status</title></head>
+          <body>
+          <h1>🚀 Premium VPS is Running</h1>
+          <p>Status: Online</p>
+          <p>Uptime: <span id="uptime">Loading...</span></p>
+          <script>
+              setInterval(() => {
+                  fetch('/api/status')
+                      .then(r => r.json())
+                      .then(d => document.getElementById('uptime').innerText = d.uptime);
+              }, 5000);
+          </script>
+          </body>
+          </html>
+          EOF
+          
+          # Simple API endpoint
+          sudo tee /var/www/vps-status/api/status.php > /dev/null << 'EOF'
+          <?php
+          header('Content-Type: application/json');
+          echo json_encode(['uptime' => shell_exec('uptime -p')]);
+          ?>
+          EOF
+          
+          echo "✅ Web UI available at http://${{ env.TAILSCALE_IP }}"
+
+      - name: 📁 Setup File Manager
+        if: contains(github.event.inputs.features, 'full') && contains(github.event.inputs.os_type, 'ubuntu')
+        shell: bash
+        run: |
+          echo -e "\n📁 Setting up Filebrowser..."
+          curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
+          filebrowser -r /home/${{ env.VPS_USER }} -a 0.0.0.0 -p 8080 &
+          sudo ufw allow 8080
+          echo "✅ File manager at http://${{ env.TAILSCALE_IP }}:8080"
+          echo "   Username: admin, Password: admin"
 
       - name: 🌐 Install Tailscale
         env:
@@ -212,6 +329,7 @@ jobs:
           
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
+          $features = "${{ github.event.inputs.features }}"
           
           $min = 0
           if ($duration -eq "30m") { $min = 30 }
@@ -233,15 +351,24 @@ jobs:
           $msg = $msg + "⚙️ CPU: $env:SYS_CPU%0A"
           $msg = $msg + "💾 RAM: $env:SYS_RAM%0A"
           $msg = $msg + "💿 Disk: $env:SYS_DISK%0A"
+          $msg = $msg + "🎁 Features: $features%0A"
           $msg = $msg + "⏱️ Duration: $duration%0A"
           $msg = $msg + "🕐 Start: $($now.ToString('HH:mm:ss'))%0A"
           $msg = $msg + "🕐 End: $($end.ToString('HH:mm:ss'))%0A"
           $msg = $msg + "━━━━━━━━━━━━━━━━━━━━━%0A"
           
           if ($env:OS_TYPE -eq "windows-latest") {
-              $msg = $msg + "🔌 RDP: mstsc /v:$env:TAILSCALE_IP"
+              $msg = $msg + "🔌 RDP: mstsc /v:$env:TAILSCALE_IP%0A"
           } else {
-              $msg = $msg + "🔌 SSH: ssh $env:VPS_USER@$env:TAILSCALE_IP"
+              $msg = $msg + "🔌 SSH: ssh $env:VPS_USER@$env:TAILSCALE_IP%0A"
+          }
+          
+          if ($features -eq "web") {
+              $msg = $msg + "🌐 Web UI: http://$env:TAILSCALE_IP%0A"
+          }
+          
+          if ($features -eq "full") {
+              $msg = $msg + "📁 File Manager: http://$env:TAILSCALE_IP:8080%0A"
           }
           
           $url = "https://api.telegram.org/bot$bot/sendMessage"
@@ -259,6 +386,7 @@ jobs:
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
+          $features = "${{ github.event.inputs.features }}"
           
           $min = 0
           $display = ""
@@ -284,6 +412,7 @@ jobs:
           Write-Host "║  ⚙️  CPU         │ $env:SYS_CPU" -ForegroundColor White
           Write-Host "║  💾 RAM         │ $env:SYS_RAM" -ForegroundColor White
           Write-Host "║  💿 Disk        │ $env:SYS_DISK" -ForegroundColor White
+          Write-Host "║  🎁 Features    │ $features" -ForegroundColor Magenta
           Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
           Write-Host "║  ⏱️  Duration    │ $display" -ForegroundColor White
           Write-Host "║  🕐 Start       │ $($now.ToString('HH:mm:ss'))" -ForegroundColor White
@@ -296,6 +425,14 @@ jobs:
               Write-Host "║  🔌 SSH Connect │ ssh $env:VPS_USER@$env:TAILSCALE_IP" -ForegroundColor Yellow
           }
           
+          if ($features -eq "web") {
+              Write-Host "║  🌐 Web UI      │ http://$env:TAILSCALE_IP" -ForegroundColor Yellow
+          }
+          
+          if ($features -eq "full") {
+              Write-Host "║  📁 File Manager│ http://$env:TAILSCALE_IP:8080" -ForegroundColor Yellow
+          }
+          
           Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
 
@@ -305,6 +442,7 @@ jobs:
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
+          $features = "${{ github.event.inputs.features }}"
           
           $display = ""
           if ($duration -eq "30m") { $display = "30 minutes" }
@@ -324,54 +462,66 @@ jobs:
           $startTime = Get-Date -Format "HH:mm:ss"
           $endTime = (Get-Date).AddMinutes($env:TOTAL_MIN).ToString("HH:mm:ss")
           
-          $summaryLines = @()
-          $summaryLines += "## 🚀 Premium VPS Created Successfully"
-          $summaryLines += ""
-          $summaryLines += "| Parameter | Value |"
-          $summaryLines += "|-----------|-------|"
-          $summaryLines += "| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |"
-          $summaryLines += "| 👤 **Username** | $env:VPS_USER |"
-          $summaryLines += "| 🔑 **Password** | $pass |"
-          $summaryLines += "| 🌐 **Tailscale IP** | $env:TAILSCALE_IP |"
-          $summaryLines += "| ⚙️ **CPU Cores** | $env:SYS_CPU |"
-          $summaryLines += "| 💾 **Memory** | $env:SYS_RAM |"
-          $summaryLines += "| 💿 **Disk** | $env:SYS_DISK |"
-          $summaryLines += "| ⏱️ **Duration** | $display |"
-          $summaryLines += "| 🕐 **Start Time** | $startTime |"
-          $summaryLines += "| 🕐 **End Time** | $endTime |"
-          $summaryLines += ""
-          $summaryLines += "### 🔌 Connection Command"
-          $summaryLines += ""
-          $summaryLines += "    $connectCmd"
-          $summaryLines += ""
-          $summaryLines += "### 📋 Instructions"
-          $summaryLines += ""
-          $summaryLines += "1. Make sure you have **Tailscale** installed on your local machine"
-          $summaryLines += "2. Use the connection command above to connect"
-          $summaryLines += "3. The VPS will automatically shutdown after the duration expires"
-          $summaryLines += ""
-          $summaryLines += "---"
-          $summaryLines += "*Generated by Premium VPS Generator*"
+          $summary = "## 🚀 Premium VPS Created Successfully`n"
+          $summary = $summary + "`n"
+          $summary = $summary + "| Parameter | Value |`n"
+          $summary = $summary + "|-----------|-------|`n"
+          $summary = $summary + "| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |`n"
+          $summary = $summary + "| 👤 **Username** | $env:VPS_USER |`n"
+          $summary = $summary + "| 🔑 **Password** | $pass |`n"
+          $summary = $summary + "| 🌐 **Tailscale IP** | $env:TAILSCALE_IP |`n"
+          $summary = $summary + "| ⚙️ **CPU Cores** | $env:SYS_CPU |`n"
+          $summary = $summary + "| 💾 **Memory** | $env:SYS_RAM |`n"
+          $summary = $summary + "| 💿 **Disk** | $env:SYS_DISK |`n"
+          $summary = $summary + "| 🎁 **Features** | $features |`n"
+          $summary = $summary + "| ⏱️ **Duration** | $display |`n"
+          $summary = $summary + "| 🕐 **Start Time** | $startTime |`n"
+          $summary = $summary + "| 🕐 **End Time** | $endTime |`n"
+          $summary = $summary + "`n"
+          $summary = $summary + "### 🔌 Connection Command`n"
+          $summary = $summary + "`n"
+          $summary = $summary + "    $connectCmd`n"
+          $summary = $summary + "`n"
           
-          $summaryLines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          if ($features -eq "web") {
+              $summary = $summary + "### 🌐 Web Interface`n"
+              $summary = $summary + "`n"
+              $summary = $summary + "    http://$env:TAILSCALE_IP`n"
+              $summary = $summary + "`n"
+          }
+          
+          if ($features -eq "full") {
+              $summary = $summary + "### 📁 File Manager`n"
+              $summary = $summary + "`n"
+              $summary = $summary + "    http://$env:TAILSCALE_IP:8080`n"
+              $summary = $summary + "    Username: admin, Password: admin`n"
+              $summary = $summary + "`n"
+          }
+          
+          $summary = $summary + "### 📋 Instructions`n"
+          $summary = $summary + "`n"
+          $summary = $summary + "1. Make sure you have **Tailscale** installed on your local machine`n"
+          $summary = $summary + "2. Use the connection command above to connect`n"
+          $summary = $summary + "3. The VPS will automatically shutdown after the duration expires`n"
+          $summary = $summary + "`n"
+          $summary = $summary + "---`n"
+          $summary = $summary + "*Generated by Premium VPS Generator*`n"
+          
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
           Write-Host "✅ Summary generated!" -ForegroundColor Green
 
-      - name: ⏳ Keep Alive
+      - name: 📊 Monitoring Loop
+        if: success()
         shell: pwsh
         run: |
           $min = [int]$env:TOTAL_MIN
           $end = (Get-Date).AddMinutes($min)
+          $lastMonitor = (Get-Date).AddMinutes(-30)
           
           Write-Host ""
-          Write-Host "🔄 KEEPING VPS ALIVE" -ForegroundColor Yellow
-          Write-Host "📍 IP: $env:TAILSCALE_IP" -ForegroundColor Cyan
-          Write-Host "⏰ End Time: $($end.ToString('HH:mm:ss'))" -ForegroundColor Green
+          Write-Host "📊 MONITORING ACTIVE" -ForegroundColor Yellow
+          Write-Host "   System stats will be sent every 30 minutes" -ForegroundColor Gray
           Write-Host ""
-          Write-Host "Press Ctrl+C to stop manually (not recommended)" -ForegroundColor Gray
-          Write-Host ""
-          
-          $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
-          $frameIndex = 0
           
           do {
               $now = Get-Date
@@ -379,15 +529,41 @@ jobs:
               
               if ($remain.TotalSeconds -le 0) { break }
               
+              if (($now - $lastMonitor).TotalMinutes -ge 30) {
+                  # Send monitoring data to Telegram
+                  if (-not [string]::IsNullOrEmpty($env:BOT_TOKEN)) {
+                      $cpu = "$env:SYS_CPU"
+                      $ram = "$env:SYS_RAM"
+                      $disk = "$env:SYS_DISK"
+                      $uptime = (Get-Date) - $startTime
+                      $uptimeStr = "{0:D2}h {1:D2}m" -f $uptime.Hours, $uptime.Minutes
+                      
+                      $monitorMsg = "📊 *VPS MONITORING REPORT*%0A"
+                      $monitorMsg = $monitorMsg + "━━━━━━━━━━━━━━━━━━━━━%0A"
+                      $monitorMsg = $monitorMsg + "🕐 Time: $($now.ToString('HH:mm:ss'))%0A"
+                      $monitorMsg = $monitorMsg + "⏱️ Uptime: $uptimeStr%0A"
+                      $monitorMsg = $monitorMsg + "⚙️ CPU: $cpu%0A"
+                      $monitorMsg = $monitorMsg + "💾 RAM: $ram%0A"
+                      $monitorMsg = $monitorMsg + "💿 Disk: $disk%0A"
+                      $monitorMsg = $monitorMsg + "⏰ Remaining: $([math]::Floor($remain.TotalHours))h $([math]::Floor($remain.TotalMinutes % 60))m%0A"
+                      
+                      $url = "https://api.telegram.org/bot$env:BOT_TOKEN/sendMessage"
+                      $body = "chat_id=$env:CHAT_ID&text=$monitorMsg"
+                      try {
+                          Invoke-RestMethod -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
+                          Write-Host "📊 Monitoring report sent!" -ForegroundColor Green
+                      } catch {}
+                  }
+                  $lastMonitor = $now
+              }
+              
               $hours = [math]::Floor($remain.TotalHours)
               $mins = [math]::Floor($remain.TotalMinutes % 60)
               $secs = [math]::Floor($remain.TotalSeconds % 60)
-              $frame = $frames[$frameIndex % $frames.Length]
               
-              Write-Host "`r$frame [$($now.ToString('HH:mm:ss'))] Time remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
+              Write-Host "`r⏳ [$($now.ToString('HH:mm:ss'))] Remaining: ${hours}h ${mins}m ${secs}s" -NoNewline -ForegroundColor Yellow
               
-              $frameIndex++
-              Start-Sleep -Seconds 1
+              Start-Sleep -Seconds 10
               
           } while ($remain.TotalSeconds -gt 0)
           
@@ -420,6 +596,10 @@ jobs:
           } else {
               sudo tailscale down -ErrorAction SilentlyContinue
               Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
+              
+              # Kill game server processes
+              pkill -f "java -jar server.jar" 2>/dev/null || true
+              pkill -f filebrowser 2>/dev/null || true
           }
           
           Write-Host ""
