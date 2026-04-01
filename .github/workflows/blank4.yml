@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       os_type:
-        description: Operating System
+        description: 🖥️ Operating System
         required: true
         type: choice
         default: windows-latest
@@ -12,7 +12,7 @@ on:
           - windows-latest
           - ubuntu-latest
       duration:
-        description: Duration
+        description: ⏱️ Duration
         required: true
         type: choice
         default: 2h
@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: System Initialization
+      - name: 🎯 System Initialization
         shell: pwsh
         run: |
           Write-Host ""
@@ -40,32 +40,19 @@ jobs:
           Write-Host ""
           Write-Host "✅ System ready!" -ForegroundColor Green
 
-      - name: Configure Windows RDP
+      - name: 🔧 Configure Windows RDP
         if: contains(github.event.inputs.os_type, 'windows')
         shell: pwsh
         run: |
           Write-Host "🔧 Configuring Remote Desktop..." -ForegroundColor Yellow
-          
-          # Enable RDP
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Write-Host "  ✅ RDP enabled" -ForegroundColor Green
-          
-          # Disable NLA
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          Write-Host "  ✅ NLA disabled" -ForegroundColor Green
-          
-          # Open firewall
           netsh advfirewall firewall add rule name="RDP-VPS" dir=in action=allow protocol=TCP localport=3389 | Out-Null
-          Write-Host "  ✅ Firewall configured" -ForegroundColor Green
-          
-          # Start service
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          Write-Host "  ✅ RDP service started" -ForegroundColor Green
-          
-          Write-Host "🎯 RDP configuration complete!" -ForegroundColor Green
+          Write-Host "✅ RDP configured!" -ForegroundColor Green
 
-      - name: Configure Linux SSH
+      - name: 🔧 Configure Linux SSH
         if: contains(github.event.inputs.os_type, 'ubuntu')
         shell: bash
         run: |
@@ -75,12 +62,11 @@ jobs:
           sudo ufw allow 22/tcp
           echo "✅ SSH configured!"
 
-      - name: Create User Account
+      - name: 👤 Create User Account
         shell: pwsh
         run: |
           Write-Host "👤 Creating user account..." -ForegroundColor Yellow
           
-          # Generate random password
           $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
           $lower = 'abcdefghijkmnpqrstuvwxyz'
           $numbers = '23456789'
@@ -100,35 +86,32 @@ jobs:
           $username = "PREMIUM-VPS"
           
           if ($env:OS_TYPE -eq "windows-latest") {
-              # Windows user creation
               $securePass = ConvertTo-SecureString $password -AsPlainText -Force
               Remove-LocalUser -Name $username -ErrorAction SilentlyContinue
               New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -FullName "Premium VPS User"
               Add-LocalGroupMember -Group "Administrators" -Member $username
               Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
               Enable-LocalUser -Name $username
-              Write-Host "  ✅ Windows user created" -ForegroundColor Green
+              Write-Host "✅ Windows user created" -ForegroundColor Green
           } else {
-              # Linux user creation - FIXED
               $tempFile = [System.IO.Path]::GetTempFileName()
               "$username`:$password" | Out-File -FilePath $tempFile -Encoding ASCII
               sudo useradd -m -s /bin/bash $username 2>$null
               sudo chpasswd < $tempFile
               sudo usermod -aG sudo $username
               Remove-Item $tempFile -Force
-              Write-Host "  ✅ Linux user created" -ForegroundColor Green
+              Write-Host "✅ Linux user created" -ForegroundColor Green
           }
           
-          # Save credentials
           echo "VPS_USER=$username" >> $env:GITHUB_ENV
           echo "VPS_PASS=$password" >> $env:GITHUB_ENV
           $password | Out-File -FilePath $env:TEMP\vps_pass.txt
           
-          Write-Host "  📋 Username: $username" -ForegroundColor White
-          Write-Host "  📋 Password: $password" -ForegroundColor White
+          Write-Host "📋 Username: $username" -ForegroundColor White
+          Write-Host "📋 Password: $password" -ForegroundColor White
           Write-Host "🎯 User account ready!" -ForegroundColor Green
 
-      - name: Install Tailscale
+      - name: 🌐 Install Tailscale
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         shell: pwsh
@@ -142,14 +125,14 @@ jobs:
               Remove-Item $msiPath -Force
               Start-Sleep -Seconds 5
               & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="premium-vps-$env:GITHUB_RUN_ID" --accept-routes
-              Write-Host "  ✅ Tailscale installed on Windows" -ForegroundColor Green
+              Write-Host "✅ Tailscale installed on Windows" -ForegroundColor Green
           } else {
               bash -c "curl -fsSL https://tailscale.com/install.sh | sudo sh"
               bash -c "sudo tailscale up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=premium-vps-$env:GITHUB_RUN_ID --accept-routes"
-              Write-Host "  ✅ Tailscale installed on Linux" -ForegroundColor Green
+              Write-Host "✅ Tailscale installed on Linux" -ForegroundColor Green
           }
 
-      - name: Get Tailscale IP
+      - name: 📡 Get Tailscale IP
         shell: pwsh
         run: |
           Write-Host "📡 Getting Tailscale IP..." -ForegroundColor Yellow
@@ -165,20 +148,20 @@ jobs:
                   }
                   if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
                       echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-                      Write-Host "  ✅ IP: $ip" -ForegroundColor Green
+                      Write-Host "✅ IP: $ip" -ForegroundColor Green
                       break
                   }
               } catch {
-                  Write-Host "  ⏳ Waiting for IP... ($i/20)" -ForegroundColor Yellow
+                  Write-Host "⏳ Waiting for IP... ($i/20)" -ForegroundColor Yellow
               }
           }
           
           if ($ip -eq "") {
               echo "TAILSCALE_IP=localhost" >> $env:GITHUB_ENV
-              Write-Host "  ⚠️ Using localhost" -ForegroundColor Yellow
+              Write-Host "⚠️ Using localhost" -ForegroundColor Yellow
           }
 
-      - name: Get System Info
+      - name: 📊 Get System Info
         shell: pwsh
         run: |
           Write-Host "📊 Getting system information..." -ForegroundColor Yellow
@@ -194,9 +177,9 @@ jobs:
               echo "SYS_RAM=${ram}GB" >> $env:GITHUB_ENV
               echo "SYS_DISK=${diskGB}GB / ${diskTotal}GB" >> $env:GITHUB_ENV
               
-              Write-Host "  ⚙️ CPU: $cpu cores" -ForegroundColor White
-              Write-Host "  💾 RAM: ${ram}GB" -ForegroundColor White
-              Write-Host "  💿 Disk: ${diskGB}GB / ${diskTotal}GB" -ForegroundColor White
+              Write-Host "⚙️ CPU: $cpu cores" -ForegroundColor White
+              Write-Host "💾 RAM: ${ram}GB" -ForegroundColor White
+              Write-Host "💿 Disk: ${diskGB}GB / ${diskTotal}GB" -ForegroundColor White
           } else {
               $cpu = bash -c "nproc"
               $ram = bash -c "free -h | awk '/^Mem:/ {print \$2}'"
@@ -206,13 +189,13 @@ jobs:
               echo "SYS_RAM=$ram" >> $env:GITHUB_ENV
               echo "SYS_DISK=$disk" >> $env:GITHUB_ENV
               
-              Write-Host "  ⚙️ CPU: $cpu cores" -ForegroundColor White
-              Write-Host "  💾 RAM: $ram" -ForegroundColor White
-              Write-Host "  💿 Disk: $disk" -ForegroundColor White
+              Write-Host "⚙️ CPU: $cpu cores" -ForegroundColor White
+              Write-Host "💾 RAM: $ram" -ForegroundColor White
+              Write-Host "💿 Disk: $disk" -ForegroundColor White
           }
-          Write-Host "🎯 System info collected!" -ForegroundColor Green
+          Write-Host "✅ System info collected!" -ForegroundColor Green
 
-      - name: Send Telegram Notification
+      - name: 📱 Send Telegram Notification
         if: success()
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -271,13 +254,14 @@ jobs:
               Write-Host "⚠️ Failed to send Telegram" -ForegroundColor Yellow
           }
 
-      - name: Show Connection Info
+      - name: 🎉 Show Connection Info
         shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
           
           $min = 0
+          $display = ""
           if ($duration -eq "30m") { $min = 30; $display = "30 minutes" }
           if ($duration -eq "1h") { $min = 60; $display = "1 hour" }
           if ($duration -eq "2h") { $min = 120; $display = "2 hours" }
@@ -315,8 +299,9 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
 
-      - name: Generate Summary
+      - name: 📝 Generate Summary
         if: success()
+        shell: pwsh
         run: |
           $pass = Get-Content $env:TEMP\vps_pass.txt
           $duration = "${{ github.event.inputs.duration }}"
@@ -336,41 +321,42 @@ jobs:
               $connectCmd = "ssh $env:VPS_USER@$env:TAILSCALE_IP"
           }
           
-          $summary = @"
-## 🚀 Premium VPS Created Successfully
-
-| Parameter | Value |
-|-----------|-------|
-| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |
-| 👤 **Username** | `$env:VPS_USER` |
-| 🔑 **Password** | `$pass` |
-| 🌐 **Tailscale IP** | `$env:TAILSCALE_IP` |
-| ⚙️ **CPU Cores** | $env:SYS_CPU |
-| 💾 **Memory** | $env:SYS_RAM |
-| 💿 **Disk** | $env:SYS_DISK |
-| ⏱️ **Duration** | $display |
-| 🕐 **Start Time** | $(Get-Date -Format 'HH:mm:ss') |
-| 🕐 **End Time** | $((Get-Date).AddMinutes($env:TOTAL_MIN).ToString('HH:mm:ss')) |
-
-### 🔌 Connection Command
-
-`$connectCmd`
-
-### 📋 Instructions
-
-1. Make sure you have **Tailscale** installed on your local machine
-2. Use the connection command above to connect
-3. The VPS will automatically shutdown after the duration expires
-
----
-*Generated by Premium VPS Generator*
-"@
+          $startTime = Get-Date -Format "HH:mm:ss"
+          $endTime = (Get-Date).AddMinutes($env:TOTAL_MIN).ToString("HH:mm:ss")
           
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          $summaryLines = @()
+          $summaryLines += "## 🚀 Premium VPS Created Successfully"
+          $summaryLines += ""
+          $summaryLines += "| Parameter | Value |"
+          $summaryLines += "|-----------|-------|"
+          $summaryLines += "| 🖥️ **OS** | ${{ github.event.inputs.os_type }} |"
+          $summaryLines += "| 👤 **Username** | $env:VPS_USER |"
+          $summaryLines += "| 🔑 **Password** | $pass |"
+          $summaryLines += "| 🌐 **Tailscale IP** | $env:TAILSCALE_IP |"
+          $summaryLines += "| ⚙️ **CPU Cores** | $env:SYS_CPU |"
+          $summaryLines += "| 💾 **Memory** | $env:SYS_RAM |"
+          $summaryLines += "| 💿 **Disk** | $env:SYS_DISK |"
+          $summaryLines += "| ⏱️ **Duration** | $display |"
+          $summaryLines += "| 🕐 **Start Time** | $startTime |"
+          $summaryLines += "| 🕐 **End Time** | $endTime |"
+          $summaryLines += ""
+          $summaryLines += "### 🔌 Connection Command"
+          $summaryLines += ""
+          $summaryLines += "    $connectCmd"
+          $summaryLines += ""
+          $summaryLines += "### 📋 Instructions"
+          $summaryLines += ""
+          $summaryLines += "1. Make sure you have **Tailscale** installed on your local machine"
+          $summaryLines += "2. Use the connection command above to connect"
+          $summaryLines += "3. The VPS will automatically shutdown after the duration expires"
+          $summaryLines += ""
+          $summaryLines += "---"
+          $summaryLines += "*Generated by Premium VPS Generator*"
+          
+          $summaryLines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
           Write-Host "✅ Summary generated!" -ForegroundColor Green
-        shell: pwsh
 
-      - name: Keep Alive
+      - name: ⏳ Keep Alive
         shell: pwsh
         run: |
           $min = [int]$env:TOTAL_MIN
@@ -412,27 +398,23 @@ jobs:
           Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Red
           Write-Host ""
 
-      - name: Cleanup
+      - name: 🧹 Cleanup
         if: always()
         shell: pwsh
         run: |
           Write-Host ""
           Write-Host "🧹 CLEANING UP..." -ForegroundColor Yellow
           
-          # Remove password file
           Remove-Item "$env:TEMP\vps_pass.txt" -ErrorAction SilentlyContinue
           Write-Host "  ✅ Password file removed" -ForegroundColor Green
           
-          # Disable user
           if ($env:OS_TYPE -eq "windows-latest") {
               Disable-LocalUser -Name $env:VPS_USER -ErrorAction SilentlyContinue
               Write-Host "  ✅ User disabled" -ForegroundColor Green
               
-              # Remove firewall rule
               netsh advfirewall firewall delete rule name="RDP-VPS" -ErrorAction SilentlyContinue
               Write-Host "  ✅ Firewall rule removed" -ForegroundColor Green
               
-              # Disconnect Tailscale
               & "$env:ProgramFiles\Tailscale\tailscale.exe" down -ErrorAction SilentlyContinue
               Write-Host "  ✅ Tailscale disconnected" -ForegroundColor Green
           } else {
