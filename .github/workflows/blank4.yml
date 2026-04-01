@@ -496,54 +496,90 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="NEURAL VPS QUANTUM SYSTEM v1.0
+          # Build message with proper formatting
+          MSG="🧠 *NEURAL VPS QUANTUM SYSTEM v1.0* 🚀
           
-SESSION: ${{ needs.main_brain.outputs.session_id }}
-DURATION: ${{ github.event.inputs.duration }}
-TERMINATION: ${{ needs.main_brain.outputs.termination_time }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📡 *SESSION INFORMATION*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔑 *Session ID:* \`${{ needs.main_brain.outputs.session_id }}\`
+⏱️ *Duration:* \`${{ github.event.inputs.duration }}\`
+⏰ *Termination:* \`${{ needs.main_brain.outputs.termination_time }}\`
 
-WINDOWS:
-IP: ${{ needs.windows_cortex.outputs.ip_address }}
-PORT: ${{ needs.windows_cortex.outputs.rdp_port }}
-USER: ${{ needs.windows_cortex.outputs.username }}
-PASS: ${{ needs.windows_cortex.outputs.password }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🪟 *WINDOWS 11 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 *IP:* \`${{ needs.windows_cortex.outputs.ip_address }}\`
+🔌 *Port:* \`${{ needs.windows_cortex.outputs.rdp_port }}\`
+👤 *User:* \`${{ needs.windows_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.windows_cortex.outputs.password }}\`
 
-UBUNTU 22.04:
-USER: ${{ needs.ubuntu_cortex.outputs.username }}
-PASS: ${{ needs.ubuntu_cortex.outputs.password }}
-PORT: ${{ needs.ubuntu_cortex.outputs.ssh_port }}
-CF: ${{ needs.ubuntu_cortex.outputs.cloudflare_url }}
-
-UBUNTU 24.04:
-USER: ${{ needs.ubuntu24_cortex.outputs.username }}
-PASS: ${{ needs.ubuntu24_cortex.outputs.password }}
-PORT: ${{ needs.ubuntu24_cortex.outputs.ssh_port }}
-CF: ${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}
-
-DEBIAN 12:
-USER: ${{ needs.debian_cortex.outputs.username }}
-PASS: ${{ needs.debian_cortex.outputs.password }}
-PORT: ${{ needs.debian_cortex.outputs.ssh_port }}
-
-CENTOS 9:
-USER: ${{ needs.centos_cortex.outputs.username }}
-PASS: ${{ needs.centos_cortex.outputs.password }}
-PORT: ${{ needs.centos_cortex.outputs.ssh_port }}
-
-ALMALINUX 9:
-USER: ${{ needs.almalinux_cortex.outputs.username }}
-PASS: ${{ needs.almalinux_cortex.outputs.password }}
-PORT: ${{ needs.almalinux_cortex.outputs.ssh_port }}
-
-STATUS: ACTIVE
-AUTO-HEAL: ENABLED"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐧 *UBUNTU 22.04 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* \`${{ needs.ubuntu_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.ubuntu_cortex.outputs.password }}\`
+🔌 *SSH Port:* \`${{ needs.ubuntu_cortex.outputs.ssh_port }}\`"
           
+          # Add Cloudflare URL if available
+          if [ -n "${{ needs.ubuntu_cortex.outputs.cloudflare_url }}" ]; then
+            MSG="${MSG}
+☁️ *Cloudflare:* \`${{ needs.ubuntu_cortex.outputs.cloudflare_url }}\`"
+          fi
+          
+          MSG="${MSG}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐧 *UBUNTU 24.04 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* \`${{ needs.ubuntu24_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.ubuntu24_cortex.outputs.password }}\`
+🔌 *SSH Port:* \`${{ needs.ubuntu24_cortex.outputs.ssh_port }}\`"
+          
+          if [ -n "${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}" ]; then
+            MSG="${MSG}
+☁️ *Cloudflare:* \`${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}\`"
+          fi
+          
+          MSG="${MSG}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐧 *DEBIAN 12 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* \`${{ needs.debian_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.debian_cortex.outputs.password }}\`
+🔌 *SSH Port:* \`${{ needs.debian_cortex.outputs.ssh_port }}\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 *CENTOS 9 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* \`${{ needs.centos_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.centos_cortex.outputs.password }}\`
+🔌 *SSH Port:* \`${{ needs.centos_cortex.outputs.ssh_port }}\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 *ALMALINUX 9 CORTEX*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* \`${{ needs.almalinux_cortex.outputs.username }}\`
+🔐 *Pass:* \`${{ needs.almalinux_cortex.outputs.password }}\`
+🔌 *SSH Port:* \`${{ needs.almalinux_cortex.outputs.ssh_port }}\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🟢 *STATUS:* \`ACTIVE\`
+🔄 *AUTO-HEAL:* \`ENABLED\`
+✨ *NEURAL LINK:* \`ESTABLISHED\`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Send to Telegram with proper escaping
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
               -d text="$MSG" \
-              -d parse_mode="Markdown" || true
-            echo "Telegram sent"
+              -d parse_mode="Markdown" \
+              -d disable_web_page_preview="true" || true
+            echo "✅ Telegram notification sent successfully"
+          else
+            echo "⚠️ Telegram credentials not configured"
           fi
 
   runtime_manager:
@@ -557,8 +593,12 @@ AUTO-HEAL: ENABLED"
           END=$(( $(date +%s) + DUR * 60 ))
           
           echo ""
-          echo "RUNTIME ACTIVE - $(date)"
-          echo "Will terminate at: $(date -d @$END)"
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║           🧠 RUNTIME MANAGER - SYSTEM ACTIVE 🧠            ║"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "📅 Start Time: $(date)"
+          echo "⏰ Termination: $(date -d @$END)"
           echo ""
           
           while [ $(date +%s) -lt $END ]; do
@@ -566,13 +606,16 @@ AUTO-HEAL: ENABLED"
             H=$((REMAIN / 3600))
             M=$(((REMAIN % 3600) / 60))
             S=$((REMAIN % 60))
-            echo -ne "\r[ACTIVE] Time remaining: ${H}h ${M}m ${S}s"
+            printf "\r⏳ [ACTIVE] Time remaining: %02d:%02d:%02d" $H $M $S
             sleep 10
           done
           
           echo ""
           echo ""
-          echo "RUNTIME COMPLETED"
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║         ✅ RUNTIME COMPLETED - SYSTEM SHUTDOWN ✅          ║"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
 
   memory_purge:
     needs: [runtime_manager]
@@ -582,7 +625,11 @@ AUTO-HEAL: ENABLED"
       - name: Cleanup
         run: |
           echo ""
-          echo "MEMORY PURGE - COMPLETE"
-          echo "All neural data destroyed"
-          echo "System ready for next activation"
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║           🧹 MEMORY PURGE - NEURAL DATA DESTROYED 🧹       ║"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "✓ All neural data destroyed"
+          echo "✓ System ready for next activation"
+          echo "✓ Quantum memory cleared"
           echo ""
