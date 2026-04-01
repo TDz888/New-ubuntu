@@ -7,7 +7,7 @@
 # Status: PRODUCTION READY - 100% WORKING
 # =====================================================================================
 
-name: 🚀 NEURAL VPS QUANTUM SYSTEM v1.0 - FINAL VERSION
+name: NEURAL VPS QUANTUM SYSTEM v1.0 - FINAL VERSION
 
 on:
   workflow_dispatch:
@@ -98,12 +98,7 @@ env:
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
   TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-# =====================================================================================
-# 🧠 MAIN BRAIN - Neural Core Processing Unit
-# =====================================================================================
 jobs:
-
-  # ================= MAIN BRAIN: CORE PROCESSOR =================
   main_brain:
     runs-on: ubuntu-latest
     outputs:
@@ -140,7 +135,6 @@ jobs:
           echo "============================================================"
           echo ""
 
-  # ================= SUB BRAIN 1: WINDOWS 11 =================
   windows_cortex:
     needs: [main_brain]
     if: github.event.inputs.windows_enabled == 'true'
@@ -200,7 +194,6 @@ jobs:
             }
           }
 
-  # ================= SUB BRAIN 2: UBUNTU 22.04 (FULLY FIXED) =================
   ubuntu_cortex:
     needs: [main_brain]
     if: github.event.inputs.ubuntu_enabled == 'true'
@@ -272,7 +265,6 @@ jobs:
         run: |
           nohup bash -c 'while true; do sleep 30; sudo systemctl restart ssh; done' > /dev/null 2>&1 &
 
-  # ================= SUB BRAIN 3: UBUNTU 24.04 (FULLY FIXED) =================
   ubuntu24_cortex:
     needs: [main_brain]
     if: github.event.inputs.ubuntu24_enabled == 'true'
@@ -344,7 +336,6 @@ jobs:
         run: |
           nohup bash -c 'while true; do sleep 30; sudo systemctl restart ssh; done' > /dev/null 2>&1 &
 
-  # ================= SUB BRAIN 4: DEBIAN 12 =================
   debian_cortex:
     needs: [main_brain]
     if: github.event.inputs.debian_enabled == 'true'
@@ -395,7 +386,6 @@ jobs:
         run: |
           nohup bash -c 'while true; do sleep 30; service ssh restart; done' > /dev/null 2>&1 &
 
-  # ================= SUB BRAIN 5: CENTOS 9 =================
   centos_cortex:
     needs: [main_brain]
     if: github.event.inputs.centos_enabled == 'true'
@@ -446,7 +436,6 @@ jobs:
         run: |
           nohup bash -c 'while true; do sleep 30; systemctl restart sshd; done' > /dev/null 2>&1 &
 
-  # ================= SUB BRAIN 6: ALMALINUX 9 =================
   almalinux_cortex:
     needs: [main_brain]
     if: github.event.inputs.almalinux_enabled == 'true'
@@ -497,7 +486,6 @@ jobs:
         run: |
           nohup bash -c 'while true; do sleep 30; systemctl restart sshd; done' > /dev/null 2>&1 &
 
-  # ================= CONTROL HUB =================
   control_hub:
     needs: [main_brain, windows_cortex, ubuntu_cortex, ubuntu24_cortex, debian_cortex, centos_cortex, almalinux_cortex]
     if: always() && github.event.inputs.telegram_notify == 'true'
@@ -508,7 +496,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="🚀 NEURAL VPS QUANTUM SYSTEM v1.0
+          MSG="NEURAL VPS QUANTUM SYSTEM v1.0
           
 SESSION: ${{ needs.main_brain.outputs.session_id }}
 DURATION: ${{ github.event.inputs.duration }}
@@ -558,7 +546,6 @@ AUTO-HEAL: ENABLED"
             echo "Telegram sent"
           fi
 
-  # ================= RUNTIME MANAGER =================
   runtime_manager:
     needs: [main_brain, windows_cortex, ubuntu_cortex, ubuntu24_cortex, debian_cortex, centos_cortex, almalinux_cortex]
     runs-on: ubuntu-latest
@@ -587,7 +574,6 @@ AUTO-HEAL: ENABLED"
           echo ""
           echo "RUNTIME COMPLETED"
 
-  # ================= MEMORY PURGE =================
   memory_purge:
     needs: [runtime_manager]
     if: always() && github.event.inputs.auto_cleanup == 'true'
