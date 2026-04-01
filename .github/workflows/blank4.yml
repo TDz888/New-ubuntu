@@ -139,255 +139,54 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
       
-      # METHOD 1: Standard RDP Configuration
-      - name: 🔧 METHOD 1 - STANDARD RDP CONFIGURATION
-        id: rdp_method1
+      - name: 🔧 RDP CONFIGURATION
         continue-on-error: true
         run: |
-          Write-Host "🔄 Executing Method 1: Standard RDP Configuration..." -ForegroundColor Yellow
-          
-          try {
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-            
-            netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=3389 profile=any
-            netsh advfirewall firewall add rule name="RDP-Master-Out" dir=out action=allow protocol=TCP localport=3389 profile=any
-            
-            Set-Service -Name TermService -StartupType Automatic -ErrorAction SilentlyContinue
-            Start-Service -Name TermService -ErrorAction SilentlyContinue
-            
-            Write-Host "✅ Method 1 completed successfully" -ForegroundColor Green
-            echo "method1_success=true" >> $env:GITHUB_ENV
-          } catch {
-            Write-Host "⚠️ Method 1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            echo "method1_success=false" >> $env:GITHUB_ENV
-          }
+          Write-Host "🔄 Configuring RDP..." -ForegroundColor Yellow
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=3389 profile=any
+          Start-Service -Name TermService -ErrorAction SilentlyContinue
       
-      # METHOD 2: Registry Alternative Configuration
-      - name: 🔧 METHOD 2 - REGISTRY ALTERNATIVE
-        if: env.method1_success == 'false'
-        continue-on-error: true
-        run: |
-          Write-Host "🔄 Executing Method 2: Registry Alternative..." -ForegroundColor Yellow
-          
-          try {
-            $regPaths = @(
-              "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server",
-              "HKLM:\SYSTEM\CurrentControlSet\Services\TermService\Parameters"
-            )
-            
-            foreach ($path in $regPaths) {
-              if (Test-Path $path) {
-                Set-ItemProperty -Path $path -Name "fDenyTSConnections" -Value 0 -Force -ErrorAction SilentlyContinue
-              }
-            }
-            
-            netsh advfirewall set allprofiles firewallpolicy blockinbound,allowoutbound
-            netsh advfirewall firewall add rule name="RDP-Master-Alt" dir=in action=allow protocol=TCP localport=3389
-            
-            Write-Host "✅ Method 2 completed successfully" -ForegroundColor Green
-            echo "method2_success=true" >> $env:GITHUB_ENV
-          } catch {
-            Write-Host "⚠️ Method 2 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            echo "method2_success=false" >> $env:GITHUB_ENV
-          }
-      
-      # METHOD 3: PowerShell Direct Configuration
-      - name: 🔧 METHOD 3 - POWERSHELL DIRECT
-        if: env.method1_success == 'false' && env.method2_success == 'false'
-        continue-on-error: true
-        run: |
-          Write-Host "🔄 Executing Method 3: PowerShell Direct..." -ForegroundColor Yellow
-          
-          try {
-            $wmi = Get-WmiObject -Class Win32_TerminalServiceSetting -Namespace root\cimv2\terminalservices
-            $wmi.SetAllowTSConnections(1) | Out-Null
-            
-            & sc.exe config TermService start= auto
-            & net start TermService
-            
-            Write-Host "✅ Method 3 completed successfully" -ForegroundColor Green
-            echo "method3_success=true" >> $env:GITHUB_ENV
-          } catch {
-            Write-Host "❌ All RDP methods failed" -ForegroundColor Red
-            echo "method3_success=false" >> $env:GITHUB_ENV
-          }
-      
-      # USER CREATION - Multi-method approach (FIXED: removed @ syntax)
-      - name: 👤 USER CREATION - MULTI-METHOD
+      - name: 👤 USER CREATION
         id: user
         run: |
-          Write-Host ""
-          Write-Host "👤 CREATING USER ACCOUNT..." -ForegroundColor Yellow
-          
+          Write-Host "👤 Creating user account..." -ForegroundColor Yellow
           $username = "neural_user_$((Get-Random -Minimum 1000 -Maximum 9999))"
+          $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | % {[char]$_})
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
           
-          $password1 = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | % {[char]$_})
-          $password2 = [System.Web.Security.Membership]::GeneratePassword(16, 4)
-          $password3 = ([guid]::NewGuid().ToString() -replace '-', '').Substring(0, 16)
-          
-          $selectedPassword = $null
-          $methods = @(
-            @{Name="Standard"; Password=$password1},
-            @{Name="Secure"; Password=$password2},
-            @{Name="GUID"; Password=$password3}
-          )
-          
-          foreach ($method in $methods) {
-            try {
-              $securePass = ConvertTo-SecureString $method.Password -AsPlainText -Force
-              
-              try { Remove-LocalUser -Name $username -ErrorAction SilentlyContinue } catch {}
-              
-              New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -ErrorAction Stop
-              Add-LocalGroupMember -Group "Administrators" -Member $username -ErrorAction Stop
-              Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username -ErrorAction Stop
-              Add-LocalGroupMember -Group "Users" -Member $username -ErrorAction Stop
-              
-              $selectedPassword = $method.Password
-              Write-Host "✅ User created with $($method.Name) method: $username" -ForegroundColor Green
-              break
-            } catch {
-              Write-Host "⚠️ $($method.Name) method failed: $($_.Exception.Message)" -ForegroundColor Yellow
-              continue
-            }
-          }
-          
-          if (-not $selectedPassword) {
-            Write-Host "❌ All user creation methods failed" -ForegroundColor Red
-            echo "status=failed" >> $env:GITHUB_OUTPUT
-            exit 1
-          }
+          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
           
           echo "username=$username" >> $env:GITHUB_OUTPUT
-          echo "password=$selectedPassword" >> $env:GITHUB_OUTPUT
-          echo "status=success" >> $env:GITHUB_OUTPUT
-          
-          # Save credentials - FIXED: removed @ syntax, using simple echo
-          $credPath = "$env:TEMP\windows_creds.txt"
-          "Username: $username" | Out-File -FilePath $credPath -Encoding UTF8
-          "Password: $selectedPassword" | Out-File -FilePath $credPath -Encoding UTF8 -Append
-          "Created: $(Get-Date)" | Out-File -FilePath $credPath -Encoding UTF8 -Append
+          echo "password=$password" >> $env:GITHUB_OUTPUT
+          Write-Host "✅ User created: $username" -ForegroundColor Green
       
-      # RDP PORT CONFIGURATION - Multi-port fallback
       - name: 🔌 RDP PORT CONFIGURATION
         id: rdp
         run: |
-          Write-Host ""
-          Write-Host "🔌 CONFIGURING RDP PORT..." -ForegroundColor Yellow
-          
-          $ports = @(3389, 4000, 5000, 6000, 7000, 8000, 9000)
-          $selectedPort = $null
-          
-          foreach ($port in $ports) {
-            try {
-              $portInUse = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-              if (-not $portInUse) {
-                Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "PortNumber" -Value $port -Force
-                
-                netsh advfirewall firewall delete rule name="RDP-Master" -ErrorAction SilentlyContinue
-                netsh advfirewall firewall add rule name="RDP-Master" dir=in action=allow protocol=TCP localport=$port
-                
-                Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
-                
-                $selectedPort = $port
-                Write-Host "✅ Port $port configured successfully" -ForegroundColor Green
-                break
-              }
-            } catch {
-              Write-Host "⚠️ Port $port failed: $($_.Exception.Message)" -ForegroundColor Yellow
-              continue
-            }
-          }
-          
-          if (-not $selectedPort) {
-            $selectedPort = 3389
-            Write-Host "⚠️ Using default port 3389" -ForegroundColor Yellow
-          }
-          
-          echo "rdp_port=$selectedPort" >> $env:GITHUB_OUTPUT
+          $port = 3389
+          echo "rdp_port=$port" >> $env:GITHUB_OUTPUT
       
-      # IP ADDRESS RETRIEVAL - Multi-source fallback
       - name: 🌐 IP ADDRESS RETRIEVAL
         id: ip
         run: |
-          Write-Host ""
-          Write-Host "🌐 RETRIEVING IP ADDRESS..." -ForegroundColor Yellow
-          
-          $ipSources = @(
-            @{Name="ipify"; URL="https://api.ipify.org"},
-            @{Name="icanhazip"; URL="http://icanhazip.com"},
-            @{Name="ifconfig"; URL="http://ifconfig.me/ip"},
-            @{Name="ident"; URL="http://ident.me"}
-          )
-          
-          $publicIP = $null
-          
-          foreach ($source in $ipSources) {
-            try {
-              $ip = (Invoke-WebRequest -Uri $source.URL -UseBasicParsing -TimeoutSec 10).Content.Trim()
-              if ($ip -match '^\d+\.\d+\.\d+\.\d+$') {
-                $publicIP = $ip
-                Write-Host "✅ IP retrieved from $($source.Name): $ip" -ForegroundColor Green
-                break
-              }
-            } catch {
-              Write-Host "⚠️ $($source.Name) failed: $($_.Exception.Message)" -ForegroundColor Yellow
-              continue
-            }
-          }
-          
-          if (-not $publicIP) {
-            $publicIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notmatch '^169\.254' -and $_.IPAddress -notmatch '^127\.'}).IPAddress | Select-Object -First 1
-            Write-Host "⚠️ Using local IP: $publicIP" -ForegroundColor Yellow
-          }
-          
+          $publicIP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content.Trim()
           echo "ip_address=$publicIP" >> $env:GITHUB_OUTPUT
       
-      # TAILSCALE SETUP - Alternative methods
-      - name: 🌐 TAILSCALE NETWORK SETUP
+      - name: 🌐 TAILSCALE SETUP
         id: tailscale
         continue-on-error: true
         run: |
-          Write-Host ""
-          Write-Host "🌐 SETTING UP TAILSCALE NETWORK..." -ForegroundColor Yellow
-          
-          $tailscaleIP = $null
-          
-          try {
-            $msiPath = "$env:TEMP\tailscale.msi"
-            Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
-            Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
-            Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 10
-            
-            if ($env:TAILSCALE_AUTH_KEY) {
-              & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=neural-win-$env:GITHUB_RUN_ID --accept-routes --accept-dns
-              
-              for ($i=0; $i -lt 15; $i++) {
-                try {
-                  $tailscaleIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>&1
-                  if ($tailscaleIP -match '^\d+\.\d+\.\d+\.\d+$') { break }
-                } catch {}
-                Start-Sleep -Seconds 2
-              }
-            }
-          } catch {
-            Write-Host "⚠️ Tailscale setup failed" -ForegroundColor Yellow
-          }
-          
+          $tailscaleIP = ""
           echo "tailscale_ip=$tailscaleIP" >> $env:GITHUB_OUTPUT
       
-      # STATUS CHECK
       - name: 📊 STATUS CHECK
         id: status
         run: |
-          Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║              ✅ WINDOWS CORTEX ACTIVE ✅                   ║" -ForegroundColor Green
-          Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Green
-          Write-Host ""
+          Write-Host "✅ WINDOWS CORTEX ACTIVE" -ForegroundColor Green
           echo "status=active" >> $env:GITHUB_OUTPUT
       
       - name: ❌ ERROR HANDLER
@@ -424,78 +223,46 @@ jobs:
       
       - name: 🔧 SYSTEM SETUP
         run: |
-          if sudo apt update -qq && sudo apt upgrade -y -qq; then
-            echo "✅ System update successful"
-          else
-            sudo dpkg --configure -a
-            sudo apt --fix-broken install -y -qq
-            sudo apt update -qq && sudo apt upgrade -y -qq || true
-          fi
-          
-          sudo apt install -y -qq openssh-server curl wget || sudo apt install -y -qq openssh-server
+          sudo apt update -qq
+          sudo apt install -y -qq openssh-server curl wget
       
       - name: 👤 USER CREATION
         id: user
         run: |
-          USERNAME="neural_$((RANDOM % 9000 + 1000))"
+          USERNAME="ubuntu22_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          sudo useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo "$USERNAME" 2>/dev/null || true
+          sudo usermod -aG sudo "$USERNAME"
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "User created: $USERNAME"
       
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          PORT=$((RANDOM % 6000 + 2000))
-          sudo sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          PORT=22
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo systemctl restart ssh || sudo service ssh restart
+          sudo systemctl restart ssh
           echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
-      - name: ☁️ CLOUDFLARE TUNNEL SETUP
+      - name: ☁️ CLOUDFLARE TUNNEL
         id: cloudflare
-        if: github.event.inputs.network_type == 'cloudflare'
         continue-on-error: true
         run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cf 2>/dev/null || curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
-          chmod +x /tmp/cf 2>/dev/null || true
-          if [ -f /tmp/cf ]; then
-            /tmp/cf tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/cf.log 2>&1 &
-            sleep 8
-            URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-            if [ -n "$URL" ]; then
-              echo "cloudflare_url=$URL" >> $GITHUB_OUTPUT
-              echo "✅ Cloudflare tunnel: $URL"
-            fi
-          fi
-      
-      - name: ⚡ PERFORMANCE TUNING
-        if: github.event.inputs.performance_mode != 'balanced'
-        run: |
-          sudo sysctl -w net.core.rmem_max=134217728 2>/dev/null || true
-          sudo sysctl -w net.core.wmem_max=134217728 2>/dev/null || true
-          sudo sysctl -w vm.swappiness=10 2>/dev/null || true
+          echo "cloudflare_url=" >> $GITHUB_OUTPUT
       
       - name: 📊 STATUS CHECK
         id: status
         run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║              ✅ UBUNTU 22.04 CORTEX ACTIVE ✅              ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
           echo "status=active" >> $GITHUB_OUTPUT
       
       - name: ❌ ERROR HANDLER
         id: error
         if: failure()
         run: |
-          echo "error_message=Ubuntu 22.04 Cortex initialization failed" >> $GITHUB_OUTPUT
+          echo "error_message=Ubuntu 22.04 Cortex failed" >> $GITHUB_OUTPUT
           echo "status=failed" >> $GITHUB_OUTPUT
 
 # =====================================================================================
@@ -525,18 +292,18 @@ jobs:
       
       - name: 🔧 SYSTEM SETUP
         run: |
-          sudo apt update -qq || sudo apt update --fix-missing -qq
-          sudo apt install -y -qq openssh-server curl wget || sudo apt install -y -qq openssh-server
+          sudo apt update -qq
+          sudo apt install -y -qq openssh-server curl wget
       
       - name: 👤 USER CREATION
         id: user
         run: |
-          USERNAME="neuro_$((RANDOM % 9000 + 1000))"
+          USERNAME="ubuntu24_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          sudo useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo "$USERNAME" 2>/dev/null || true
+          sudo usermod -aG sudo "$USERNAME"
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
@@ -544,25 +311,16 @@ jobs:
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          PORT=$((RANDOM % 6000 + 2000))
-          sudo sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          PORT=22
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo systemctl restart ssh || sudo service ssh restart
+          sudo systemctl restart ssh
           echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
       - name: ☁️ CLOUDFLARE TUNNEL
         id: cloudflare
-        if: github.event.inputs.network_type == 'cloudflare'
         continue-on-error: true
         run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /tmp/cf || curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
-          chmod +x /tmp/cf 2>/dev/null || true
-          if [ -f /tmp/cf ]; then
-            /tmp/cf tunnel --url ssh://localhost:${{ steps.ssh.outputs.ssh_port }} > /tmp/cf.log 2>&1 &
-            sleep 8
-            URL=$(grep -o 'https://[a-z0-9.-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-            [ -n "$URL" ] && echo "cloudflare_url=$URL" >> $GITHUB_OUTPUT
-          fi
+          echo "cloudflare_url=" >> $GITHUB_OUTPUT
       
       - name: 📊 STATUS CHECK
         id: status
@@ -597,8 +355,8 @@ jobs:
       
       - name: 🔧 SYSTEM SETUP
         run: |
-          apt update -qq || apt update --fix-missing -qq
-          apt install -y -qq openssh-server sudo curl wget || apt install -y -qq openssh-server
+          apt update -qq
+          apt install -y -qq openssh-server sudo curl wget
       
       - name: 👤 USER CREATION
         id: user
@@ -606,9 +364,9 @@ jobs:
           USERNAME="debian_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG sudo "$USERNAME" 2>/dev/null || true
+          usermod -aG sudo "$USERNAME"
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
@@ -616,10 +374,9 @@ jobs:
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          PORT=$((RANDOM % 7000 + 2000))
-          sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          service ssh restart || /etc/init.d/ssh restart
+          service ssh restart
           echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
       - name: 📊 STATUS CHECK
@@ -655,8 +412,8 @@ jobs:
       
       - name: 🔧 SYSTEM SETUP
         run: |
-          dnf install -y epel-release 2>/dev/null || true
-          dnf install -y openssh-server sudo curl wget 2>/dev/null || yum install -y openssh-server
+          dnf install -y epel-release
+          dnf install -y openssh-server sudo curl wget
       
       - name: 👤 USER CREATION
         id: user
@@ -664,9 +421,9 @@ jobs:
           USERNAME="centos_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel "$USERNAME" 2>/dev/null || true
+          usermod -aG wheel "$USERNAME"
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
@@ -674,10 +431,9 @@ jobs:
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          PORT=$((RANDOM % 7000 + 2000))
-          sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          systemctl restart sshd || service sshd restart
+          systemctl restart sshd
           echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
       - name: 📊 STATUS CHECK
@@ -686,7 +442,7 @@ jobs:
           echo "status=active" >> $GITHUB_OUTPUT
 
 # =====================================================================================
-#                    🔷 ALMALINUX 9 CORTEX - SIXTH WORKER (FINAL FALLBACK)
+#                    🔷 ALMALINUX 9 CORTEX - SIXTH WORKER
 # =====================================================================================
 
   almalinux_cortex:
@@ -714,18 +470,18 @@ jobs:
       
       - name: 🔧 SYSTEM SETUP
         run: |
-          dnf install -y epel-release 2>/dev/null || true
-          dnf install -y openssh-server sudo curl wget 2>/dev/null || true
+          dnf install -y epel-release
+          dnf install -y openssh-server sudo curl wget
       
       - name: 👤 USER CREATION
         id: user
         run: |
-          USERNAME="alma_$((RANDOM % 9000 + 1000))"
+          USERNAME="almalinux_$((RANDOM % 9000 + 1000))"
           PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
           
-          useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
+          useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel "$USERNAME" 2>/dev/null || true
+          usermod -aG wheel "$USERNAME"
           
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
@@ -733,10 +489,9 @@ jobs:
       - name: 🔌 SSH CONFIGURATION
         id: ssh
         run: |
-          PORT=$((RANDOM % 7000 + 2000))
-          sed -i "s/^#Port 22/Port $PORT/" /etc/ssh/sshd_config
+          PORT=22
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          systemctl restart sshd || service sshd restart
+          systemctl restart sshd
           echo "ssh_port=$PORT" >> $GITHUB_OUTPUT
       
       - name: 📊 STATUS CHECK
@@ -758,101 +513,158 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          ACTIVE_WORKER="None"
-          WORKER_DATA=""
+          # Create message file to avoid YAML issues
+          MESSAGE_FILE="/tmp/telegram_msg.txt"
           
+          # Header
+          cat > "$MESSAGE_FILE" << 'EOF'
+🧠 *NEURAL MASTER SYSTEM v3.0* 🧠
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
+          
+          # Session Info
+          echo "🔑 *Session ID:* \`${{ needs.master_brain.outputs.session_id }}\`" >> "$MESSAGE_FILE"
+          echo "⏱️ *Duration:* \`${{ github.event.inputs.duration }}\`" >> "$MESSAGE_FILE"
+          echo "⏰ *Termination:* \`${{ needs.master_brain.outputs.termination_time }}\`" >> "$MESSAGE_FILE"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> "$MESSAGE_FILE"
+          
+          # Windows 11 Section
           if [ "${{ needs.windows_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="Windows 11"
-            WORKER_DATA="
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
 🪟 *WINDOWS 11 CORTEX* 🪟
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌐 *IP Address:* \`${{ needs.windows_cortex.outputs.ip_address }}\`
-🔌 *RDP Port:* \`${{ needs.windows_cortex.outputs.rdp_port }}\`
-👤 *Username:* \`${{ needs.windows_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.windows_cortex.outputs.password }}\`"
-            if [ -n "${{ needs.windows_cortex.outputs.tailscale_ip }}" ]; then
-              WORKER_DATA="$WORKER_DATA
-🌐 *Tailscale IP:* \`${{ needs.windows_cortex.outputs.tailscale_ip }}\`"
-            fi
-          
-          elif [ "${{ needs.ubuntu22_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="Ubuntu 22.04"
-            WORKER_DATA="
-🐧 *UBUNTU 22.04 CORTEX* 🐧
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`${{ needs.ubuntu22_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.ubuntu22_cortex.outputs.password }}\`
-🔌 *SSH Port:* \`${{ needs.ubuntu22_cortex.outputs.ssh_port }}\`"
-            if [ -n "${{ needs.ubuntu22_cortex.outputs.cloudflare_url }}" ]; then
-              WORKER_DATA="$WORKER_DATA
-☁️ *Cloudflare URL:* \`${{ needs.ubuntu22_cortex.outputs.cloudflare_url }}\`"
-            fi
-          
-          elif [ "${{ needs.ubuntu24_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="Ubuntu 24.04"
-            WORKER_DATA="
-🐧 *UBUNTU 24.04 CORTEX* 🐧
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`${{ needs.ubuntu24_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.ubuntu24_cortex.outputs.password }}\`
-🔌 *SSH Port:* \`${{ needs.ubuntu24_cortex.outputs.ssh_port }}\`"
-            if [ -n "${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}" ]; then
-              WORKER_DATA="$WORKER_DATA
-☁️ *Cloudflare URL:* \`${{ needs.ubuntu24_cortex.outputs.cloudflare_url }}\`"
-            fi
-          
-          elif [ "${{ needs.debian_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="Debian 12"
-            WORKER_DATA="
-🐍 *DEBIAN 12 CORTEX* 🐍
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`${{ needs.debian_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.debian_cortex.outputs.password }}\`
-🔌 *SSH Port:* \`${{ needs.debian_cortex.outputs.ssh_port }}\`"
-          
-          elif [ "${{ needs.centos_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="CentOS 9"
-            WORKER_DATA="
-📦 *CENTOS 9 CORTEX* 📦
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`${{ needs.centos_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.centos_cortex.outputs.password }}\`
-🔌 *SSH Port:* \`${{ needs.centos_cortex.outputs.ssh_port }}\`"
-          
-          elif [ "${{ needs.almalinux_cortex.outputs.status }}" = "active" ]; then
-            ACTIVE_WORKER="AlmaLinux 9"
-            WORKER_DATA="
-🔷 *ALMALINUX 9 CORTEX* 🔷
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`${{ needs.almalinux_cortex.outputs.username }}\`
-🔐 *Password:* \`${{ needs.almalinux_cortex.outputs.password }}\`
-🔌 *SSH Port:* \`${{ needs.almalinux_cortex.outputs.ssh_port }}\`"
+📌 *Connection Type:* Remote Desktop Protocol
+🌐 *IP Address:* `${{ needs.windows_cortex.outputs.ip_address }}`
+🔌 *Port:* `${{ needs.windows_cortex.outputs.rdp_port }}`
+👤 *Username:* `${{ needs.windows_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.windows_cortex.outputs.password }}`
+
+💻 *How to Connect:*
+• Windows: Search "Remote Desktop Connection"
+• macOS: Microsoft Remote Desktop from App Store
+• Android/iOS: Microsoft Remote Desktop app
+• Enter: `${{ needs.windows_cortex.outputs.ip_address }}:${{ needs.windows_cortex.outputs.rdp_port }}`
+EOF
           fi
           
-          MSG="🧠 *NEURAL MASTER SYSTEM v3.0* 🧠
+          # Ubuntu 22.04 Section
+          if [ "${{ needs.ubuntu22_cortex.outputs.status }}" = "active" ]; then
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
+🐧 *UBUNTU 22.04 CORTEX* 🐧
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔑 *Session ID:* \`${{ needs.master_brain.outputs.session_id }}\`
-⏱️ *Duration:* \`${{ github.event.inputs.duration }}\`
-⏰ *Termination:* \`${{ needs.master_brain.outputs.termination_time }}\`
-🎯 *Active Worker:* \`$ACTIVE_WORKER\`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-$WORKER_DATA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🟢 *System Status:* \`ACTIVE\`
-🔄 *Fallback Mode:* \`ENABLED\`
-⚡ *Performance:* \`${{ github.event.inputs.performance_mode }}\`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 *Connection Instructions:*
-• *Windows:* Use Remote Desktop Connection
-• *Linux:* Use SSH client (Putty/Terminal)
-• *Cloudflare:* Use tunnel URL if provided
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✨ *Neural Link Established* ✨"
+📌 *Connection Type:* SSH Secure Shell
+👤 *Username:* `${{ needs.ubuntu22_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.ubuntu22_cortex.outputs.password }}`
+🔌 *SSH Port:* `${{ needs.ubuntu22_cortex.outputs.ssh_port }}`
+
+💻 *How to Connect:*
+• Windows: Use PuTTY or Windows Terminal
+• Linux/Mac: Open terminal and run:
+  `ssh ${{ needs.ubuntu22_cortex.outputs.username }}@<ip-address> -p ${{ needs.ubuntu22_cortex.outputs.ssh_port }}`
+• Enter password when prompted
+EOF
+          fi
           
+          # Ubuntu 24.04 Section
+          if [ "${{ needs.ubuntu24_cortex.outputs.status }}" = "active" ]; then
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
+🐧 *UBUNTU 24.04 CORTEX* 🐧
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 *Connection Type:* SSH Secure Shell
+👤 *Username:* `${{ needs.ubuntu24_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.ubuntu24_cortex.outputs.password }}`
+🔌 *SSH Port:* `${{ needs.ubuntu24_cortex.outputs.ssh_port }}`
+
+💻 *How to Connect:*
+• Windows: Use PuTTY or Windows Terminal
+• Linux/Mac: Open terminal and run:
+  `ssh ${{ needs.ubuntu24_cortex.outputs.username }}@<ip-address> -p ${{ needs.ubuntu24_cortex.outputs.ssh_port }}`
+• Enter password when prompted
+EOF
+          fi
+          
+          # Debian Section
+          if [ "${{ needs.debian_cortex.outputs.status }}" = "active" ]; then
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
+🐍 *DEBIAN 12 CORTEX* 🐍
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 *Connection Type:* SSH Secure Shell
+👤 *Username:* `${{ needs.debian_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.debian_cortex.outputs.password }}`
+🔌 *SSH Port:* `${{ needs.debian_cortex.outputs.ssh_port }}`
+
+💻 *How to Connect:*
+• Windows: Use PuTTY or Windows Terminal
+• Linux/Mac: Open terminal and run:
+  `ssh ${{ needs.debian_cortex.outputs.username }}@<ip-address> -p ${{ needs.debian_cortex.outputs.ssh_port }}`
+• Debian is lightweight and stable
+EOF
+          fi
+          
+          # CentOS Section
+          if [ "${{ needs.centos_cortex.outputs.status }}" = "active" ]; then
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
+📦 *CENTOS 9 CORTEX* 📦
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 *Connection Type:* SSH Secure Shell
+👤 *Username:* `${{ needs.centos_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.centos_cortex.outputs.password }}`
+🔌 *SSH Port:* `${{ needs.centos_cortex.outputs.ssh_port }}`
+
+💻 *How to Connect:*
+• Windows: Use PuTTY or Windows Terminal
+• Linux/Mac: Open terminal and run:
+  `ssh ${{ needs.centos_cortex.outputs.username }}@<ip-address> -p ${{ needs.centos_cortex.outputs.ssh_port }}`
+• Enterprise-grade stability
+EOF
+          fi
+          
+          # AlmaLinux Section
+          if [ "${{ needs.almalinux_cortex.outputs.status }}" = "active" ]; then
+            cat >> "$MESSAGE_FILE" << 'EOF'
+
+🔷 *ALMALINUX 9 CORTEX* 🔷
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 *Connection Type:* SSH Secure Shell
+👤 *Username:* `${{ needs.almalinux_cortex.outputs.username }}`
+🔐 *Password:* `${{ needs.almalinux_cortex.outputs.password }}`
+🔌 *SSH Port:* `${{ needs.almalinux_cortex.outputs.ssh_port }}`
+
+💻 *How to Connect:*
+• Windows: Use PuTTY or Windows Terminal
+• Linux/Mac: Open terminal and run:
+  `ssh ${{ needs.almalinux_cortex.outputs.username }}@<ip-address> -p ${{ needs.almalinux_cortex.outputs.ssh_port }}`
+• RHEL-compatible distribution
+EOF
+          fi
+          
+          # Footer
+          cat >> "$MESSAGE_FILE" << 'EOF'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🟢 *System Status:* `ACTIVE`
+🔄 *Fallback Mode:* `ENABLED`
+⚡ *Performance:* `${{ github.event.inputs.performance_mode }}`
+
+✨ *Neural Link Established* ✨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 *Quick Tips:*
+• Copy password carefully (case-sensitive)
+• Use copy-paste to avoid typos
+• Connection may take 1-2 minutes
+• Session auto-terminates after duration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
+          
+          # Send message
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
-              -d text="$MSG" \
+              -d text="$(cat "$MESSAGE_FILE")" \
               -d parse_mode="Markdown" \
               -d disable_web_page_preview="true" > /dev/null 2>&1
             echo "✅ Telegram notification sent"
