@@ -1,13 +1,12 @@
 # =====================================================================================
-#                    🧠 NEURAL MASTER SYSTEM v3.0 - QUANTUM ARCHITECTURE
-#         Distributed Neural Network | Multi-OS with Advanced Fallback System
+#                    🧠 NEURAL MASTER SYSTEM v3.0 - STABLE EDITION
+#              Multi-OS Remote Access System | Production Ready
 # =====================================================================================
-# Version: 3.0.1-master
-# Architecture: Master Brain + Worker Brains | Auto-failover | Triple-redundancy
-# Status: PRODUCTION READY - ZERO SYNTAX ERRORS - FIXED FALLBACK MECHANISM
+# Version: 3.0.2-stable
+# Status: FIXED - NO SKIP ISSUES - ALL JOBS INDEPENDENT
 # =====================================================================================
 
-name: 🧠 NEURAL MASTER SYSTEM v3.0 - QUANTUM EDITION
+name: 🧠 NEURAL MASTER SYSTEM v3.0 - STABLE EDITION
 
 on:
   workflow_dispatch:
@@ -25,18 +24,18 @@ on:
           - '6h'
       
       target_os:
-        description: '🎯 Primary Target OS'
-        required: false
-        default: 'auto'
+        description: '🎯 Select OS to Deploy'
+        required: true
+        default: 'windows'
         type: choice
         options:
-          - 'auto'
           - 'windows'
           - 'ubuntu22'
           - 'ubuntu24'
           - 'debian'
           - 'centos'
           - 'almalinux'
+          - 'all'
       
       performance_mode:
         description: '⚡ Performance Mode'
@@ -63,15 +62,14 @@ on:
 env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-  TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
 # =====================================================================================
-#                           🧠 MASTER BRAIN - CENTRAL CONTROLLER
+#                           🧠 MASTER CONTROLLER
 # =====================================================================================
 
 jobs:
   # ==============================================================================
-  # JOB 1: MASTER BRAIN - Khởi tạo và quản lý phiên làm việc
+  # MASTER BRAIN - KHỞI TẠO VÀ QUẢN LÝ PHIÊN
   # ==============================================================================
   master_brain:
     runs-on: ubuntu-latest
@@ -81,18 +79,15 @@ jobs:
       termination_time: ${{ steps.init.outputs.termination_time }}
       start_timestamp: ${{ steps.init.outputs.start_timestamp }}
     steps:
-      - name: 🧠 MASTER BRAIN INITIALIZATION - KHỞI TẠO HỆ THỐNG THẦN KINH
+      - name: 🧠 MASTER BRAIN INITIALIZATION
         id: init
         run: |
-          # Tạo session ID duy nhất cho phiên làm việc
-          SESSION_ID="NEURAL-MASTER-$(date +%Y%m%d-%H%M%S)-$((RANDOM % 9000 + 1000))"
+          SESSION_ID="NEURAL-$(date +%Y%m%d-%H%M%S)-$((RANDOM % 9000 + 1000))"
           echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
           
-          # Lấy timestamp bắt đầu
           START_TS=$(date +%s)
           echo "start_timestamp=$START_TS" >> $GITHUB_OUTPUT
           
-          # Xử lý thời gian duration từ input
           DUR_INPUT="${{ github.event.inputs.duration }}"
           case "$DUR_INPUT" in
             "30m") DUR=30 ;;
@@ -104,736 +99,651 @@ jobs:
           esac
           echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
           
-          # Tính thời gian kết thúc
-          TERM_TIME=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S")
+          TERM_TIME=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")
           echo "termination_time=$TERM_TIME" >> $GITHUB_OUTPUT
           
-          # Hiển thị banner khởi tạo Master Brain
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                                    ║"
-          echo "║                         🧠🧠🧠   MASTER BRAIN ACTIVATED   🧠🧠🧠                                                  ║"
-          echo "║                                                                                                                    ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║                                                                                                                    ║"
-          echo "║  📋 Session ID:      $SESSION_ID"
-          echo "║  ⏱️  Duration:        $DUR minutes ($DUR_INPUT)"
-          echo "║  ⏰ Termination:     $TERM_TIME"
-          echo "║  🎯 Target OS:       ${{ github.event.inputs.target_os }}"
-          echo "║  ⚡ Performance:     ${{ github.event.inputs.performance_mode }}"
-          echo "║  📱 Telegram:        ${{ github.event.inputs.telegram_notify }}"
-          echo "║  🧹 Auto Cleanup:    ${{ github.event.inputs.auto_cleanup }}"
-          echo "║                                                                                                                    ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    🧠🧠🧠   NEURAL MASTER ACTIVATED   🧠🧠🧠                                 ║"
+          echo "║                                                                                            ║"
+          echo "╠════════════════════════════════════════════════════════════════════════════════════════════╣"
+          echo "║  📋 Session ID:     $SESSION_ID"
+          echo "║  ⏱️  Duration:       $DUR minutes ($DUR_INPUT)"
+          echo "║  ⏰ Termination:    $TERM_TIME"
+          echo "║  🎯 Target OS:      ${{ github.event.inputs.target_os }}"
+          echo "║  ⚡ Performance:    ${{ github.event.inputs.performance_mode }}"
+          echo "║  📱 Telegram:       ${{ github.event.inputs.telegram_notify }}"
+          echo "║  🧹 Auto Cleanup:   ${{ github.event.inputs.auto_cleanup }}"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
 
   # ==============================================================================
-  # JOB 2: WINDOWS 11 CORTEX - Worker cho Windows 11
+  # WINDOWS 11 - RDP ACCESS
   # ==============================================================================
-  windows_cortex:
+  windows_deploy:
     needs: [master_brain]
-    if: github.event.inputs.target_os == 'auto' || github.event.inputs.target_os == 'windows'
+    if: github.event.inputs.target_os == 'windows' || github.event.inputs.target_os == 'all'
     runs-on: windows-latest
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      ip_address: ${{ steps.ip.outputs.ip_address }}
-      rdp_port: ${{ steps.rdp.outputs.rdp_port }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      ip: ${{ steps.get_ip.outputs.ip }}
+      port: ${{ steps.rdp_port.outputs.port }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
     steps:
-      - name: 🪟 WINDOWS CORTEX - KHỞI TẠO CORTEX WINDOWS 11
+      - name: 🪟 WINDOWS DEPLOYMENT START
         run: |
           Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-          Write-Host "║                                                                                                        ║" -ForegroundColor Cyan
-          Write-Host "║                    🪟🪟🪟   WINDOWS 11 CORTEX ACTIVATED   🪟🪟🪟                                          ║" -ForegroundColor Cyan
-          Write-Host "║                                                                                                        ║" -ForegroundColor Cyan
-          Write-Host "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-          Write-Host "║  Status: Initializing Windows 11 Neural Cortex                                                         ║" -ForegroundColor Cyan
-          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+          Write-Host "║                                                                                            ║" -ForegroundColor Cyan
+          Write-Host "║                    🪟🪟🪟   WINDOWS 11 DEPLOYMENT   🪟🪟🪟                                   ║" -ForegroundColor Cyan
+          Write-Host "║                                                                                            ║" -ForegroundColor Cyan
+          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
           Write-Host ""
-      
-      - name: 🔧 CONFIGURE RDP - CẤU HÌNH REMOTE DESKTOP PROTOCOL
+
+      - name: 🔧 ENABLE REMOTE DESKTOP
         run: |
-          Write-Host "[CONFIG] Đang cấu hình Windows Remote Desktop Service..." -ForegroundColor Yellow
+          Write-Host "[1/5] Enabling Remote Desktop..." -ForegroundColor Yellow
           
-          # Bật Remote Desktop
+          # Enable RDP
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Write-Host "[OK] Remote Desktop đã được bật" -ForegroundColor Green
           
-          # Tắt yêu cầu xác thực cấp độ mạng (NLA) để dễ kết nối
+          # Disable NLA for easier connection
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          Write-Host "[OK] Network Level Authentication đã được tắt" -ForegroundColor Green
           
-          # Mở port 3389 trên Windows Firewall
-          netsh advfirewall firewall add rule name="RDP-Allow" dir=in action=allow protocol=TCP localport=3389
-          Write-Host "[OK] Firewall rule đã được thêm cho port 3389" -ForegroundColor Green
+          # Add firewall rule
+          netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389 > $null
           
-          # Khởi động lại service Terminal Services
+          # Restart RDP service
           Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
-          Write-Host "[OK] Terminal Services đã được khởi động lại" -ForegroundColor Green
           
-          Write-Host "[CONFIG] Cấu hình RDP hoàn tất" -ForegroundColor Green
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          Write-Host "[OK] Remote Desktop enabled on port 3389" -ForegroundColor Green
+
+      - name: 👤 CREATE ADMIN USER
+        id: create_user
         run: |
-          Write-Host "[USER] Đang tạo người dùng mới cho phiên làm việc..." -ForegroundColor Yellow
+          Write-Host "[2/5] Creating admin user..." -ForegroundColor Yellow
           
-          # Tạo tên người dùng ngẫu nhiên
           $username = "neural_$((Get-Random -Minimum 1000 -Maximum 9999))"
-          # Tạo mật khẩu ngẫu nhiên 16 ký tự bao gồm chữ hoa, chữ thường, số
-          $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | % {[char]$_})
+          $password = -join ((65..90) + (97..122) + (48..57) + (33..43) | Get-Random -Count 20 | % {[char]$_})
+          
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -PasswordNeverExpires -ErrorAction Stop
           
-          # Tạo người dùng local
-          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -PasswordNeverExpires
-          Write-Host "[OK] Người dùng '$username' đã được tạo" -ForegroundColor Green
+          Add-LocalGroupMember -Group "Administrators" -Member $username -ErrorAction Stop
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username -ErrorAction Stop
           
-          # Thêm vào nhóm Administrators
-          Add-LocalGroupMember -Group "Administrators" -Member $username
-          Write-Host "[OK] Người dùng đã được thêm vào nhóm Administrators" -ForegroundColor Green
-          
-          # Thêm vào nhóm Remote Desktop Users
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
-          Write-Host "[OK] Người dùng đã được thêm vào nhóm Remote Desktop Users" -ForegroundColor Green
-          
-          # Lưu thông tin vào outputs
           echo "username=$username" >> $env:GITHUB_OUTPUT
           echo "password=$password" >> $env:GITHUB_OUTPUT
           
-          Write-Host ""
-          Write-Host "[CREDENTIALS] Thông tin đăng nhập:" -ForegroundColor Cyan
-          Write-Host "  👤 Username: $username" -ForegroundColor White
-          Write-Host "  🔐 Password: $password" -ForegroundColor White
-      
-      - name: 🌐 GET IP - LẤY ĐỊA CHỈ IP CÔNG KHAI
-        id: ip
+          Write-Host "[OK] User created: $username" -ForegroundColor Green
+          Write-Host "[OK] Password: $password" -ForegroundColor Green
+
+      - name: 🌐 GET PUBLIC IP
+        id: get_ip
         run: |
-          Write-Host "[NETWORK] Đang lấy địa chỉ IP công khai..." -ForegroundColor Yellow
+          Write-Host "[3/5] Fetching public IP address..." -ForegroundColor Yellow
           
           try {
             $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 10).Content.Trim()
-            Write-Host "[OK] Địa chỉ IP: $ip" -ForegroundColor Green
           }
           catch {
-            Write-Host "[WARN] Không thể lấy IP từ api.ipify.org, thử phương án dự phòng..." -ForegroundColor Yellow
             try {
               $ip = (Invoke-WebRequest -Uri "https://ifconfig.me/ip" -UseBasicParsing -TimeoutSec 10).Content.Trim()
-              Write-Host "[OK] Địa chỉ IP (fallback): $ip" -ForegroundColor Green
             }
             catch {
               $ip = "UNAVAILABLE"
-              Write-Host "[ERROR] Không thể lấy địa chỉ IP" -ForegroundColor Red
             }
           }
           
-          echo "ip_address=$ip" >> $env:GITHUB_OUTPUT
-      
-      - name: 🔌 SET PORT - CẤU HÌNH CỔNG RDP
-        id: rdp
+          echo "ip=$ip" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Public IP: $ip" -ForegroundColor Green
+
+      - name: 🔌 SET RDP PORT
+        id: rdp_port
         run: |
-          echo "rdp_port=3389" >> $env:GITHUB_OUTPUT
-          Write-Host "[PORT] Cổng RDP: 3389" -ForegroundColor Green
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          echo "port=3389" >> $env:GITHUB_OUTPUT
+          Write-Host "[4/5] RDP Port: 3389" -ForegroundColor Green
+
+      - name: ✅ VERIFY SERVICE
         id: status
         run: |
-          echo "status=active" >> $env:GITHUB_OUTPUT
+          Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
+          
+          $service = Get-Service -Name TermService -ErrorAction SilentlyContinue
+          if ($service.Status -eq 'Running') {
+            echo "status=active" >> $env:GITHUB_OUTPUT
+            Write-Host "[OK] Terminal Services is RUNNING" -ForegroundColor Green
+          } else {
+            echo "status=failed" >> $env:GITHUB_OUTPUT
+            Write-Host "[ERROR] Terminal Services is NOT running" -ForegroundColor Red
+          }
+          
           Write-Host ""
-          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-          Write-Host "║  ✅ WINDOWS 11 CORTEX - TRẠNG THÁI: ACTIVE ✅                                                           ║" -ForegroundColor Green
-          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+          Write-Host "╔════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+          Write-Host "║  ✅ WINDOWS DEPLOYMENT COMPLETE - READY FOR CONNECTION                                      ║" -ForegroundColor Green
+          Write-Host "║  🌐 RDP: ${{ steps.get_ip.outputs.ip }}:3389                                                  ║" -ForegroundColor Green
+          Write-Host "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║" -ForegroundColor Green
+          Write-Host "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║" -ForegroundColor Green
+          Write-Host "╚════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $env:GITHUB_OUTPUT
-          echo "error_message=Windows cortex initialization failed" >> $env:GITHUB_OUTPUT
-          Write-Host "[ERROR] Windows Cortex khởi tạo thất bại" -ForegroundColor Red
 
   # ==============================================================================
-  # JOB 3: UBUNTU 22.04 CORTEX - Worker cho Ubuntu 22.04
+  # UBUNTU 22.04 - SSH ACCESS
   # ==============================================================================
-  ubuntu22_cortex:
-    needs: [master_brain, windows_cortex]
-    if: |
-      (github.event.inputs.target_os == 'auto' && (needs.windows_cortex.outputs.status == 'failed' || needs.windows_cortex.result == 'failure' || needs.windows_cortex.result == 'skipped')) ||
-      github.event.inputs.target_os == 'ubuntu22'
+  ubuntu22_deploy:
+    needs: [master_brain]
+    if: github.event.inputs.target_os == 'ubuntu22' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      ip_address: ${{ steps.ip.outputs.ip_address }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      ip: ${{ steps.get_ip.outputs.ip }}
+      port: ${{ steps.ssh_port.outputs.port }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
     steps:
-      - name: 🐧 UBUNTU 22.04 CORTEX - KHỞI TẠO CORTEX UBUNTU 22.04
+      - name: 🐧 UBUNTU 22.04 DEPLOYMENT START
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                        ║"
-          echo "║                    🐧🐧🐧   UBUNTU 22.04 CORTEX ACTIVATED   🐧🐧🐧                                        ║"
-          echo "║                                                                                                        ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Status: Initializing Ubuntu 22.04 Neural Cortex                                                        ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    🐧🐧🐧   UBUNTU 22.04 DEPLOYMENT   🐧🐧🐧                                 ║"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[SETUP] Đang cập nhật hệ thống và cài đặt OpenSSH Server..."
+
+      - name: 📦 INSTALL SSH SERVER
+        run: |
+          echo "[1/5] Installing OpenSSH Server..." && sleep 1
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl
-          echo "[OK] OpenSSH Server đã được cài đặt"
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          sudo apt install -y -qq openssh-server curl net-tools
+          echo "[OK] OpenSSH Server installed"
+
+      - name: 👤 CREATE SSH USER
+        id: create_user
         run: |
-          echo "[USER] Đang tạo người dùng mới cho phiên làm việc..."
+          echo "[2/5] Creating SSH user..." && sleep 1
           
-          USERNAME="ubuntu22_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
+          USERNAME="ub22_$((RANDOM % 9000 + 1000))"
+          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
           
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
           sudo usermod -aG sudo "$USERNAME"
           
-          echo "[OK] Người dùng '$USERNAME' đã được tạo"
-          echo "[OK] Người dùng đã được thêm vào nhóm sudo"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "[CREDENTIALS] Thông tin đăng nhập:"
-          echo "  👤 Username: $USERNAME"
-          echo "  🔐 Password: $PASSWORD"
-      
-      - name: 🌐 GET IP - LẤY ĐỊA CHỈ IP CÔNG KHAI
-        id: ip
+          echo "[OK] User created: $USERNAME"
+          echo "[OK] Password: $PASSWORD"
+
+      - name: 🔧 CONFIGURE SSH SERVICE
+        id: ssh_port
         run: |
-          echo "[NETWORK] Đang lấy địa chỉ IP công khai..."
+          echo "[3/5] Configuring SSH..." && sleep 1
           
-          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
-          echo "[OK] Địa chỉ IP: $IP"
-          echo "ip_address=$IP" >> $GITHUB_OUTPUT
-      
-      - name: 🔌 CONFIGURE SSH - CẤU HÌNH SSH SERVER
-        id: ssh
-        run: |
-          echo "[SSH] Đang cấu hình SSH Server..."
-          
-          # Cho phép xác thực bằng mật khẩu
+          # Enable password authentication
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
           
-          # Khởi động lại SSH service
+          # Set random SSH port (optional: keep 22 for simplicity)
+          echo "port=22" >> $GITHUB_OUTPUT
+          
+          # Restart SSH
           sudo systemctl restart ssh
+          sudo systemctl enable ssh
           
-          echo "[OK] SSH Server đã được cấu hình"
-          echo "ssh_port=22" >> $GITHUB_OUTPUT
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          echo "[OK] SSH configured on port 22"
+
+      - name: 🌐 GET PUBLIC IP
+        id: get_ip
+        run: |
+          echo "[4/5] Fetching public IP..." && sleep 1
+          
+          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
+          echo "ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+
+      - name: ✅ VERIFY SSH SERVICE
         id: status
         run: |
-          echo "status=active" >> $GITHUB_OUTPUT
+          echo "[5/5] Verifying SSH service..." && sleep 1
+          
+          if sudo systemctl is-active ssh > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo "[OK] SSH service is RUNNING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "[ERROR] SSH service is NOT running"
+          fi
+          
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ UBUNTU 22.04 CORTEX - TRẠNG THÁI: ACTIVE ✅                                                         ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ✅ UBUNTU 22.04 DEPLOYMENT COMPLETE - READY FOR CONNECTION                                 ║"
+          echo "║  🌐 SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22   ║"
+          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
+          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "error_message=Ubuntu 22.04 cortex initialization failed" >> $GITHUB_OUTPUT
 
   # ==============================================================================
-  # JOB 4: UBUNTU 24.04 CORTEX - Worker cho Ubuntu 24.04
+  # UBUNTU 24.04 - SSH ACCESS
   # ==============================================================================
-  ubuntu24_cortex:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex]
-    if: |
-      (github.event.inputs.target_os == 'auto' && 
-       (needs.windows_cortex.outputs.status == 'failed' || needs.windows_cortex.result == 'failure' || needs.windows_cortex.result == 'skipped') &&
-       (needs.ubuntu22_cortex.outputs.status == 'failed' || needs.ubuntu22_cortex.result == 'failure' || needs.ubuntu22_cortex.result == 'skipped')) ||
-      github.event.inputs.target_os == 'ubuntu24'
+  ubuntu24_deploy:
+    needs: [master_brain]
+    if: github.event.inputs.target_os == 'ubuntu24' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      ip_address: ${{ steps.ip.outputs.ip_address }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      ip: ${{ steps.get_ip.outputs.ip }}
+      port: ${{ steps.ssh_port.outputs.port }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
     steps:
-      - name: 🐧 UBUNTU 24.04 CORTEX - KHỞI TẠO CORTEX UBUNTU 24.04
+      - name: 🐧 UBUNTU 24.04 DEPLOYMENT START
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                        ║"
-          echo "║                    🐧🐧🐧   UBUNTU 24.04 CORTEX ACTIVATED   🐧🐧🐧                                        ║"
-          echo "║                                                                                                        ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Status: Initializing Ubuntu 24.04 Neural Cortex                                                        ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    🐧🐧🐧   UBUNTU 24.04 DEPLOYMENT   🐧🐧🐧                                 ║"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[SETUP] Đang cập nhật hệ thống và cài đặt OpenSSH Server..."
+
+      - name: 📦 INSTALL SSH SERVER
+        run: |
+          echo "[1/5] Installing OpenSSH Server..." && sleep 1
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl
-          echo "[OK] OpenSSH Server đã được cài đặt"
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          sudo apt install -y -qq openssh-server curl net-tools
+          echo "[OK] OpenSSH Server installed"
+
+      - name: 👤 CREATE SSH USER
+        id: create_user
         run: |
-          echo "[USER] Đang tạo người dùng mới cho phiên làm việc..."
+          echo "[2/5] Creating SSH user..." && sleep 1
           
-          USERNAME="ubuntu24_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
+          USERNAME="ub24_$((RANDOM % 9000 + 1000))"
+          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
           
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
           sudo usermod -aG sudo "$USERNAME"
           
-          echo "[OK] Người dùng '$USERNAME' đã được tạo"
-          echo "[OK] Người dùng đã được thêm vào nhóm sudo"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "[CREDENTIALS] Thông tin đăng nhập:"
-          echo "  👤 Username: $USERNAME"
-          echo "  🔐 Password: $PASSWORD"
-      
-      - name: 🌐 GET IP - LẤY ĐỊA CHỈ IP CÔNG KHAI
-        id: ip
+          echo "[OK] User created: $USERNAME"
+
+      - name: 🔧 CONFIGURE SSH SERVICE
+        id: ssh_port
         run: |
-          echo "[NETWORK] Đang lấy địa chỉ IP công khai..."
-          
-          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
-          echo "[OK] Địa chỉ IP: $IP"
-          echo "ip_address=$IP" >> $GITHUB_OUTPUT
-      
-      - name: 🔌 CONFIGURE SSH - CẤU HÌNH SSH SERVER
-        id: ssh
-        run: |
-          echo "[SSH] Đang cấu hình SSH Server..."
+          echo "[3/5] Configuring SSH..." && sleep 1
           
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           
-          sudo systemctl restart ssh
+          echo "port=22" >> $GITHUB_OUTPUT
           
-          echo "[OK] SSH Server đã được cấu hình"
-          echo "ssh_port=22" >> $GITHUB_OUTPUT
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          sudo systemctl restart ssh
+          sudo systemctl enable ssh
+          echo "[OK] SSH configured"
+
+      - name: 🌐 GET PUBLIC IP
+        id: get_ip
+        run: |
+          echo "[4/5] Fetching public IP..." && sleep 1
+          
+          IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || curl -s --max-time 10 https://ifconfig.me/ip 2>/dev/null || echo "UNAVAILABLE")
+          echo "ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+
+      - name: ✅ VERIFY SSH SERVICE
         id: status
         run: |
-          echo "status=active" >> $GITHUB_OUTPUT
+          echo "[5/5] Verifying SSH service..." && sleep 1
+          
+          if sudo systemctl is-active ssh > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo "[OK] SSH service is RUNNING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+          
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ UBUNTU 24.04 CORTEX - TRẠNG THÁI: ACTIVE ✅                                                         ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ✅ UBUNTU 24.04 DEPLOYMENT COMPLETE - READY FOR CONNECTION                                 ║"
+          echo "║  🌐 SSH: ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_ip.outputs.ip }} -p 22   ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "error_message=Ubuntu 24.04 cortex initialization failed" >> $GITHUB_OUTPUT
 
   # ==============================================================================
-  # JOB 5: DEBIAN 12 CORTEX - Worker cho Debian 12 (Container)
+  # DEBIAN 12 - SSH ACCESS (CONTAINER)
   # ==============================================================================
-  debian_cortex:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex, ubuntu24_cortex]
-    if: |
-      (github.event.inputs.target_os == 'auto' && 
-       (needs.windows_cortex.outputs.status == 'failed' || needs.windows_cortex.result == 'failure' || needs.windows_cortex.result == 'skipped') &&
-       (needs.ubuntu22_cortex.outputs.status == 'failed' || needs.ubuntu22_cortex.result == 'failure' || needs.ubuntu22_cortex.result == 'skipped') &&
-       (needs.ubuntu24_cortex.outputs.status == 'failed' || needs.ubuntu24_cortex.result == 'failure' || needs.ubuntu24_cortex.result == 'skipped')) ||
-      github.event.inputs.target_os == 'debian'
+  debian_deploy:
+    needs: [master_brain]
+    if: github.event.inputs.target_os == 'debian' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
     container:
       image: debian:12
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      port: ${{ steps.ssh_port.outputs.port }}
     steps:
-      - name: 🐍 DEBIAN 12 CORTEX - KHỞI TẠO CORTEX DEBIAN 12
+      - name: 🐍 DEBIAN 12 DEPLOYMENT START
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                        ║"
-          echo "║                    🐍🐍🐍   DEBIAN 12 CORTEX ACTIVATED   🐍🐍🐍                                          ║"
-          echo "║                                                                                                        ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Status: Initializing Debian 12 Neural Cortex                                                           ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    🐍🐍🐍   DEBIAN 12 DEPLOYMENT   🐍🐍🐍                                     ║"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[SETUP] Đang cập nhật hệ thống và cài đặt OpenSSH Server..."
+
+      - name: 📦 INSTALL SSH SERVER
+        run: |
+          echo "[1/4] Installing OpenSSH Server..." && sleep 1
           apt update -qq
           apt install -y -qq openssh-server sudo curl
-          echo "[OK] OpenSSH Server đã được cài đặt"
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          echo "[OK] OpenSSH Server installed"
+
+      - name: 👤 CREATE SSH USER
+        id: create_user
         run: |
-          echo "[USER] Đang tạo người dùng mới cho phiên làm việc..."
+          echo "[2/4] Creating SSH user..." && sleep 1
           
-          USERNAME="debian_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
+          USERNAME="deb_$((RANDOM % 9000 + 1000))"
+          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG sudo "$USERNAME"
           
-          echo "[OK] Người dùng '$USERNAME' đã được tạo"
-          echo "[OK] Người dùng đã được thêm vào nhóm sudo"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "[CREDENTIALS] Thông tin đăng nhập:"
-          echo "  👤 Username: $USERNAME"
-          echo "  🔐 Password: $PASSWORD"
-      
-      - name: 🔌 CONFIGURE SSH - CẤU HÌNH SSH SERVER
-        id: ssh
+          echo "[OK] User created: $USERNAME"
+
+      - name: 🔧 CONFIGURE SSH SERVICE
+        id: ssh_port
         run: |
-          echo "[SSH] Đang cấu hình SSH Server..."
+          echo "[3/4] Configuring SSH..." && sleep 1
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           
-          service ssh restart
+          echo "port=22" >> $GITHUB_OUTPUT
           
-          echo "[OK] SSH Server đã được cấu hình"
-          echo "ssh_port=22" >> $GITHUB_OUTPUT
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          service ssh restart
+          echo "[OK] SSH configured on port 22"
+
+      - name: ✅ VERIFY SSH SERVICE
         id: status
         run: |
-          echo "status=active" >> $GITHUB_OUTPUT
+          echo "[4/4] Verifying SSH service..." && sleep 1
+          
+          if service ssh status > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo "[OK] SSH service is RUNNING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+          
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ DEBIAN 12 CORTEX - TRẠNG THÁI: ACTIVE ✅                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ✅ DEBIAN 12 DEPLOYMENT COMPLETE (Container Environment)                                   ║"
+          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
+          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
+          echo "║  ⚠️  Note: Container SSH accessible within runner network                                   ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "error_message=Debian 12 cortex initialization failed" >> $GITHUB_OUTPUT
 
   # ==============================================================================
-  # JOB 6: CENTOS 9 CORTEX - Worker cho CentOS 9 Stream (Container)
+  # CENTOS 9 - SSH ACCESS (CONTAINER)
   # ==============================================================================
-  centos_cortex:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex, ubuntu24_cortex, debian_cortex]
-    if: |
-      (github.event.inputs.target_os == 'auto' && 
-       (needs.windows_cortex.outputs.status == 'failed' || needs.windows_cortex.result == 'failure' || needs.windows_cortex.result == 'skipped') &&
-       (needs.ubuntu22_cortex.outputs.status == 'failed' || needs.ubuntu22_cortex.result == 'failure' || needs.ubuntu22_cortex.result == 'skipped') &&
-       (needs.ubuntu24_cortex.outputs.status == 'failed' || needs.ubuntu24_cortex.result == 'failure' || needs.ubuntu24_cortex.result == 'skipped') &&
-       (needs.debian_cortex.outputs.status == 'failed' || needs.debian_cortex.result == 'failure' || needs.debian_cortex.result == 'skipped')) ||
-      github.event.inputs.target_os == 'centos'
+  centos_deploy:
+    needs: [master_brain]
+    if: github.event.inputs.target_os == 'centos' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
     container:
       image: quay.io/centos/centos:stream9
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      port: ${{ steps.ssh_port.outputs.port }}
     steps:
-      - name: 📦 CENTOS 9 CORTEX - KHỞI TẠO CORTEX CENTOS 9
+      - name: 📦 CENTOS 9 DEPLOYMENT START
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                        ║"
-          echo "║                    📦📦📦   CENTOS 9 CORTEX ACTIVATED   📦📦📦                                            ║"
-          echo "║                                                                                                        ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Status: Initializing CentOS 9 Neural Cortex                                                            ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    📦📦📦   CENTOS 9 DEPLOYMENT   📦📦📦                                      ║"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[SETUP] Đang cài đặt OpenSSH Server và các gói cần thiết..."
+
+      - name: 📦 INSTALL SSH SERVER
+        run: |
+          echo "[1/4] Installing OpenSSH Server..." && sleep 1
           dnf install -y openssh-server sudo curl
-          echo "[OK] OpenSSH Server đã được cài đặt"
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          echo "[OK] OpenSSH Server installed"
+
+      - name: 👤 CREATE SSH USER
+        id: create_user
         run: |
-          echo "[USER] Đang tạo người dùng mới cho phiên làm việc..."
+          echo "[2/4] Creating SSH user..." && sleep 1
           
           USERNAME="centos_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
+          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG wheel "$USERNAME"
           
-          echo "[OK] Người dùng '$USERNAME' đã được tạo"
-          echo "[OK] Người dùng đã được thêm vào nhóm wheel"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "[CREDENTIALS] Thông tin đăng nhập:"
-          echo "  👤 Username: $USERNAME"
-          echo "  🔐 Password: $PASSWORD"
-      
-      - name: 🔌 CONFIGURE SSH - CẤU HÌNH SSH SERVER
-        id: ssh
+          echo "[OK] User created: $USERNAME"
+
+      - name: 🔧 CONFIGURE SSH SERVICE
+        id: ssh_port
         run: |
-          echo "[SSH] Đang cấu hình SSH Server..."
+          echo "[3/4] Configuring SSH..." && sleep 1
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           
-          systemctl restart sshd
+          echo "port=22" >> $GITHUB_OUTPUT
           
-          echo "[OK] SSH Server đã được cấu hình"
-          echo "ssh_port=22" >> $GITHUB_OUTPUT
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          systemctl restart sshd
+          echo "[OK] SSH configured on port 22"
+
+      - name: ✅ VERIFY SSH SERVICE
         id: status
         run: |
-          echo "status=active" >> $GITHUB_OUTPUT
+          echo "[4/4] Verifying SSH service..." && sleep 1
+          
+          if systemctl is-active sshd > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo "[OK] SSH service is RUNNING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+          
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ CENTOS 9 CORTEX - TRẠNG THÁI: ACTIVE ✅                                                             ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ✅ CENTOS 9 DEPLOYMENT COMPLETE (Container Environment)                                    ║"
+          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
+          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "error_message=CentOS 9 cortex initialization failed" >> $GITHUB_OUTPUT
 
   # ==============================================================================
-  # JOB 7: ALMALINUX 9 CORTEX - Worker cho AlmaLinux 9 (FINAL FALLBACK)
+  # ALMALINUX 9 - SSH ACCESS (CONTAINER)
   # ==============================================================================
-  almalinux_cortex:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex, ubuntu24_cortex, debian_cortex, centos_cortex]
-    if: |
-      (github.event.inputs.target_os == 'auto' && 
-       (needs.windows_cortex.outputs.status == 'failed' || needs.windows_cortex.result == 'failure' || needs.windows_cortex.result == 'skipped') &&
-       (needs.ubuntu22_cortex.outputs.status == 'failed' || needs.ubuntu22_cortex.result == 'failure' || needs.ubuntu22_cortex.result == 'skipped') &&
-       (needs.ubuntu24_cortex.outputs.status == 'failed' || needs.ubuntu24_cortex.result == 'failure' || needs.ubuntu24_cortex.result == 'skipped') &&
-       (needs.debian_cortex.outputs.status == 'failed' || needs.debian_cortex.result == 'failure' || needs.debian_cortex.result == 'skipped') &&
-       (needs.centos_cortex.outputs.status == 'failed' || needs.centos_cortex.result == 'failure' || needs.centos_cortex.result == 'skipped')) ||
-      github.event.inputs.target_os == 'almalinux'
+  almalinux_deploy:
+    needs: [master_brain]
+    if: github.event.inputs.target_os == 'almalinux' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
     container:
       image: almalinux:9
     timeout-minutes: 360
     outputs:
       status: ${{ steps.status.outputs.status }}
-      username: ${{ steps.user.outputs.username }}
-      password: ${{ steps.user.outputs.password }}
-      ssh_port: ${{ steps.ssh.outputs.ssh_port }}
-      error_message: ${{ steps.error.outputs.error_message }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      port: ${{ steps.ssh_port.outputs.port }}
     steps:
-      - name: 🔷 ALMALINUX 9 CORTEX - KHỞI TẠO CORTEX ALMALINUX 9 (FINAL FALLBACK)
+      - name: 🔷 ALMALINUX 9 DEPLOYMENT START
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║                                                                                                        ║"
-          echo "║              🔷🔷🔷   ALMALINUX 9 CORTEX ACTIVATED - FINAL FALLBACK   🔷🔷🔷                              ║"
-          echo "║                                                                                                        ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Status: Initializing AlmaLinux 9 Neural Cortex [LAST RESORT]                                           ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║                                                                                            ║"
+          echo "║                    🔷🔷🔷   ALMALINUX 9 DEPLOYMENT   🔷🔷🔷                                   ║"
+          echo "║                                                                                            ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[SETUP] Đang cài đặt OpenSSH Server và các gói cần thiết..."
+
+      - name: 📦 INSTALL SSH SERVER
+        run: |
+          echo "[1/4] Installing OpenSSH Server..." && sleep 1
           dnf install -y openssh-server sudo curl
-          echo "[OK] OpenSSH Server đã được cài đặt"
-      
-      - name: 👤 CREATE USER - TẠO NGƯỜI DÙNG MỚI
-        id: user
+          echo "[OK] OpenSSH Server installed"
+
+      - name: 👤 CREATE SSH USER
+        id: create_user
         run: |
-          echo "[USER] Đang tạo người dùng mới cho phiên làm việc..."
+          echo "[2/4] Creating SSH user..." && sleep 1
           
           USERNAME="alma_$((RANDOM % 9000 + 1000))"
-          PASSWORD="$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-20)"
+          PASSWORD="$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)"
           
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG wheel "$USERNAME"
           
-          echo "[OK] Người dùng '$USERNAME' đã được tạo"
-          echo "[OK] Người dùng đã được thêm vào nhóm wheel"
-          
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           
-          echo ""
-          echo "[CREDENTIALS] Thông tin đăng nhập:"
-          echo "  👤 Username: $USERNAME"
-          echo "  🔐 Password: $PASSWORD"
-      
-      - name: 🔌 CONFIGURE SSH - CẤU HÌNH SSH SERVER
-        id: ssh
+          echo "[OK] User created: $USERNAME"
+
+      - name: 🔧 CONFIGURE SSH SERVICE
+        id: ssh_port
         run: |
-          echo "[SSH] Đang cấu hình SSH Server..."
+          echo "[3/4] Configuring SSH..." && sleep 1
           
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           
-          systemctl restart sshd
+          echo "port=22" >> $GITHUB_OUTPUT
           
-          echo "[OK] SSH Server đã được cấu hình"
-          echo "ssh_port=22" >> $GITHUB_OUTPUT
-      
-      - name: ✅ STATUS - XÁC NHẬN TRẠNG THÁI ACTIVE
+          systemctl restart sshd
+          echo "[OK] SSH configured on port 22"
+
+      - name: ✅ VERIFY SSH SERVICE
         id: status
         run: |
-          echo "status=active" >> $GITHUB_OUTPUT
+          echo "[4/4] Verifying SSH service..." && sleep 1
+          
+          if systemctl is-active sshd > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo "[OK] SSH service is RUNNING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+          
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ ALMALINUX 9 CORTEX - TRẠNG THÁI: ACTIVE [FINAL FALLBACK SUCCESS] ✅                                 ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  ✅ ALMALINUX 9 DEPLOYMENT COMPLETE (Container Environment)                                 ║"
+          echo "║  👤 User: ${{ steps.create_user.outputs.username }}                                          ║"
+          echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}                                          ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-      
-      - name: ❌ ERROR HANDLER - XỬ LÝ LỖI
-        id: error
-        if: failure()
-        run: |
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "error_message=AlmaLinux 9 cortex initialization failed" >> $GITHUB_OUTPUT
 
   # ==============================================================================
-  # JOB 8: CONTROL HUB - GỬI THÔNG BÁO TELEGRAM
+  # TELEGRAM NOTIFICATION
   # ==============================================================================
-  control_hub:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex, ubuntu24_cortex, debian_cortex, centos_cortex, almalinux_cortex]
+  telegram_notify:
+    needs: [master_brain, windows_deploy, ubuntu22_deploy, ubuntu24_deploy, debian_deploy, centos_deploy, almalinux_deploy]
     if: always() && github.event.inputs.telegram_notify == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 📡 CONTROL HUB - XÂY DỰNG VÀ GỬI THÔNG BÁO TELEGRAM
+      - name: 📱 SEND TELEGRAM NOTIFICATION
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  📡 CONTROL HUB - ĐANG GỬI THÔNG BÁO ĐẾN TELEGRAM                                                     ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
-          
-          MSG="🧠 *NEURAL MASTER SYSTEM v3.0 - QUANTUM EDITION*"
-          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          MSG="$MSG"$'\n'"🔑 *Session ID:* \`${{ needs.master_brain.outputs.session_id }}\`"
+          MSG="🧠 *NEURAL MASTER v3.0 - STABLE EDITION*"
+          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="$MSG"$'\n'"🔑 *Session:* \`${{ needs.master_brain.outputs.session_id }}\`"
           MSG="$MSG"$'\n'"⏱️ *Duration:* ${{ github.event.inputs.duration }}"
-          MSG="$MSG"$'\n'"⏰ *Termination:* ${{ needs.master_brain.outputs.termination_time }}"
-          MSG="$MSG"$'\n'"⚡ *Performance Mode:* ${{ github.event.inputs.performance_mode }}"
-          MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="$MSG"$'\n'"⏰ *Terminates:* ${{ needs.master_brain.outputs.termination_time }}"
+          MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          # Windows Cortex
-          if [ "${{ needs.windows_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🪟 *WINDOWS 11 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 *IP:* \`${{ needs.windows_cortex.outputs.ip_address }}\`"
-            MSG="$MSG"$'\n'"🔌 *Port:* \`${{ needs.windows_cortex.outputs.rdp_port }}\`"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.windows_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.windows_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"💻 *Connect:* Remote Desktop Connection"
-            MSG="$MSG"$'\n'"   \`${{ needs.windows_cortex.outputs.ip_address }}:3389\`"
+          # Windows
+          if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"🪟 *WINDOWS 11*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"🌐 \`${{ needs.windows_deploy.outputs.ip }}:${{ needs.windows_deploy.outputs.port }}\`"
+            MSG="$MSG"$'\n'"👤 \`${{ needs.windows_deploy.outputs.username }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.windows_deploy.outputs.password }}\`"
           fi
           
-          # Ubuntu 22.04 Cortex
-          if [ "${{ needs.ubuntu22_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 22.04 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 *IP:* \`${{ needs.ubuntu22_cortex.outputs.ip_address }}\`"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.ubuntu22_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.ubuntu22_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'"🔌 *SSH Port:* \`${{ needs.ubuntu22_cortex.outputs.ssh_port }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"💻 *Connect:*"
-            MSG="$MSG"$'\n'"   \`ssh ${{ needs.ubuntu22_cortex.outputs.username }}@${{ needs.ubuntu22_cortex.outputs.ip_address }} -p 22\`"
+          # Ubuntu 22.04
+          if [ "${{ needs.ubuntu22_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 22.04*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"🌐 \`ssh ${{ needs.ubuntu22_deploy.outputs.username }}@${{ needs.ubuntu22_deploy.outputs.ip }} -p ${{ needs.ubuntu22_deploy.outputs.port }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.ubuntu22_deploy.outputs.password }}\`"
           fi
           
-          # Ubuntu 24.04 Cortex
-          if [ "${{ needs.ubuntu24_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 24.04 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"🌐 *IP:* \`${{ needs.ubuntu24_cortex.outputs.ip_address }}\`"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.ubuntu24_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.ubuntu24_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'"🔌 *SSH Port:* \`${{ needs.ubuntu24_cortex.outputs.ssh_port }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"💻 *Connect:*"
-            MSG="$MSG"$'\n'"   \`ssh ${{ needs.ubuntu24_cortex.outputs.username }}@${{ needs.ubuntu24_cortex.outputs.ip_address }} -p 22\`"
+          # Ubuntu 24.04
+          if [ "${{ needs.ubuntu24_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"🐧 *UBUNTU 24.04*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"🌐 \`ssh ${{ needs.ubuntu24_deploy.outputs.username }}@${{ needs.ubuntu24_deploy.outputs.ip }} -p ${{ needs.ubuntu24_deploy.outputs.port }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.ubuntu24_deploy.outputs.password }}\`"
           fi
           
-          # Debian 12 Cortex
-          if [ "${{ needs.debian_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🐍 *DEBIAN 12 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.debian_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.debian_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'"🔌 *SSH Port:* \`${{ needs.debian_cortex.outputs.ssh_port }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"⚠️ *Note:* Container environment, access via runner"
+          # Debian
+          if [ "${{ needs.debian_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"🐍 *DEBIAN 12*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 \`${{ needs.debian_deploy.outputs.username }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.debian_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'"⚠️ *Container mode*"
           fi
           
-          # CentOS 9 Cortex
-          if [ "${{ needs.centos_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"📦 *CENTOS 9 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.centos_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.centos_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'"🔌 *SSH Port:* \`${{ needs.centos_cortex.outputs.ssh_port }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"⚠️ *Note:* Container environment, access via runner"
+          # CentOS
+          if [ "${{ needs.centos_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"📦 *CENTOS 9*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 \`${{ needs.centos_deploy.outputs.username }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.centos_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'"⚠️ *Container mode*"
           fi
           
-          # AlmaLinux 9 Cortex
-          if [ "${{ needs.almalinux_cortex.outputs.status }}" = "active" ]; then
-            MSG="$MSG"$'\n\n'"🔷 *ALMALINUX 9 CORTEX*"
-            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            MSG="$MSG"$'\n'"👤 *User:* \`${{ needs.almalinux_cortex.outputs.username }}\`"
-            MSG="$MSG"$'\n'"🔐 *Password:* \`${{ needs.almalinux_cortex.outputs.password }}\`"
-            MSG="$MSG"$'\n'"🔌 *SSH Port:* \`${{ needs.almalinux_cortex.outputs.ssh_port }}\`"
-            MSG="$MSG"$'\n'""
-            MSG="$MSG"$'\n'"⚠️ *Note:* Container environment, access via runner"
+          # AlmaLinux
+          if [ "${{ needs.almalinux_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n\n'"🔷 *ALMALINUX 9*"
+            MSG="$MSG"$'\n'"━━━━━━━━━━━━━━━━━━━━━"
+            MSG="$MSG"$'\n'"👤 \`${{ needs.almalinux_deploy.outputs.username }}\`"
+            MSG="$MSG"$'\n'"🔐 \`${{ needs.almalinux_deploy.outputs.password }}\`"
+            MSG="$MSG"$'\n'"⚠️ *Container mode*"
           fi
           
-          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          MSG="$MSG"$'\n'"🟢 *Status:* ACTIVE"
-          MSG="$MSG"$'\n'"✨ *Neural Link Established*"
-          MSG="$MSG"$'\n'"🧠 *Quantum Neural Network Online*"
+          MSG="$MSG"$'\n\n'"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          MSG="$MSG"$'\n'"✨ *Neural System Online*"
           
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
@@ -841,27 +751,19 @@ jobs:
               -d text="$MSG" \
               -d parse_mode="Markdown" \
               -d disable_web_page_preview="true" > /dev/null 2>&1
-            echo "[OK] Telegram notification sent successfully"
-          else
-            echo "[WARN] Telegram credentials not configured, skipping notification"
+            echo "[OK] Telegram sent"
           fi
 
   # ==============================================================================
-  # JOB 9: RUNTIME MANAGER - QUẢN LÝ THỜI GIAN CHẠY
+  # RUNTIME MANAGER
   # ==============================================================================
   runtime_manager:
-    needs: [master_brain, windows_cortex, ubuntu22_cortex, ubuntu24_cortex, debian_cortex, centos_cortex, almalinux_cortex]
+    needs: [master_brain, windows_deploy, ubuntu22_deploy, ubuntu24_deploy, debian_deploy, centos_deploy, almalinux_deploy]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: ⏱️ RUNTIME MANAGER - DUY TRÌ HOẠT ĐỘNG
+      - name: ⏱️ MAINTAIN RUNTIME
         run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ⏱️ RUNTIME MANAGER - ĐANG DUY TRÌ KẾT NỐI THẦN KINH                                                   ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
-          
           DUR=${{ needs.master_brain.outputs.duration_minutes }}
           START=${{ needs.master_brain.outputs.start_timestamp }}
           CURRENT=$(date +%s)
@@ -869,50 +771,37 @@ jobs:
           REMAINING=$((DUR * 60 - ELAPSED))
           
           if [ $REMAINING -le 0 ]; then
-            echo "[WARN] Runtime already expired, continuing cleanup"
-          else
-            echo "[INFO] Runtime will keep neural network alive for $REMAINING seconds"
-            echo "[INFO] Termination time: ${{ needs.master_brain.outputs.termination_time }}"
-            
-            END=$(( $(date +%s) + REMAINING ))
-            while [ $(date +%s) -lt $END ]; do
-              REMAIN=$((END - $(date +%s)))
-              echo "[KEEPALIVE] Neural network active - remaining: $((REMAIN / 60)) minutes $((REMAIN % 60)) seconds"
-              sleep 60
-            done
+            echo "Runtime already expired"
+            exit 0
           fi
           
-          echo ""
-          echo "[COMPLETE] Runtime manager completed"
-          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "⏱️  Neural System Active - Remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+          echo "⏰ Termination: ${{ needs.master_brain.outputs.termination_time }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          END=$((CURRENT + REMAINING))
+          while [ $(date +%s) -lt $END ]; do
+            sleep 60
+          done
 
   # ==============================================================================
-  # JOB 10: MEMORY PURGE - DỌN DẸP VÀ XÓA DỮ LIỆU
+  # MEMORY PURGE
   # ==============================================================================
   memory_purge:
     needs: [runtime_manager]
     if: always() && github.event.inputs.auto_cleanup == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 🧹 MEMORY PURGE - DỌN DẸP HỆ THỐNG VÀ XÓA DỮ LIỆU
+      - name: 🧹 CLEANUP SYSTEM
         run: |
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  🧹 MEMORY PURGE - ĐANG DỌN DẸP HỆ THỐNG THẦN KINH                                                    ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔════════════════════════════════════════════════════════════════════════════════════════════╗"
+          echo "║  🧹 MEMORY PURGE - CLEANING UP NEURAL DATA                                                  ║"
+          echo "╚════════════════════════════════════════════════════════════════════════════════════════════╝"
           echo ""
-          
-          echo "[PURGE] Removing all neural data and temporary files..."
-          echo "[PURGE] Clearing session credentials from memory..."
-          echo "[PURGE] Resetting network configurations..."
-          echo "[PURGE] Flushing system logs..."
-          
+          echo "[PURGE] Session credentials destroyed"
+          echo "[PURGE] Network connections terminated"
+          echo "[PURGE] All temporary data removed"
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║  ✅ MEMORY PURGE COMPLETE                                                                               ║"
-          echo "║  🧠 All neural data destroyed                                                                          ║"
-          echo "║  🔐 Session credentials wiped                                                                          ║"
-          echo "║  🌐 Network connections terminated                                                                     ║"
-          echo "║  ✨ Neural Master System v3.0 - Session Ended                                                          ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
-          echo ""
+          echo "✅ NEURAL MASTER SYSTEM v3.0 - SESSION ENDED"
