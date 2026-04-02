@@ -2,8 +2,9 @@
 #                    🧠 NEURAL MASTER SYSTEM v3.0 - ULTRA STABLE
 #              Multi-OS Remote Access | Multiple Fallback Methods
 # =====================================================================================
-# Version: 3.0.8-ultra-stable
+# Version: 3.0.9-ultra-stable
 # Fixed: SSH host keys for all Linux distros
+# Added: Runtime counter for ALL OS to prevent auto-shutdown
 # Added: Multiple IP sources, No @ symbol, No EOF
 # Status: PRODUCTION READY - ZERO SYNTAX ERRORS
 # =====================================================================================
@@ -225,6 +226,37 @@ jobs:
           Write-Host "╚════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
           Write-Host ""
 
+      - name: ⏱️ Runtime Counter - Keep Windows Alive
+        run: |
+          Write-Host ""
+          Write-Host "╔════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+          Write-Host "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║" -ForegroundColor Magenta
+          Write-Host "╠════════════════════════════════════════════════════════════════════╣" -ForegroundColor Magenta
+          
+          $DURATION_MINUTES = ${{ needs.master_brain.outputs.duration_minutes }}
+          $START_TIME = [datetime]::ParseExact("${{ needs.master_brain.outputs.start_timestamp }}", "yyyyMMdd-HHmmss", $null)
+          
+          $END_TIME = $START_TIME.AddMinutes($DURATION_MINUTES)
+          $REMAINING_SECONDS = ($END_TIME - (Get-Date)).TotalSeconds
+          
+          Write-Host "║  ⏰ Start Time: $START_TIME" -ForegroundColor Magenta
+          Write-Host "║  ⏰ End Time: $END_TIME" -ForegroundColor Magenta
+          Write-Host "║  ⏱️ Remaining: $([math]::Floor($REMAINING_SECONDS / 60)) minutes $([math]::Floor($REMAINING_SECONDS % 60)) seconds" -ForegroundColor Magenta
+          Write-Host "╚════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+          Write-Host ""
+          
+          while ($REMAINING_SECONDS -gt 0) {
+            $MINUTES_LEFT = [math]::Floor($REMAINING_SECONDS / 60)
+            $SECONDS_LEFT = [math]::Floor($REMAINING_SECONDS % 60)
+            Write-Host "⏱️ Windows 11 - Still Active | Time remaining: ${MINUTES_LEFT}m ${SECONDS_LEFT}s" -ForegroundColor Green
+            Start-Sleep -Seconds 60
+            $REMAINING_SECONDS = ($END_TIME - (Get-Date)).TotalSeconds
+          }
+          
+          Write-Host ""
+          Write-Host "⚠️ WINDOWS 11 SESSION EXPIRED - SHUTTING DOWN" -ForegroundColor Red
+          Write-Host ""
+
   # ==============================================================================
   # 🐧 UBUNTU 22.04 - SSH ACCESS
   # ==============================================================================
@@ -342,6 +374,38 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
+      - name: ⏱️ Runtime Counter - Keep Ubuntu 22.04 Alive
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║"
+          echo "╠════════════════════════════════════════════════════════════════════╣"
+          
+          DURATION_MINUTES=${{ needs.master_brain.outputs.duration_minutes }}
+          START_EPOCH=${{ needs.master_brain.outputs.start_timestamp }}
+          
+          START_TIME=$START_EPOCH
+          END_TIME=$((START_EPOCH + DURATION_MINUTES * 60))
+          CURRENT_TIME=$(date +%s)
+          REMAINING=$((END_TIME - CURRENT_TIME))
+          
+          echo "║  ⏰ Start Time: $(date -d @$START_TIME)" -d@$START_TIME 2>/dev/null || echo "║  ⏰ Start Time: $START_TIME"
+          echo "║  ⏰ End Time: $(date -d @$END_TIME)" -d@$END_TIME 2>/dev/null || echo "║  ⏰ End Time: $END_TIME"
+          echo "║  ⏱️ Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          while [ $REMAINING -gt 0 ]; do
+            echo "⏱️ Ubuntu 22.04 - Still Active | Time remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+            sleep 60
+            CURRENT_TIME=$(date +%s)
+            REMAINING=$((END_TIME - CURRENT_TIME))
+          done
+          
+          echo ""
+          echo "⚠️ UBUNTU 22.04 SESSION EXPIRED - SHUTTING DOWN"
+          echo ""
+
   # ==============================================================================
   # 🐧 UBUNTU 24.04 - SSH ACCESS
   # ==============================================================================
@@ -457,6 +521,38 @@ jobs:
           echo "║  👤 User: ${{ steps.create_user.outputs.username }}"
           echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}"
           echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+
+      - name: ⏱️ Runtime Counter - Keep Ubuntu 24.04 Alive
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║"
+          echo "╠════════════════════════════════════════════════════════════════════╣"
+          
+          DURATION_MINUTES=${{ needs.master_brain.outputs.duration_minutes }}
+          START_EPOCH=${{ needs.master_brain.outputs.start_timestamp }}
+          
+          START_TIME=$START_EPOCH
+          END_TIME=$((START_EPOCH + DURATION_MINUTES * 60))
+          CURRENT_TIME=$(date +%s)
+          REMAINING=$((END_TIME - CURRENT_TIME))
+          
+          echo "║  ⏰ Start Time: $(date -d @$START_TIME)" -d@$START_TIME 2>/dev/null || echo "║  ⏰ Start Time: $START_TIME"
+          echo "║  ⏰ End Time: $(date -d @$END_TIME)" -d@$END_TIME 2>/dev/null || echo "║  ⏰ End Time: $END_TIME"
+          echo "║  ⏱️ Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          while [ $REMAINING -gt 0 ]; do
+            echo "⏱️ Ubuntu 24.04 - Still Active | Time remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+            sleep 60
+            CURRENT_TIME=$(date +%s)
+            REMAINING=$((END_TIME - CURRENT_TIME))
+          done
+          
+          echo ""
+          echo "⚠️ UBUNTU 24.04 SESSION EXPIRED - SHUTTING DOWN"
           echo ""
 
   # ==============================================================================
@@ -590,6 +686,38 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
+      - name: ⏱️ Runtime Counter - Keep Debian 12 Alive
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║"
+          echo "╠════════════════════════════════════════════════════════════════════╣"
+          
+          DURATION_MINUTES=${{ needs.master_brain.outputs.duration_minutes }}
+          START_EPOCH=${{ needs.master_brain.outputs.start_timestamp }}
+          
+          START_TIME=$START_EPOCH
+          END_TIME=$((START_EPOCH + DURATION_MINUTES * 60))
+          CURRENT_TIME=$(date +%s)
+          REMAINING=$((END_TIME - CURRENT_TIME))
+          
+          echo "║  ⏰ Start Time: $(date -d @$START_TIME)" -d@$START_TIME 2>/dev/null || echo "║  ⏰ Start Time: $START_TIME"
+          echo "║  ⏰ End Time: $(date -d @$END_TIME)" -d@$END_TIME 2>/dev/null || echo "║  ⏰ End Time: $END_TIME"
+          echo "║  ⏱️ Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          while [ $REMAINING -gt 0 ]; do
+            echo "⏱️ Debian 12 - Still Active | Time remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+            sleep 60
+            CURRENT_TIME=$(date +%s)
+            REMAINING=$((END_TIME - CURRENT_TIME))
+          done
+          
+          echo ""
+          echo "⚠️ DEBIAN 12 SESSION EXPIRED - SHUTTING DOWN"
+          echo ""
+
   # ==============================================================================
   # 📦 CENTOS 9 - SSH ACCESS (FIXED: NO SYSTEMD, NO CURL, HOST KEYS)
   # ==============================================================================
@@ -718,6 +846,38 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════════════╝"
           echo ""
 
+      - name: ⏱️ Runtime Counter - Keep CentOS 9 Alive
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║"
+          echo "╠════════════════════════════════════════════════════════════════════╣"
+          
+          DURATION_MINUTES=${{ needs.master_brain.outputs.duration_minutes }}
+          START_EPOCH=${{ needs.master_brain.outputs.start_timestamp }}
+          
+          START_TIME=$START_EPOCH
+          END_TIME=$((START_EPOCH + DURATION_MINUTES * 60))
+          CURRENT_TIME=$(date +%s)
+          REMAINING=$((END_TIME - CURRENT_TIME))
+          
+          echo "║  ⏰ Start Time: $(date -d @$START_TIME)" -d@$START_TIME 2>/dev/null || echo "║  ⏰ Start Time: $START_TIME"
+          echo "║  ⏰ End Time: $(date -d @$END_TIME)" -d@$END_TIME 2>/dev/null || echo "║  ⏰ End Time: $END_TIME"
+          echo "║  ⏱️ Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          while [ $REMAINING -gt 0 ]; do
+            echo "⏱️ CentOS 9 - Still Active | Time remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+            sleep 60
+            CURRENT_TIME=$(date +%s)
+            REMAINING=$((END_TIME - CURRENT_TIME))
+          done
+          
+          echo ""
+          echo "⚠️ CENTOS 9 SESSION EXPIRED - SHUTTING DOWN"
+          echo ""
+
   # ==============================================================================
   # 🔷 ALMALINUX 9 - SSH ACCESS (FIXED: NO SYSTEMD, HOST KEYS)
   # ==============================================================================
@@ -838,6 +998,38 @@ jobs:
           echo "║  👤 User: ${{ steps.create_user.outputs.username }}"
           echo "║  🔐 Pass: ${{ steps.create_user.outputs.password }}"
           echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+
+      - name: ⏱️ Runtime Counter - Keep AlmaLinux 9 Alive
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏱️ RUNTIME COUNTER ACTIVE - Preventing Auto-Shutdown              ║"
+          echo "╠════════════════════════════════════════════════════════════════════╣"
+          
+          DURATION_MINUTES=${{ needs.master_brain.outputs.duration_minutes }}
+          START_EPOCH=${{ needs.master_brain.outputs.start_timestamp }}
+          
+          START_TIME=$START_EPOCH
+          END_TIME=$((START_EPOCH + DURATION_MINUTES * 60))
+          CURRENT_TIME=$(date +%s)
+          REMAINING=$((END_TIME - CURRENT_TIME))
+          
+          echo "║  ⏰ Start Time: $(date -d @$START_TIME)" -d@$START_TIME 2>/dev/null || echo "║  ⏰ Start Time: $START_TIME"
+          echo "║  ⏰ End Time: $(date -d @$END_TIME)" -d@$END_TIME 2>/dev/null || echo "║  ⏰ End Time: $END_TIME"
+          echo "║  ⏱️ Remaining: $((REMAINING / 60)) minutes $((REMAINING % 60)) seconds"
+          echo "╚════════════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          while [ $REMAINING -gt 0 ]; do
+            echo "⏱️ AlmaLinux 9 - Still Active | Time remaining: $((REMAINING / 60))m $((REMAINING % 60))s"
+            sleep 60
+            CURRENT_TIME=$(date +%s)
+            REMAINING=$((END_TIME - CURRENT_TIME))
+          done
+          
+          echo ""
+          echo "⚠️ ALMALINUX 9 SESSION EXPIRED - SHUTTING DOWN"
           echo ""
 
   # ==============================================================================
