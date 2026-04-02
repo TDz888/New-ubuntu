@@ -1,236 +1,272 @@
-🧠 NEURAL MASTER SYSTEM v3.0 - ULTRA STABLE
+# 🧠 NEURAL MASTER SYSTEM v3.0
 
-🌟 Giới Thiệu
+═══════════════════════════════════════════════════════════════════════════════
 
-NEURAL MASTER SYSTEM là một hệ thống triển khai đa nền tảng tự động, cho phép bạn tạo và quản lý các máy chủ từ xa trên nhiều hệ điều hành khác nhau chỉ với một cú nhấp chuột.
+📌 VERSION: 3.0.13 | ✅ STATUS: STABLE | 🖥️ PLATFORM: WINDOWS + LINUX | 🔗 TAILSCALE: ENABLED
 
-⚡ "Một hệ thống thần kinh nhân tạo - Kết nối vạn nơi, vận hành tự động"
+═══════════════════════════════════════════════════════════════════════════════
 
----
+🚀 Multi-OS Remote Access System | 🔗 Tailscale Integration | 🧹 Auto Cleanup
 
-🎯 Tính Năng Chính
+═══════════════════════════════════════════════════════════════════════════════
 
-Tính năng Mô tả Trạng thái
-🪟 Windows 11 Tự động cấu hình RDP, tạo user, mở firewall ✅ Hoạt động
-🐧 Ubuntu 22.04/24.04 Cài đặt SSH, tạo user, cấu hình bảo mật ✅ Hoạt động
-🐍 Debian 12 Container SSH với host keys tự động ✅ Hoạt động
-📦 CentOS 9 Xử lý đặc biệt không curl conflict ✅ Hoạt động
-🔷 AlmaLinux 9 Container SSH ổn định ✅ Hoạt động
-📱 Telegram Bot Gửi thông tin đăng nhập tự động ✅ Hoạt động
-⏱️ Runtime Manager Đếm ngược thời gian hoạt động ✅ Hoạt động
-🧹 Auto Cleanup Tự động xóa dữ liệu sau khi kết thúc ✅ Hoạt động
+📋 FEATURES
 
----
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🖥️ Multi-OS Support      │ Windows 11, Ubuntu 22.04, Ubuntu 24.04,          │
+│                          │ Debian 12, CentOS 9, AlmaLinux 9                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🔗 Tailscale Integration │ Automatic installation and connection            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 📱 Telegram Notifications│ Receive connection credentials on Telegram       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ⏱️ Session Management    │ Configurable duration: 30m to 6h                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🧹 Auto Cleanup          │ Automatic credential destruction after session   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🌐 Dual Connection       │ Both public IP and Tailscale IP provided         │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-🚀 Các Phương Thức Kết Nối
+═══════════════════════════════════════════════════════════════════════════════
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    🌐 PHƯƠNG THỨC KẾT NỐI 🌐                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   🪟 WINDOWS      →  Remote Desktop (RDP) - Port 3389          │
-│   🐧 LINUX        →  SSH Secure Shell - Port 22                │
-│   📱 TELEGRAM     →  Nhận thông tin tự động                     │
-│   🌍 IP SOURCES   →  5 nguồn IP dự phòng                       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+🚀 QUICK START
 
----
+📋 PREREQUISITES:
 
-📋 Cấu Trúc Hệ Thống
+   1. GitHub Repository with Actions enabled
+   2. Tailscale Account (free tier available)
+   3. Telegram Bot (optional)
 
-```
-NEURAL MASTER SYSTEM v3.0
-│
-├── 🧠 MASTER BRAIN
-│   ├── Tạo session ID
-│   ├── Quản lý thời gian
-│   └── Điều phối worker
-│
-├── 🖥️ WORKER CORES
-│   ├── Windows 11 Cortex
-│   ├── Ubuntu 22.04 Cortex
-│   ├── Ubuntu 24.04 Cortex
-│   ├── Debian 12 Cortex
-│   ├── CentOS 9 Cortex
-│   └── AlmaLinux 9 Cortex
-│
-├── 📡 CONTROL HUB
-│   ├── Telegram Notification
-│   └── Status Reporting
-│
-└── 🧹 MEMORY PURGE
-    ├── Auto Cleanup
-    └── Data Wipe
-```
+🔐 REQUIRED SECRETS:
 
----
+   Go to: Repository → Settings → Secrets and variables → Actions → Add new secrets
 
-🛠️ Cách Sử Dụng
+   ┌──────────────────────┬────────────────────────────────────────────────┐
+   │ TAILSCALE_AUTH_KEY   │ Your Tailscale authentication key              │
+   │ TELEGRAM_BOT_TOKEN   │ Bot token from @BotFather (optional)           │
+   │ TELEGRAM_CHAT_ID     │ Your Telegram chat ID (optional)               │
+   └──────────────────────┴────────────────────────────────────────────────┘
 
-1. Trigger Workflow
+🎯 ONE-CLICK DEPLOYMENT:
 
-Vào tab Actions → Chọn NEURAL MASTER SYSTEM → Run workflow
+   Step 1: Navigate to Actions tab in your repository
+   Step 2: Select "NEURAL MASTER SYSTEM v3.0"
+   Step 3: Click "Run workflow"
+   Step 4: Configure your session parameters
+   Step 5: Click "Run workflow"
 
-2. Cấu Hình Parameters
+   ✨ Your remote machine will be ready in 30-60 seconds!
 
-Parameter Lựa chọn Mặc định Mô tả
-⏱️ Duration 30m, 1h, 2h, 4h, 6h 2h Thời gian hoạt động
-🎯 Target OS windows, ubuntu22, ubuntu24, debian, centos, almalinux, all windows Hệ điều hành đích
-⚡ Performance balanced, performance, quantum balanced Chế độ hiệu suất
-📱 Telegram true/false true Bật/tắt thông báo
-🧹 Auto Cleanup true/false true Tự động dọn dẹp
+═══════════════════════════════════════════════════════════════════════════════
 
-3. Nhận Thông Tin Kết Nối
+⚙️ CONFIGURATION
 
-Sau khi chạy, Telegram sẽ nhận được tin nhắn với đầy đủ:
+⏱️ SESSION DURATION OPTIONS:
 
-· 🌐 Địa chỉ IP
-· 🔌 Cổng kết nối
-· 👤 Tên đăng nhập
-· 🔐 Mật khẩu
-· 💻 Lệnh kết nối mẫu
+   ┌─────────┬────────────────────────────────────────────────────────────┐
+   │ 30m     │ 30 minutes                                                 │
+   │ 1h      │ 1 hour                                                     │
+   │ 2h      │ 2 hours (default)                                          │
+   │ 4h      │ 4 hours                                                    │
+   │ 6h      │ 6 hours                                                    │
+   └─────────┴────────────────────────────────────────────────────────────┘
 
----
+🎯 TARGET OS OPTIONS:
 
-🔧 Các Vấn Đề Đã Được Xử Lý
+   ┌─────────────┬────────────────────────────────────────────────────────┐
+   │ windows     │ Windows 11 only                                        │
+   │ ubuntu22    │ Ubuntu 22.04 LTS only                                  │
+   │ ubuntu24    │ Ubuntu 24.04 LTS only                                  │
+   │ debian      │ Debian 12 only                                         │
+   │ centos      │ CentOS Stream 9 only                                   │
+   │ almalinux   │ AlmaLinux 9 only                                       │
+   │ all         │ All supported operating systems                        │
+   └─────────────┴────────────────────────────────────────────────────────┘
 
-STT Vấn đề Giải pháp
-1 CentOS curl conflict Dùng wget thay thế + --skip-broken
-2 Container không có systemd Start SSH trực tiếp bằng /usr/sbin/sshd
-3 Thiếu SSH host keys Tự động tạo bằng ssh-keygen -A
-4 Không lấy được IP 5 nguồn IP dự phòng
-5 YAML syntax error Loại bỏ @ và EOF
-6 RDP không hoạt động Cấu hình registry + firewall
+⚡ PERFORMANCE MODES:
 
----
+   ┌─────────────┬────────────────────────────────────────────────────────┐
+   │ balanced    │ Standard performance (default)                         │
+   │ performance │ Optimized for speed                                    │
+   │ quantum     │ Maximum resource allocation                            │
+   └─────────────┴────────────────────────────────────────────────────────┘
 
-📊 Luồng Hoạt Động
+═══════════════════════════════════════════════════════════════════════════════
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   START      │────▶│  MASTER      │────▶│  DEPLOY      │
-│  Workflow    │     │  BRAIN       │     │  WORKER      │
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                  │
-                                                  ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   CLEANUP    │◀────│  RUNTIME     │◀────│  TELEGRAM    │
-│   MEMORY     │     │  MANAGER     │     │  NOTIFY      │
-└──────────────┘     └──────────────┘     └──────────────┘
-```
+📱 TELEGRAM NOTIFICATION EXAMPLE
 
----
+   🤖 NEURAL MASTER SYSTEM v3.0
 
-🔐 Bảo Mật
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Tính năng Mô tả
-🔑 Password ngẫu nhiên 24 ký tự, bao gồm chữ hoa, thường, số
-👤 User ngẫu nhiên Tên user unique mỗi lần chạy
-🧹 Auto cleanup Xóa toàn bộ dữ liệu sau khi kết thúc
-🔒 No persistent data Không lưu trữ thông tin
+   📋 SESSION INFORMATION
+   ────────────────────────────────────────────────────────────────────────
+   🆔 Session ID: NEURAL-20241215-143022-4712
+   ⏱️ Duration: 2h
+   ⏰ Expires: 2024-12-15 16:30:22 UTC
+   ⚡ Mode: balanced
 
----
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📱 Ví Dụ Telegram Message
+   🪟 WINDOWS 11
+   ────────────────────────────────────────────────────────────────────────
+   🌍 Public RDP: 172.182.224.164:3389
+   🔗 Tailscale RDP: 100.64.0.1:3389
+   👤 Username: neural_7838
+   🔐 Password: QAR7D2FugGzC4x6dsSEV
 
-```
-🧠 NEURAL MASTER SYSTEM v3.0
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-╔════════════════════════════════════════╗
-📋 Session: NEURAL-20241215-143052-7842
-⏱️ Duration: 2h
-⏰ Ends: 2024-12-15 16:30:52 UTC
-⚡ Mode: balanced
-╚════════════════════════════════════════╝
+   ✅ System Online
+   🔒 Connect via Tailscale for secure access
 
-🪟 WINDOWS 11
-──────────────────
-🌐 IP: 123.45.67.89:3389
-👤 User: neural_5847
-🔐 Pass: aB3dEf9gHiJkLmNoPqRsTu
-💻 RDP: Remote Desktop Connection
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✨ Neural System Online ✨
-```
+═══════════════════════════════════════════════════════════════════════════════
 
----
+🔌 CONNECTION METHODS
 
-🎨 Icon Legend
+🌍 METHOD 1: DIRECT CONNECTION (PUBLIC IP)
 
-Icon Ý nghĩa
-🧠 Master Brain / Hệ thống chính
-🪟 Windows OS
-🐧 Ubuntu OS
-🐍 Debian OS
-📦 CentOS OS
-🔷 AlmaLinux OS
-📱 Telegram Notification
-⏱️ Runtime Manager
-🧹 Memory Purge / Cleanup
-🌐 Network / IP
-🔐 Password / Security
-👤 User Account
-✅ Success / Hoàn thành
-❌ Error / Thất bại
+   Windows RDP: 172.182.224.164:3389
+   Linux SSH:   ssh user@172.182.224.164 -p 22
 
----
+🔗 METHOD 2: TAILSCALE VPN (RECOMMENDED)
 
-📝 Yêu Cầu Hệ Thống
+   Windows RDP: 100.64.0.1:3389
+   Linux SSH:   ssh user@100.64.0.1 -p 22
 
-GitHub Secrets Cần Cấu Hình
+💡 WHY TAILSCALE?
 
-Secret Mô tả Bắt buộc
-TELEGRAM_BOT_TOKEN Bot Token từ BotFather ✅ Có (nếu dùng Telegram)
-TELEGRAM_CHAT_ID Chat ID Telegram ✅ Có (nếu dùng Telegram)
+   Tailscale creates an encrypted mesh VPN, eliminating the need for port 
+   forwarding and providing secure access even behind NAT. It's like having 
+   your own private network!
 
-Cách lấy Telegram Credentials
+═══════════════════════════════════════════════════════════════════════════════
 
-1. Tạo bot: @BotFather → /newbot
-2. Lấy token: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-3. Lấy chat ID: @userinfobot → gửi tin nhắn bất kỳ
-4. Thêm vào GitHub Secrets
+🖥️ SUPPORTED OPERATING SYSTEMS
 
----
+   ┌─────────────┬──────────────────┬──────────────────┬────────────┐
+   │ OS          │ Version          │ Access Method    │ Status     │
+   ├─────────────┼──────────────────┼──────────────────┼────────────┤
+   │ Windows 11  │ 22H2+            │ RDP (Port 3389)  │ 🟢 Stable  │
+   │ Ubuntu      │ 22.04 LTS        │ SSH (Port 22)    │ 🟢 Stable  │
+   │ Ubuntu      │ 24.04 LTS        │ SSH (Port 22)    │ 🟢 Stable  │
+   │ Debian      │ 12 Bookworm      │ SSH (Port 22)    │ 🟢 Stable  │
+   │ CentOS      │ Stream 9         │ SSH (Port 22)    │ 🟢 Stable  │
+   │ AlmaLinux   │ 9                │ SSH (Port 22)    │ 🟢 Stable  │
+   └─────────────┴──────────────────┴──────────────────┴────────────┘
 
-🐛 Xử Lý Sự Cố Thường Gặp
+═══════════════════════════════════════════════════════════════════════════════
 
-Vấn đề Nguyên nhân Cách khắc phục
-Job bị skip Condition sai Chọn đúng target_os
-Không kết nối được RDP Firewall chặn Kiểm tra port 3389
-SSH timeout Container network Dùng IP từ Telegram
-CentOS failed Curl conflict Đã fix trong code mới
+🛡️ SECURITY FEATURES
 
----
+   ┌─────────────────────────┬────────────────────────────────────────────┐
+   │ 🔄 Auto Credential      │ New random credentials for each session    │
+   │    Rotation             │                                            │
+   ├─────────────────────────┼────────────────────────────────────────────┤
+   │ ⏰ Session Timeout      │ Automatic termination after duration       │
+   ├─────────────────────────┼────────────────────────────────────────────┤
+   │ 🧹 Memory Purge         │ Complete cleanup of all temporary data     │
+   ├─────────────────────────┼────────────────────────────────────────────┤
+   │ 🔒 Tailscale Encryption │ End-to-end encrypted connections           │
+   ├─────────────────────────┼────────────────────────────────────────────┤
+   │ 🚫 No Port Forwarding   │ Secure access without exposing ports       │
+   └─────────────────────────┴────────────────────────────────────────────┘
 
-📈 Phiên Bản
+═══════════════════════════════════════════════════════════════════════════════
 
-Version Ngày Thay đổi
-v3.0.0 2024-12-01 Release đầu tiên
-v3.0.5 2024-12-10 Fix CentOS systemd
-v3.0.6 2024-12-12 Thêm host keys
-v3.0.8 2024-12-15 Ultra stable, đa IP source
+🔧 TROUBLESHOOTING
 
----
+❌ TAILSCALE CONNECTION ISSUES
 
-🙏 Cảm Ơn
+   Step 1: Verify your TAILSCALE_AUTH_KEY is valid and not expired
+   Step 2: Ensure the key has not been used on too many devices
+   Step 3: Regenerate a new key from the Tailscale admin console
 
-Cảm ơn bạn đã sử dụng NEURAL MASTER SYSTEM!
+📱 NO TELEGRAM NOTIFICATION
 
-🧠 "Kết nối không giới hạn - Vận hành không ngừng"
+   Step 1: Check that TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set
+   Step 2: Ensure the bot has started a conversation with your chat ID
+   Step 3: Verify the bot has permission to send messages
 
----
+🔌 CONNECTION REFUSED
 
-📞 Hỗ Trợ
+   Step 1: Wait 30-60 seconds for services to fully initialize
+   Step 2: Verify Tailscale is connected (tailscale status)
+   Step 3: Check if the session duration has expired
 
-Nếu gặp bất kỳ vấn đề nào, hãy kiểm tra:
+🪟 WINDOWS DEPLOYMENT FAILS
 
-1. Logs trong GitHub Actions
-2. Telegram notification
-3. Cấu hình Secrets
+   Step 1: Ensure runner is windows-latest
+   Step 2: Check firewall rules are applied correctly
+   Step 3: Verify Terminal Services are running
 
----
+🐧 LINUX SSH CONNECTION FAILS
 
-Made with 🧠 by Neural Master Team
+   Step 1: Check if SSH service is running (systemctl status ssh)
+   Step 2: Verify password authentication is enabled
+   Step 3: Ensure port 22 is open
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 SYSTEM ARCHITECTURE
+
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │                         GITHUB ACTIONS                                   │
+   │  ┌───────────┐    ┌───────────┐    ┌───────────┐                       │
+   │  │  MASTER   │───▶│  WINDOWS  │───▶│   LINUX   │                       │
+   │  │   BRAIN   │    │ DEPLOYMENT│    │ DEPLOYMENT│                       │
+   │  └───────────┘    └───────────┘    └───────────┘                       │
+   │       │                │                │                               │
+   │       ▼                ▼                ▼                               │
+   │  ┌─────────────────────────────────────────────────────────────────┐   │
+   │  │                      TAILSCALE NETWORK                           │   │
+   │  │                 Encrypted Mesh VPN Connection                    │   │
+   │  └─────────────────────────────────────────────────────────────────┘   │
+   │       │                │                │                               │
+   │       ▼                ▼                ▼                               │
+   │  ┌─────────────────────────────────────────────────────────────────┐   │
+   │  │                        TELEGRAM BOT                              │   │
+   │  │                   Send Connection Credentials                    │   │
+   │  └─────────────────────────────────────────────────────────────────┘   │
+   └─────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 LICENSE
+
+   MIT License - Free for personal and commercial use
+
+   Copyright (c) 2024 Neural Master System
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files...
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🙏 ACKNOWLEDGMENTS
+
+   🏆 Tailscale      - Excellent VPN technology
+   🏆 GitHub Actions - Powerful automation platform
+   🏆 Telegram       - Great messaging API
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📞 SUPPORT
+
+   📧 Email:  support@neuralmaster.com
+   🐛 Issues: https://github.com/your-repo/issues
+   💡 Ideas:  https://github.com/your-repo/discussions
+
+═══════════════════════════════════════════════════════════════════════════════
+
+<div align="center">
+
+**🧠 NEURAL MASTER SYSTEM v3.0**
+
+*Built for remote access automation*
+
+</div>
+
+═══════════════════════════════════════════════════════════════════════════════
