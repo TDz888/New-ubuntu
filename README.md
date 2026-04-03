@@ -1,17 +1,6 @@
 ```markdown
-# 🧠 NEURAL MASTER SYSTEM v4.0
+# 🧠 NEURAL MASTER SYSTEM v3.0
 
-<div align="center">
-
-![Version](https://img.shields.io/badge/version-4.0.0-blue)
-![Status](https://img.shields.io/badge/status-stable-brightgreen)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0078D4)
-![Tailscale](https://img.shields.io/badge/Tailscale-Enabled-24B47A)
-![VS Code](https://img.shields.io/badge/VS%20Code-Included-007ACC)
-
-**Enterprise-grade Multi-OS Remote Access Automation Platform**
-
-</div>
 
 ---
 
