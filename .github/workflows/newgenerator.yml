@@ -163,7 +163,7 @@ jobs:
             Start-Sleep 60 
           }
 
-  # ==================== UBUNTU 22.04 WITH RDP (XFCE4 + XRDP) - FIXED ====================
+  # ==================== UBUNTU 22.04 WITH RDP (XFCE4 + XRDP) - FULLY FIXED ====================
   ubuntu_rdp_deploy:
     needs: [init]
     if: github.event.inputs.target_os == 'ubuntu-rdp' || github.event.inputs.target_os == 'all'
@@ -178,83 +178,61 @@ jobs:
       os_type: ubuntu
       connection_type: rdp
     steps:
-      - run: echo "=== UBUNTU 22.04 WITH RDP DEPLOYMENT (XFCE FIXED) ==="
+      - run: echo "=== UBUNTU 22.04 WITH RDP DEPLOYMENT ==="
       
       - name: Update System
         run: |
-          echo "[1/11] Updating system packages..."
+          echo "[1/10] Updating system packages..."
           sudo apt update -qq
           sudo apt upgrade -y -qq
           echo "[OK] System updated"
       
       - name: Install DBus and Dependencies
         run: |
-          echo "[2/11] Installing DBus and dependencies..."
+          echo "[2/10] Installing DBus and dependencies..."
           sudo apt install -y -qq dbus dbus-x11 x11-utils x11-xserver-utils
           sudo systemctl enable dbus
           sudo systemctl start dbus
-          echo "[OK] DBus installed and running"
+          echo "[OK] DBus installed"
       
       - name: Install Desktop Environment (XFCE4)
         run: |
-          echo "[3/11] Installing XFCE4 desktop environment..."
+          echo "[3/10] Installing XFCE4 desktop environment..."
           sudo apt install -y -qq xfce4 xfce4-goodies xfce4-session
           echo "[OK] XFCE4 installed"
       
       - name: Install XRDP Server
         run: |
-          echo "[4/11] Installing XRDP server..."
+          echo "[4/10] Installing XRDP server..."
           sudo apt install -y -qq xrdp
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
-          echo "[OK] XRDP installed and started"
-      
-      - name: Create ubuntu home directory if not exists
-        run: |
-          echo "[5/11] Ensuring ubuntu home directory exists..."
-          sudo mkdir -p /home/ubuntu
-          sudo chown ubuntu:ubuntu /home/ubuntu
-          echo "[OK] Home directory ready"
+          echo "[OK] XRDP installed"
       
       - name: Configure XRDP to use XFCE4
         run: |
-          echo "[6/11] Configuring XRDP for XFCE4..."
-          sudo bash -c 'echo "startxfce4" > /home/ubuntu/.xsession'
-          sudo chown ubuntu:ubuntu /home/ubuntu/.xsession
-          sudo chmod 644 /home/ubuntu/.xsession
+          echo "[5/10] Configuring XRDP for XFCE4..."
+          sudo sed -i 's/^test -x \/etc\/X11\/Xsession/#&/' /etc/xrdp/startwm.sh
+          sudo sed -i 's/^exec \/etc\/X11\/Xsession/#&/' /etc/xrdp/startwm.sh
+          echo "startxfce4" | sudo tee -a /etc/xrdp/startwm.sh
           echo "[OK] XRDP configured"
       
-      - name: Fix XRDP startup script
+      - name: Create DBus Machine ID
         run: |
-          echo "[7/11] Fixing XRDP startup script..."
-          sudo sed -i '/^test -x \/etc\/X11\/Xsession/ s/^/#/' /etc/xrdp/startwm.sh
-          sudo sed -i '/^exec \/etc\/X11\/Xsession/ s/^/#/' /etc/xrdp/startwm.sh
-          echo "startxfce4" | sudo tee -a /etc/xrdp/startwm.sh
-          echo "[OK] Startup script updated"
-      
-      - name: Configure XFCE session environment
-        run: |
-          echo "[8/11] Configuring XFCE session environment..."
-          echo "export XDG_CONFIG_DIRS=/etc/xdg" | sudo tee -a /etc/xrdp/xrdp.ini
-          echo "export XDG_DATA_DIRS=/usr/share:/usr/local/share" | sudo tee -a /etc/xrdp/xrdp.ini
-          echo "[OK] Environment configured"
-      
-      - name: Create DBus machine ID
-        run: |
-          echo "[9/11] Creating DBus machine ID..."
+          echo "[6/10] Creating DBus machine ID..."
           sudo dbus-uuidgen | sudo tee /var/lib/dbus/machine-id
           echo "[OK] DBus machine ID created"
       
-      - name: Restart XRDP and DBus Services
+      - name: Restart Services
         run: |
-          echo "Restarting services..."
+          echo "[7/10] Restarting services..."
           sudo systemctl restart dbus
           sudo systemctl restart xrdp
           echo "[OK] Services restarted"
       
       - name: Install Tailscale
         run: |
-          echo "[10/11] Installing Tailscale..."
+          echo "[8/10] Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "[OK] Tailscale installed"
       
@@ -271,22 +249,17 @@ jobs:
       - name: Create User Account
         id: create_user
         run: |
-          echo "[11/11] Creating user account..."
+          echo "[9/10] Creating user account..."
           USERNAME="ubrdp_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
           sudo usermod -aG sudo "$USERNAME"
+          sudo usermod -aG ssl-cert "$USERNAME"
+          sudo usermod -aG xrdp "$USERNAME"
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           echo "[OK] User created: $USERNAME"
-      
-      - name: Add User to XRDP and SSL Groups
-        run: |
-          echo "Adding user to XRDP groups..."
-          sudo adduser ${{ steps.create_user.outputs.username }} ssl-cert
-          sudo adduser ${{ steps.create_user.outputs.username }} xrdp
-          echo "[OK] User added to groups"
       
       - name: Configure XFCE for New User
         run: |
@@ -298,6 +271,7 @@ jobs:
       - name: Get Public IP
         id: get_public_ip
         run: |
+          echo "[10/10] Getting public IP..."
           IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
           echo "public_ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
@@ -441,60 +415,67 @@ jobs:
       os_type: almalinux
       connection_type: rdp
     steps:
-      - run: echo "=== ALMALINUX 9 WITH RDP DEPLOYMENT (XFCE FIXED) ==="
+      - run: echo "=== ALMALINUX 9 WITH RDP DEPLOYMENT ==="
       
       - name: Update System
         run: |
-          echo "[1/12] Updating system packages..."
+          echo "[1/11] Updating system packages..."
           dnf update -y
           echo "[OK] System updated"
       
       - name: Install EPEL Repository
         run: |
-          echo "[2/12] Installing EPEL repository..."
+          echo "[2/11] Installing EPEL repository..."
           dnf install -y epel-release
           echo "[OK] EPEL installed"
       
       - name: Install DBus and Dependencies
         run: |
-          echo "[3/12] Installing DBus and dependencies..."
+          echo "[3/11] Installing DBus and dependencies..."
           dnf install -y dbus dbus-x11 xorg-x11-xauth xorg-x11-server-utils
           systemctl enable dbus
           systemctl start dbus
-          echo "[OK] DBus installed and running"
+          echo "[OK] DBus installed"
       
       - name: Install Desktop Environment (XFCE4)
         run: |
-          echo "[4/12] Installing XFCE4 desktop environment..."
+          echo "[4/11] Installing XFCE4 desktop environment..."
           dnf groupinstall -y "Xfce"
           dnf install -y xfce4-session
           echo "[OK] XFCE4 installed"
       
       - name: Install XRDP Server
         run: |
-          echo "[5/12] Installing XRDP server..."
+          echo "[5/11] Installing XRDP server..."
           dnf install -y xrdp
           systemctl enable xrdp
           systemctl start xrdp
-          echo "[OK] XRDP installed and started"
+          echo "[OK] XRDP installed"
       
       - name: Configure XRDP for XFCE4
         run: |
-          echo "[6/12] Configuring XRDP for XFCE4..."
-          echo "startxfce4" > ~/.xsession
+          echo "[6/11] Configuring XRDP for XFCE4..."
+          sed -i 's/^test -x \/etc\/X11\/Xsession/#&/' /etc/xrdp/startwm.sh
+          sed -i 's/^exec \/etc\/X11\/Xsession/#&/' /etc/xrdp/startwm.sh
+          echo "startxfce4" >> /etc/xrdp/startwm.sh
           echo "[OK] XRDP configured"
       
-      - name: Fix XRDP startup script
+      - name: Create DBus Machine ID
         run: |
-          echo "Fixing XRDP startup script..."
-          sed -i '/test -x \/etc\/X11\/Xsession/ s/^/#/' /etc/xrdp/startwm.sh
-          sed -i '/exec \/etc\/X11\/Xsession/ s/^/#/' /etc/xrdp/startwm.sh
-          echo "startxfce4" >> /etc/xrdp/startwm.sh
-          echo "[OK] Startup script updated"
+          echo "[7/11] Creating DBus machine ID..."
+          dbus-uuidgen | tee /var/lib/dbus/machine-id
+          echo "[OK] DBus machine ID created"
+      
+      - name: Restart Services
+        run: |
+          echo "[8/11] Restarting services..."
+          systemctl restart dbus
+          systemctl restart xrdp
+          echo "[OK] Services restarted"
       
       - name: Create TUN Device for Tailscale
         run: |
-          echo "[7/12] Creating TUN device..."
+          echo "[9/11] Creating TUN device..."
           mkdir -p /dev/net
           mknod /dev/net/tun c 10 200
           chmod 600 /dev/net/tun
@@ -502,7 +483,7 @@ jobs:
       
       - name: Install Tailscale
         run: |
-          echo "[8/12] Installing Tailscale..."
+          echo "[10/11] Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "[OK] Tailscale installed"
       
@@ -522,27 +503,20 @@ jobs:
       - name: Create User Account
         id: create_user
         run: |
-          echo "[9/12] Creating user account..."
+          echo "[11/11] Creating user account..."
           USERNAME="almardp_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
           usermod -aG wheel "$USERNAME"
+          usermod -aG xrdp "$USERNAME"
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           echo "[OK] User created: $USERNAME"
       
-      - name: Add User to XRDP and SSL Groups
-        run: |
-          echo "[10/12] Adding user to XRDP groups..."
-          usermod -aG xrdp ${{ steps.create_user.outputs.username }}
-          usermod -aG wheel ${{ steps.create_user.outputs.username }}
-          echo "[OK] User added to groups"
-      
       - name: Get Public IP
         id: get_public_ip
         run: |
-          echo "[11/12] Getting public IP..."
           IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
           echo "public_ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
@@ -550,7 +524,6 @@ jobs:
       - name: Verify Deployment
         id: verify
         run: |
-          echo "[12/12] Verifying deployment..."
           if pgrep xrdp > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
             echo ""
@@ -695,7 +668,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="🚀 NEURAL MASTER SYSTEM v4.1"
+          MSG="NEURAL MASTER SYSTEM v4.1"
           MSG="$MSG"$'\n'
           MSG="$MSG"$'\n'
           MSG="$MSG"'=============================='$'\n'
@@ -709,7 +682,7 @@ jobs:
           
           if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
             MSG="$MSG"$'\n'
-            MSG="$MSG"'🪟 WINDOWS 11 (RDP)'$'\n'
+            MSG="$MSG"'WINDOWS 11 (RDP)'$'\n'
             MSG="$MSG"'----------------------------'$'\n'
             MSG="$MSG"'Public RDP: '"${{ needs.windows_deploy.outputs.public_ip }}:3389"$'\n'
             MSG="$MSG"'Tailscale RDP: '"${{ needs.windows_deploy.outputs.tailscale_ip }}:3389"$'\n'
@@ -720,7 +693,7 @@ jobs:
           
           if [ "${{ needs.ubuntu_rdp_deploy.outputs.status }}" = "active" ]; then
             MSG="$MSG"$'\n'
-            MSG="$MSG"'🐧 UBUNTU 22.04 (RDP - XFCE4)'$'\n'
+            MSG="$MSG"'UBUNTU 22.04 (RDP - XFCE4)'$'\n'
             MSG="$MSG"'----------------------------'$'\n'
             MSG="$MSG"'Public RDP: '"${{ needs.ubuntu_rdp_deploy.outputs.public_ip }}:3389"$'\n'
             MSG="$MSG"'Tailscale RDP: '"${{ needs.ubuntu_rdp_deploy.outputs.tailscale_ip }}:3389"$'\n'
@@ -731,7 +704,7 @@ jobs:
           
           if [ "${{ needs.ubuntu_ssh_deploy.outputs.status }}" = "active" ]; then
             MSG="$MSG"$'\n'
-            MSG="$MSG"'🐧 UBUNTU 22.04 (SSH)'$'\n'
+            MSG="$MSG"'UBUNTU 22.04 (SSH)'$'\n'
             MSG="$MSG"'----------------------------'$'\n'
             MSG="$MSG"'Public SSH: ssh '"${{ needs.ubuntu_ssh_deploy.outputs.username }}@${{ needs.ubuntu_ssh_deploy.outputs.public_ip }} -p 22"$'\n'
             MSG="$MSG"'Tailscale SSH: ssh '"${{ needs.ubuntu_ssh_deploy.outputs.username }}@${{ needs.ubuntu_ssh_deploy.outputs.tailscale_ip }} -p 22"$'\n'
@@ -741,7 +714,7 @@ jobs:
           
           if [ "${{ needs.almalinux_rdp_deploy.outputs.status }}" = "active" ]; then
             MSG="$MSG"$'\n'
-            MSG="$MSG"'📗 ALMALINUX 9 (RDP - XFCE4)'$'\n'
+            MSG="$MSG"'ALMALINUX 9 (RDP - XFCE4)'$'\n'
             MSG="$MSG"'----------------------------'$'\n'
             MSG="$MSG"'Public RDP: '"${{ needs.almalinux_rdp_deploy.outputs.public_ip }}:3389"$'\n'
             MSG="$MSG"'Tailscale RDP: '"${{ needs.almalinux_rdp_deploy.outputs.tailscale_ip }}:3389"$'\n'
@@ -752,7 +725,7 @@ jobs:
           
           if [ "${{ needs.almalinux_ssh_deploy.outputs.status }}" = "active" ]; then
             MSG="$MSG"$'\n'
-            MSG="$MSG"'📗 ALMALINUX 9 (SSH)'$'\n'
+            MSG="$MSG"'ALMALINUX 9 (SSH)'$'\n'
             MSG="$MSG"'----------------------------'$'\n'
             MSG="$MSG"'Public SSH: ssh '"${{ needs.almalinux_ssh_deploy.outputs.username }}@${{ needs.almalinux_ssh_deploy.outputs.public_ip }} -p 22"$'\n'
             MSG="$MSG"'Tailscale SSH: ssh '"${{ needs.almalinux_ssh_deploy.outputs.username }}@${{ needs.almalinux_ssh_deploy.outputs.tailscale_ip }} -p 22"$'\n'
@@ -762,8 +735,8 @@ jobs:
           
           MSG="$MSG"$'\n'
           MSG="$MSG"'=============================='$'\n'
-          MSG="$MSG"'✅ System Online'$'\n'
-          MSG="$MSG"'🔐 Connect via Tailscale for secure access'$'\n'
+          MSG="$MSG"'System Online'$'\n'
+          MSG="$MSG"'Connect via Tailscale for secure access'$'\n'
           MSG="$MSG"'=============================='$'\n'
           
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ] && [ $SENT_COUNT -gt 0 ]; then
