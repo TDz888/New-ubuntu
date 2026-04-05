@@ -1,9 +1,9 @@
 # =====================================================================================
-#              NEURAL MASTER SYSTEM v3.0 - QUANTUM EDITION
-#         Multi-OS Remote Access | Tailscale | Auto Cleanup | Telegram Bot
+#              NEURAL MASTER SYSTEM v4.0 - QUANTUM EDITION
+#         Multi-OS Remote Access | RDP + SSH | Tailscale | Telegram Bot
 # =====================================================================================
 
-name: NEURAL MASTER SYSTEM v3.0
+name: NEURAL MASTER SYSTEM v4.0
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ on:
         required: true
         default: 'windows'
         type: choice
-        options: ['windows', 'ubuntu', 'debian', 'centos', 'almalinux', 'all']
+        options: ['windows', 'ubuntu-rdp', 'ubuntu-ssh', 'almalinux-rdp', 'almalinux-ssh', 'all']
       performance_mode:
         description: Performance Mode
         required: false
@@ -61,16 +61,16 @@ jobs:
           echo "start_timestamp=$START_TS" >> $GITHUB_OUTPUT
           echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
           echo "termination_time=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_OUTPUT
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║              NEURAL MASTER SYSTEM v3.4 ACTIVE              ║"
-          echo "╠════════════════════════════════════════════════════════════╣"
-          echo "║ Session ID   : $SESSION_ID"
-          echo "║ Duration     : $DUR minutes"
-          echo "║ Target OS    : ${{ github.event.inputs.target_os }}"
-          echo "║ Mode         : ${{ github.event.inputs.performance_mode }}"
-          echo "╚════════════════════════════════════════════════════════════╝"
+          echo "============================================================"
+          echo "              NEURAL MASTER SYSTEM v4.0 ACTIVE"
+          echo "============================================================"
+          echo "  Session ID    : $SESSION_ID"
+          echo "  Duration      : $DUR minutes"
+          echo "  Target OS     : ${{ github.event.inputs.target_os }}"
+          echo "  Mode          : ${{ github.event.inputs.performance_mode }}"
+          echo "============================================================"
 
-  # ==================== WINDOWS 11 ====================
+  # ==================== WINDOWS 11 (RDP) ====================
   windows_deploy:
     needs: [init]
     if: github.event.inputs.target_os == 'windows' || github.event.inputs.target_os == 'all'
@@ -83,26 +83,22 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       os_type: windows
+      connection_type: rdp
     steps:
-      - run: Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-      - run: Write-Host "║                 WINDOWS 11 DEPLOYMENT                     ║" -ForegroundColor Cyan
-      - run: Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+      - run: Write-Host "=== WINDOWS 11 DEPLOYMENT ===" -ForegroundColor Cyan
       
-      - name: Configure Remote Desktop
+      - name: Enable Remote Desktop
         run: |
           Write-Host "[1/5] Enabling Remote Desktop..." -ForegroundColor Yellow
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          Write-Host "[2/5] Configuring Firewall..." -ForegroundColor Yellow
           netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
-          Write-Host "[3/5] Restarting Terminal Services..." -ForegroundColor Yellow
-          Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
-          Write-Host "[OK] Remote Desktop configured" -ForegroundColor Green
+          Restart-Service TermService -Force -ErrorAction SilentlyContinue
+          Write-Host "[OK] Remote Desktop enabled" -ForegroundColor Green
       
       - name: Create User Account
         id: create_user
         run: |
-          Write-Host "[4/5] Creating user account..." -ForegroundColor Yellow
+          Write-Host "[2/5] Creating user account..." -ForegroundColor Yellow
           $username = "neural_$((Get-Random -Minimum 1000 -Maximum 9999))"
           $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 20 | ForEach-Object {[char]$_})
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
@@ -115,19 +111,18 @@ jobs:
       
       - name: Install Tailscale
         run: |
-          Write-Host "[5/5] Installing Tailscale..." -ForegroundColor Yellow
+          Write-Host "[3/5] Installing Tailscale..." -ForegroundColor Yellow
           $msiPath = "$env:TEMP\tailscale.msi"
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
           Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
           Write-Host "[OK] Tailscale installed" -ForegroundColor Green
       
       - name: Connect Tailscale
         id: tailscale
         run: |
-          Write-Host "Connecting to Tailscale network..." -ForegroundColor Yellow
+          Write-Host "[4/5] Connecting to Tailscale..." -ForegroundColor Yellow
           Start-Sleep -Seconds 5
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=neural-win --accept-routes --accept-dns
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=neural-win --accept-routes
           Start-Sleep -Seconds 3
           $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "tailscale_ip=$ip" >> $env:GITHUB_OUTPUT
@@ -136,12 +131,8 @@ jobs:
       - name: Get Public IP
         id: get_public_ip
         run: |
-          Write-Host "Fetching public IP address..." -ForegroundColor Yellow
-          try { 
-            $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 5).Content.Trim()
-          } catch { 
-            $ip = "UNAVAILABLE" 
-          }
+          Write-Host "[5/5] Getting public IP..." -ForegroundColor Yellow
+          try { $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 5).Content.Trim() } catch { $ip = "UNAVAILABLE" }
           echo "public_ip=$ip" >> $env:GITHUB_OUTPUT
           Write-Host "[OK] Public IP: $ip" -ForegroundColor Green
       
@@ -151,32 +142,32 @@ jobs:
           $svc = Get-Service TermService -ErrorAction SilentlyContinue
           if ($svc.Status -eq 'Running') { 
             echo "status=active" >> $env:GITHUB_OUTPUT
-            Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-            Write-Host "║                    WINDOWS 11 READY                       ║" -ForegroundColor Green
-            Write-Host "╠════════════════════════════════════════════════════════════╣" -ForegroundColor Green
-            Write-Host "║ RDP Public    : ${{ steps.get_public_ip.outputs.public_ip }}:3389" -ForegroundColor Green
-            Write-Host "║ RDP Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:3389" -ForegroundColor Green
-            Write-Host "║ Username      : ${{ steps.create_user.outputs.username }}" -ForegroundColor Green
-            Write-Host "║ Password      : ${{ steps.create_user.outputs.password }}" -ForegroundColor Green
-            Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Green
-          } else { 
-            echo "status=failed" >> $env:GITHUB_OUTPUT
-          }
+            Write-Host ""
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "              WINDOWS 11 READY" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "  RDP Public    : ${{ steps.get_public_ip.outputs.public_ip }}:3389" -ForegroundColor Green
+            Write-Host "  RDP Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:3389" -ForegroundColor Green
+            Write-Host "  Username      : ${{ steps.create_user.outputs.username }}" -ForegroundColor Green
+            Write-Host "  Password      : ${{ steps.create_user.outputs.password }}" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host ""
+          } else { echo "status=failed" >> $env:GITHUB_OUTPUT }
       
       - name: Keep Session Alive
         run: |
           $END = [int](Get-Date -UFormat %s) + ${{ needs.init.outputs.duration_minutes }} * 60
           while ([int](Get-Date -UFormat %s) -lt $END) { 
             $LEFT = (($END - [int](Get-Date -UFormat %s))/60)
-            Write-Host "[WINDOWS] Session active - $([math]::Floor($LEFT)) minutes remaining" -ForegroundColor DarkCyan
+            Write-Host "[WINDOWS] Active - $([math]::Floor($LEFT)) minutes remaining" -ForegroundColor DarkCyan
             Start-Sleep 60 
           }
 
-  # ==================== UBUNTU LATEST ====================
-  ubuntu_deploy:
+  # ==================== UBUNTU 22.04 WITH RDP (XFCE4 + XRDP) ====================
+  ubuntu_rdp_deploy:
     needs: [init]
-    if: github.event.inputs.target_os == 'ubuntu' || github.event.inputs.target_os == 'all'
-    runs-on: ubuntu-latest
+    if: github.event.inputs.target_os == 'ubuntu-rdp' || github.event.inputs.target_os == 'all'
+    runs-on: ubuntu-22.04
     timeout-minutes: 360
     outputs:
       status: ${{ steps.verify.outputs.status }}
@@ -185,25 +176,43 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       os_type: ubuntu
+      connection_type: rdp
     steps:
-      - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    UBUNTU LATEST DEPLOYMENT               ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
+      - run: echo "=== UBUNTU 22.04 WITH RDP DEPLOYMENT ==="
       
-      - name: Update System and Install Packages
+      - name: Update System
         run: |
-          echo "[1/6] Updating package list..."
+          echo "[1/8] Updating system packages..."
           sudo apt update -qq
-          echo "[2/6] Installing OpenSSH server..."
-          sudo apt install -y -qq openssh-server
-          echo "[3/6] Installing utilities..."
-          sudo apt install -y -qq curl wget sudo
-          echo "[OK] System prepared"
+          sudo apt upgrade -y -qq
+          echo "[OK] System updated"
+      
+      - name: Install Desktop Environment (XFCE4)
+        run: |
+          echo "[2/8] Installing XFCE4 desktop environment..."
+          sudo apt install -y -qq xfce4 xfce4-goodies
+          echo "[OK] XFCE4 installed"
+      
+      - name: Install XRDP Server
+        run: |
+          echo "[3/8] Installing XRDP server..."
+          sudo apt install -y -qq xrdp
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
+          echo "[OK] XRDP installed and started"
+      
+      - name: Configure XRDP
+        run: |
+          echo "[4/8] Configuring XRDP..."
+          echo "xfce4-session" > ~/.xsession
+          sudo sed -i 's/port=3389/port=3389/g' /etc/xrdp/xrdp.ini
+          sudo systemctl restart xrdp
+          sudo ufw allow 3389
+          echo "[OK] XRDP configured"
       
       - name: Install Tailscale
         run: |
-          echo "[4/6] Installing Tailscale..."
+          echo "[5/8] Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "[OK] Tailscale installed"
       
@@ -211,7 +220,7 @@ jobs:
         id: tailscale
         run: |
           echo "Connecting to Tailscale network..."
-          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu --accept-routes --accept-dns
+          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu-rdp --accept-routes
           sleep 3
           TAILSCALE_IP=$(tailscale ip -4)
           echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
@@ -220,8 +229,103 @@ jobs:
       - name: Create User Account
         id: create_user
         run: |
-          echo "[5/6] Creating user account..."
-          USERNAME="ub_$((RANDOM%9000+1000))"
+          echo "[6/8] Creating user account..."
+          USERNAME="ubrdp_$((RANDOM%9000+1000))"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
+          sudo useradd -m -s /bin/bash "$USERNAME"
+          echo "$USERNAME:$PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo "$USERNAME"
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "[OK] User created: $USERNAME"
+      
+      - name: Add User to XRDP Group
+        run: |
+          echo "[7/8] Adding user to XRDP group..."
+          sudo adduser ${{ steps.create_user.outputs.username }} ssl-cert
+          echo "[OK] User added to XRDP group"
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          echo "[8/8] Getting public IP..."
+          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "public_ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+      
+      - name: Verify Deployment
+        id: verify
+        run: |
+          if sudo systemctl is-active xrdp > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo ""
+            echo "============================================================"
+            echo "              UBUNTU 22.04 WITH RDP READY"
+            echo "============================================================"
+            echo "  RDP Public    : ${{ steps.get_public_ip.outputs.public_ip }}:3389"
+            echo "  RDP Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:3389"
+            echo "  Username      : ${{ steps.create_user.outputs.username }}"
+            echo "  Password      : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+            echo ""
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Keep Session Alive
+        run: |
+          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
+          while [ $(date +%s) -lt $END ]; do
+            echo "[UBUNTU-RDP] Active - $((($END - $(date +%s))/60)) minutes left"
+            sleep 60
+          done
+
+  # ==================== UBUNTU 22.04 WITH SSH ====================
+  ubuntu_ssh_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'ubuntu-ssh' || github.event.inputs.target_os == 'all'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      os_type: ubuntu
+      connection_type: ssh
+    steps:
+      - run: echo "=== UBUNTU 22.04 WITH SSH DEPLOYMENT ==="
+      
+      - name: Update System and Install SSH
+        run: |
+          echo "[1/5] Updating system packages..."
+          sudo apt update -qq
+          echo "[2/5] Installing OpenSSH server..."
+          sudo apt install -y -qq openssh-server
+          echo "[OK] SSH installed"
+      
+      - name: Install Tailscale
+        run: |
+          echo "[3/5] Installing Tailscale..."
+          curl -fsSL https://tailscale.com/install.sh | sh
+          echo "[OK] Tailscale installed"
+      
+      - name: Connect Tailscale
+        id: tailscale
+        run: |
+          echo "Connecting to Tailscale network..."
+          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu-ssh --accept-routes
+          sleep 3
+          TAILSCALE_IP=$(tailscale ip -4)
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
+          echo "[OK] Tailscale IP: $TAILSCALE_IP"
+      
+      - name: Create User Account
+        id: create_user
+        run: |
+          echo "[4/5] Creating user account..."
+          USERNAME="ubssh_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
@@ -232,18 +336,15 @@ jobs:
       
       - name: Configure SSH
         run: |
-          echo "[6/6] Configuring SSH service..."
-          sudo ssh-keygen -A
+          echo "[5/5] Configuring SSH..."
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart ssh
-          sudo systemctl enable ssh
-          echo "[OK] SSH configured on port 22"
+          echo "[OK] SSH configured"
       
       - name: Get Public IP
         id: get_public_ip
         run: |
-          echo "Fetching public IP address..."
           IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
           echo "public_ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
@@ -253,14 +354,15 @@ jobs:
         run: |
           if sudo systemctl is-active ssh > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                    UBUNTU LATEST READY                     ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "============================================================"
+            echo "              UBUNTU 22.04 WITH SSH READY"
+            echo "============================================================"
+            echo "  SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
+            echo "  SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
+            echo "  Password      : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+            echo ""
           else
             echo "status=failed" >> $GITHUB_OUTPUT
           fi
@@ -269,240 +371,14 @@ jobs:
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
           while [ $(date +%s) -lt $END ]; do
-            echo "[UBUNTU] Active - $((($END - $(date +%s))/60)) minutes left"
+            echo "[UBUNTU-SSH] Active - $((($END - $(date +%s))/60)) minutes left"
             sleep 60
           done
 
-  # ==================== DEBIAN 12 ====================
-  debian_deploy:
+  # ==================== ALMALINUX 9 WITH RDP (XFCE4 + XRDP) ====================
+  almalinux_rdp_deploy:
     needs: [init]
-    if: github.event.inputs.target_os == 'debian' || github.event.inputs.target_os == 'all'
-    runs-on: ubuntu-latest
-    container:
-      image: debian:12
-    timeout-minutes: 360
-    outputs:
-      status: ${{ steps.verify.outputs.status }}
-      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
-      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
-      username: ${{ steps.create_user.outputs.username }}
-      password: ${{ steps.create_user.outputs.password }}
-      os_type: debian
-    steps:
-      - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    DEBIAN 12 DEPLOYMENT                    ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-      
-      - name: Update System and Install Packages
-        run: |
-          echo "[1/7] Updating package list..."
-          apt update -qq
-          echo "[2/7] Installing OpenSSH server..."
-          apt install -y -qq openssh-server
-          echo "[3/7] Installing utilities..."
-          apt install -y -qq sudo curl wget procps iproute2
-          echo "[OK] System prepared"
-      
-      - name: Create TUN Device for Tailscale
-        run: |
-          echo "[4/7] Creating TUN device..."
-          mkdir -p /dev/net
-          mknod /dev/net/tun c 10 200
-          chmod 600 /dev/net/tun
-          echo "[OK] TUN device created"
-      
-      - name: Install Tailscale
-        run: |
-          echo "[5/7] Installing Tailscale..."
-          curl -fsSL https://tailscale.com/install.sh | sh
-          echo "[OK] Tailscale installed"
-      
-      - name: Start Tailscaled and Connect
-        id: tailscale
-        run: |
-          echo "Starting Tailscaled daemon..."
-          tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
-          sleep 5
-          echo "Connecting to Tailscale network..."
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-debian --accept-routes --accept-dns
-          sleep 3
-          TAILSCALE_IP=$(tailscale ip -4)
-          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
-          echo "[OK] Tailscale IP: $TAILSCALE_IP"
-      
-      - name: Create User Account
-        id: create_user
-        run: |
-          echo "[6/7] Creating user account..."
-          USERNAME="deb_$((RANDOM%9000+1000))"
-          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG sudo "$USERNAME"
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[OK] User created: $USERNAME"
-      
-      - name: Configure SSH
-        run: |
-          echo "[7/7] Configuring SSH service..."
-          ssh-keygen -A
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          /usr/sbin/sshd
-          echo "[OK] SSH configured on port 22"
-      
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          echo "Fetching public IP address..."
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-          echo "[OK] Public IP: $IP"
-      
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if pgrep sshd > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                    DEBIAN 12 READY                         ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Keep Session Alive
-        run: |
-          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
-          while [ $(date +%s) -lt $END ]; do
-            echo "[DEBIAN] Active - $((($END - $(date +%s))/60)) minutes left"
-            sleep 60
-          done
-
-  # ==================== CENTOS 9 (FIXED) ====================
-  centos_deploy:
-    needs: [init]
-    if: github.event.inputs.target_os == 'centos' || github.event.inputs.target_os == 'all'
-    runs-on: ubuntu-latest
-    container:
-      image: quay.io/centos/centos:stream9
-    timeout-minutes: 360
-    outputs:
-      status: ${{ steps.verify.outputs.status }}
-      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
-      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
-      username: ${{ steps.create_user.outputs.username }}
-      password: ${{ steps.create_user.outputs.password }}
-      os_type: centos
-    steps:
-      - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    CENTOS 9 DEPLOYMENT                     ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-      
-      - name: Fix curl conflict and Install Packages
-        run: |
-          echo "[1/8] Fixing curl package conflict..."
-          dnf remove -y curl-minimal 2>/dev/null || true
-          echo "[2/8] Installing OpenSSH server..."
-          dnf install -y openssh-server
-          echo "[3/8] Installing utilities..."
-          dnf install -y sudo curl wget procps-ng iproute
-          echo "[OK] System prepared"
-      
-      - name: Create TUN Device for Tailscale
-        run: |
-          echo "[4/8] Creating TUN device..."
-          mkdir -p /dev/net
-          mknod /dev/net/tun c 10 200
-          chmod 600 /dev/net/tun
-          echo "[OK] TUN device created"
-      
-      - name: Install Tailscale
-        run: |
-          echo "[5/8] Installing Tailscale..."
-          curl -fsSL https://tailscale.com/install.sh | sh
-          echo "[OK] Tailscale installed"
-      
-      - name: Start Tailscaled and Connect
-        id: tailscale
-        run: |
-          echo "Starting Tailscaled daemon..."
-          tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
-          sleep 5
-          echo "Connecting to Tailscale network..."
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-centos --accept-routes --accept-dns
-          sleep 3
-          TAILSCALE_IP=$(tailscale ip -4)
-          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
-          echo "[OK] Tailscale IP: $TAILSCALE_IP"
-      
-      - name: Create User Account
-        id: create_user
-        run: |
-          echo "[6/8] Creating user account..."
-          USERNAME="centos_$((RANDOM%9000+1000))"
-          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel "$USERNAME"
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[OK] User created: $USERNAME"
-      
-      - name: Configure SSH
-        run: |
-          echo "[7/8] Configuring SSH service..."
-          ssh-keygen -A
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          /usr/sbin/sshd
-          echo "[OK] SSH configured on port 22"
-      
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          echo "[8/8] Fetching public IP address..."
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-          echo "[OK] Public IP: $IP"
-      
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if pgrep sshd > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                    CENTOS 9 READY                          ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Keep Session Alive
-        run: |
-          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
-          while [ $(date +%s) -lt $END ]; do
-            echo "[CENTOS] Active - $((($END - $(date +%s))/60)) minutes left"
-            sleep 60
-          done
-
-  # ==================== ALMALINUX 9 ====================
-  almalinux_deploy:
-    needs: [init]
-    if: github.event.inputs.target_os == 'almalinux' || github.event.inputs.target_os == 'all'
+    if: github.event.inputs.target_os == 'almalinux-rdp' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
     container:
       image: almalinux:9
@@ -514,25 +390,49 @@ jobs:
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
       os_type: almalinux
+      connection_type: rdp
     steps:
-      - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                  ALMALINUX 9 DEPLOYMENT                    ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
+      - run: echo "=== ALMALINUX 9 WITH RDP DEPLOYMENT ==="
       
-      - name: Install Packages
+      - name: Update System
         run: |
-          echo "[1/7] Updating package list..."
+          echo "[1/9] Updating system packages..."
           dnf update -y
-          echo "[2/7] Installing OpenSSH server..."
-          dnf install -y openssh-server
-          echo "[3/7] Installing utilities..."
-          dnf install -y sudo curl wget procps-ng iproute
-          echo "[OK] System prepared"
+          echo "[OK] System updated"
+      
+      - name: Install EPEL Repository
+        run: |
+          echo "[2/9] Installing EPEL repository..."
+          dnf install -y epel-release
+          echo "[OK] EPEL installed"
+      
+      - name: Install Desktop Environment (XFCE4)
+        run: |
+          echo "[3/9] Installing XFCE4 desktop environment..."
+          dnf groupinstall -y "Xfce"
+          echo "[OK] XFCE4 installed"
+      
+      - name: Install XRDP Server
+        run: |
+          echo "[4/9] Installing XRDP server..."
+          dnf install -y xrdp
+          systemctl enable xrdp
+          systemctl start xrdp
+          echo "[OK] XRDP installed and started"
+      
+      - name: Configure XRDP
+        run: |
+          echo "[5/9] Configuring XRDP..."
+          echo "startxfce4" > ~/.xinitrc
+          sed -i 's/port=3389/port=3389/g' /etc/xrdp/xrdp.ini
+          systemctl restart xrdp
+          firewall-cmd --add-port=3389/tcp --permanent
+          firewall-cmd --reload
+          echo "[OK] XRDP configured"
       
       - name: Create TUN Device for Tailscale
         run: |
-          echo "[4/7] Creating TUN device..."
+          echo "[6/9] Creating TUN device..."
           mkdir -p /dev/net
           mknod /dev/net/tun c 10 200
           chmod 600 /dev/net/tun
@@ -540,18 +440,18 @@ jobs:
       
       - name: Install Tailscale
         run: |
-          echo "[5/7] Installing Tailscale..."
+          echo "[7/9] Installing Tailscale..."
           curl -fsSL https://tailscale.com/install.sh | sh
           echo "[OK] Tailscale installed"
       
-      - name: Start Tailscaled and Connect
+      - name: Connect Tailscale
         id: tailscale
         run: |
-          echo "Starting Tailscaled daemon..."
-          tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+          echo "Starting Tailscaled..."
+          tailscaled --state=/var/lib/tailscale/tailscaled.state &
           sleep 5
           echo "Connecting to Tailscale network..."
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-almalinux --accept-routes --accept-dns
+          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-alma-rdp --accept-routes
           sleep 3
           TAILSCALE_IP=$(tailscale ip -4)
           echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
@@ -560,8 +460,116 @@ jobs:
       - name: Create User Account
         id: create_user
         run: |
-          echo "[6/7] Creating user account..."
-          USERNAME="alma_$((RANDOM%9000+1000))"
+          echo "[8/9] Creating user account..."
+          USERNAME="almardp_$((RANDOM%9000+1000))"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
+          useradd -m -s /bin/bash "$USERNAME"
+          echo "$USERNAME:$PASSWORD" | chpasswd
+          usermod -aG wheel "$USERNAME"
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "[OK] User created: $USERNAME"
+      
+      - name: Add User to XRDP Group
+        run: |
+          echo "Adding user to XRDP group..."
+          usermod -aG xrdp ${{ steps.create_user.outputs.username }}
+          echo "[OK] User added to XRDP group"
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          echo "[9/9] Getting public IP..."
+          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "public_ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Public IP: $IP"
+      
+      - name: Verify Deployment
+        id: verify
+        run: |
+          if pgrep xrdp > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo ""
+            echo "============================================================"
+            echo "              ALMALINUX 9 WITH RDP READY"
+            echo "============================================================"
+            echo "  RDP Public    : ${{ steps.get_public_ip.outputs.public_ip }}:3389"
+            echo "  RDP Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:3389"
+            echo "  Username      : ${{ steps.create_user.outputs.username }}"
+            echo "  Password      : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+            echo ""
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Keep Session Alive
+        run: |
+          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
+          while [ $(date +%s) -lt $END ]; do
+            echo "[ALMALINUX-RDP] Active - $((($END - $(date +%s))/60)) minutes left"
+            sleep 60
+          done
+
+  # ==================== ALMALINUX 9 WITH SSH ====================
+  almalinux_ssh_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'almalinux-ssh' || github.event.inputs.target_os == 'all'
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:9
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      os_type: almalinux
+      connection_type: ssh
+    steps:
+      - run: echo "=== ALMALINUX 9 WITH SSH DEPLOYMENT ==="
+      
+      - name: Update System and Install SSH
+        run: |
+          echo "[1/6] Updating system packages..."
+          dnf update -y
+          echo "[2/6] Installing OpenSSH server..."
+          dnf install -y openssh-server
+          echo "[OK] SSH installed"
+      
+      - name: Create TUN Device for Tailscale
+        run: |
+          echo "[3/6] Creating TUN device..."
+          mkdir -p /dev/net
+          mknod /dev/net/tun c 10 200
+          chmod 600 /dev/net/tun
+          echo "[OK] TUN device created"
+      
+      - name: Install Tailscale
+        run: |
+          echo "[4/6] Installing Tailscale..."
+          curl -fsSL https://tailscale.com/install.sh | sh
+          echo "[OK] Tailscale installed"
+      
+      - name: Connect Tailscale
+        id: tailscale
+        run: |
+          echo "Starting Tailscaled..."
+          tailscaled --state=/var/lib/tailscale/tailscaled.state &
+          sleep 5
+          echo "Connecting to Tailscale network..."
+          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-alma-ssh --accept-routes
+          sleep 3
+          TAILSCALE_IP=$(tailscale ip -4)
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
+          echo "[OK] Tailscale IP: $TAILSCALE_IP"
+      
+      - name: Create User Account
+        id: create_user
+        run: |
+          echo "[5/6] Creating user account..."
+          USERNAME="almassh_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | chpasswd
@@ -572,17 +580,16 @@ jobs:
       
       - name: Configure SSH
         run: |
-          echo "[7/7] Configuring SSH service..."
+          echo "[6/6] Configuring SSH..."
           ssh-keygen -A
           sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
           /usr/sbin/sshd
-          echo "[OK] SSH configured on port 22"
+          echo "[OK] SSH configured"
       
       - name: Get Public IP
         id: get_public_ip
         run: |
-          echo "Fetching public IP address..."
           IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
           echo "public_ip=$IP" >> $GITHUB_OUTPUT
           echo "[OK] Public IP: $IP"
@@ -592,14 +599,15 @@ jobs:
         run: |
           if pgrep sshd > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                   ALMALINUX 9 READY                        ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "============================================================"
+            echo "              ALMALINUX 9 WITH SSH READY"
+            echo "============================================================"
+            echo "  SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
+            echo "  SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
+            echo "  Password      : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+            echo ""
           else
             echo "status=failed" >> $GITHUB_OUTPUT
           fi
@@ -608,13 +616,13 @@ jobs:
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
           while [ $(date +%s) -lt $END ]; do
-            echo "[ALMALINUX] Active - $((($END - $(date +%s))/60)) minutes left"
+            echo "[ALMALINUX-SSH] Active - $((($END - $(date +%s))/60)) minutes left"
             sleep 60
           done
 
-  # ==================== TELEGRAM NOTIFICATION ====================
+  # ==================== TELEGRAM NOTIFICATION (FIXED - ĐẦY ĐỦ THÔNG TIN) ====================
   telegram_notify:
-    needs: [init, windows_deploy, ubuntu_deploy, debian_deploy, centos_deploy, almalinux_deploy]
+    needs: [init, windows_deploy, ubuntu_rdp_deploy, ubuntu_ssh_deploy, almalinux_rdp_deploy, almalinux_ssh_deploy]
     if: always() && github.event.inputs.telegram_notify == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -623,66 +631,81 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="🚀 NEURAL MASTER SYSTEM v3.4%0A"
-          MSG="${MSG}╔════════════════════════════════════════╗%0A"
-          MSG="${MSG}║ Session: ${{ needs.init.outputs.session_id }}%0A"
-          MSG="${MSG}║ Duration: ${{ github.event.inputs.duration }}%0A"
-          MSG="${MSG}║ Expires: ${{ needs.init.outputs.termination_time }}%0A"
-          MSG="${MSG}╚════════════════════════════════════════╝%0A"
+          MSG="🚀 NEURAL MASTER SYSTEM v4.0"
+          MSG="$MSG"$'\n'
+          MSG="$MSG"$'\n'
+          MSG="$MSG"'=============================='$'\n'
+          MSG="$MSG"'Session ID: '"${{ needs.init.outputs.session_id }}"$'\n'
+          MSG="$MSG"'Duration: '"${{ github.event.inputs.duration }}"$'\n'
+          MSG="$MSG"'Expires: '"${{ needs.init.outputs.termination_time }}"$'\n'
+          MSG="$MSG"'Mode: '"${{ github.event.inputs.performance_mode }}"$'\n'
+          MSG="$MSG"'=============================='$'\n'
           
           SENT_COUNT=0
           
           if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a🪟 WINDOWS 11%0a"
-            MSG="${MSG}├─ Public RDP: ${{ needs.windows_deploy.outputs.public_ip }}:3389%0a"
-            MSG="${MSG}├─ Tailscale RDP: ${{ needs.windows_deploy.outputs.tailscale_ip }}:3389%0a"
-            MSG="${MSG}├─ Username: ${{ needs.windows_deploy.outputs.username }}%0a"
-            MSG="${MSG}└─ Password: ${{ needs.windows_deploy.outputs.password }}%0a"
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'🪟 WINDOWS 11 (RDP)'$'\n'
+            MSG="$MSG"'----------------------------'$'\n'
+            MSG="$MSG"'Public RDP: '"${{ needs.windows_deploy.outputs.public_ip }}:3389"$'\n'
+            MSG="$MSG"'Tailscale RDP: '"${{ needs.windows_deploy.outputs.tailscale_ip }}:3389"$'\n'
+            MSG="$MSG"'Username: '"${{ needs.windows_deploy.outputs.username }}"$'\n'
+            MSG="$MSG"'Password: '"${{ needs.windows_deploy.outputs.password }}"$'\n'
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          if [ "${{ needs.ubuntu_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a🐧 UBUNTU LATEST%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.ubuntu_deploy.outputs.password }}%0a"
+          if [ "${{ needs.ubuntu_rdp_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'🐧 UBUNTU 22.04 (RDP - XFCE4)'$'\n'
+            MSG="$MSG"'----------------------------'$'\n'
+            MSG="$MSG"'Public RDP: '"${{ needs.ubuntu_rdp_deploy.outputs.public_ip }}:3389"$'\n'
+            MSG="$MSG"'Tailscale RDP: '"${{ needs.ubuntu_rdp_deploy.outputs.tailscale_ip }}:3389"$'\n'
+            MSG="$MSG"'Username: '"${{ needs.ubuntu_rdp_deploy.outputs.username }}"$'\n'
+            MSG="$MSG"'Password: '"${{ needs.ubuntu_rdp_deploy.outputs.password }}"$'\n'
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          if [ "${{ needs.debian_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a🔷 DEBIAN 12%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.debian_deploy.outputs.username }}@${{ needs.debian_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.debian_deploy.outputs.username }}@${{ needs.debian_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.debian_deploy.outputs.password }}%0a"
+          if [ "${{ needs.ubuntu_ssh_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'🐧 UBUNTU 22.04 (SSH)'$'\n'
+            MSG="$MSG"'----------------------------'$'\n'
+            MSG="$MSG"'Public SSH: ssh '"${{ needs.ubuntu_ssh_deploy.outputs.username }}@${{ needs.ubuntu_ssh_deploy.outputs.public_ip }} -p 22"$'\n'
+            MSG="$MSG"'Tailscale SSH: ssh '"${{ needs.ubuntu_ssh_deploy.outputs.username }}@${{ needs.ubuntu_ssh_deploy.outputs.tailscale_ip }} -p 22"$'\n'
+            MSG="$MSG"'Password: '"${{ needs.ubuntu_ssh_deploy.outputs.password }}"$'\n'
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          if [ "${{ needs.centos_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a📕 CENTOS 9%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.centos_deploy.outputs.username }}@${{ needs.centos_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.centos_deploy.outputs.username }}@${{ needs.centos_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.centos_deploy.outputs.password }}%0a"
+          if [ "${{ needs.almalinux_rdp_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'📗 ALMALINUX 9 (RDP - XFCE4)'$'\n'
+            MSG="$MSG"'----------------------------'$'\n'
+            MSG="$MSG"'Public RDP: '"${{ needs.almalinux_rdp_deploy.outputs.public_ip }}:3389"$'\n'
+            MSG="$MSG"'Tailscale RDP: '"${{ needs.almalinux_rdp_deploy.outputs.tailscale_ip }}:3389"$'\n'
+            MSG="$MSG"'Username: '"${{ needs.almalinux_rdp_deploy.outputs.username }}"$'\n'
+            MSG="$MSG"'Password: '"${{ needs.almalinux_rdp_deploy.outputs.password }}"$'\n'
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          if [ "${{ needs.almalinux_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a📗 ALMALINUX 9%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.almalinux_deploy.outputs.username }}@${{ needs.almalinux_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.almalinux_deploy.outputs.username }}@${{ needs.almalinux_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.almalinux_deploy.outputs.password }}%0a"
+          if [ "${{ needs.almalinux_ssh_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'📗 ALMALINUX 9 (SSH)'$'\n'
+            MSG="$MSG"'----------------------------'$'\n'
+            MSG="$MSG"'Public SSH: ssh '"${{ needs.almalinux_ssh_deploy.outputs.username }}@${{ needs.almalinux_ssh_deploy.outputs.public_ip }} -p 22"$'\n'
+            MSG="$MSG"'Tailscale SSH: ssh '"${{ needs.almalinux_ssh_deploy.outputs.username }}@${{ needs.almalinux_ssh_deploy.outputs.tailscale_ip }} -p 22"$'\n'
+            MSG="$MSG"'Password: '"${{ needs.almalinux_ssh_deploy.outputs.password }}"$'\n'
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          MSG="${MSG}%0a╔════════════════════════════════════════╗%0a"
-          MSG="${MSG}║ ✅ ${SENT_COUNT} service(s) online%0a"
-          MSG="${MSG}║ 🔐 Connect via Tailscale for security%0a"
-          MSG="${MSG}╚════════════════════════════════════════╝"
+          MSG="$MSG"$'\n'
+          MSG="$MSG"'=============================='$'\n'
+          MSG="$MSG"'✅ System Online'$'\n'
+          MSG="$MSG"'🔐 Connect via Tailscale for secure access'$'\n'
+          MSG="$MSG"'=============================='$'\n'
           
           if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ] && [ $SENT_COUNT -gt 0 ]; then
-            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-              -d chat_id="${CHAT_ID}" \
-              -d text="${MSG}" \
-              -d parse_mode="HTML" \
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+              -d chat_id="$CHAT_ID" \
+              -d text="$MSG" \
               -d disable_web_page_preview="true"
             echo "Telegram sent: $SENT_COUNT services"
           else
@@ -696,10 +719,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    MEMORY PURGE                            ║"
-          echo "╠════════════════════════════════════════════════════════════╣"
-          echo "║ Session: ${{ needs.init.outputs.session_id }}"
-          echo "║ Status: Credentials Destroyed"
-          echo "║ Action: Network Connections Terminated"
-          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "============================================================"
+          echo "              MEMORY PURGE"
+          echo "============================================================"
+          echo "  Session: ${{ needs.init.outputs.session_id }}"
+          echo "  Credentials destroyed"
+          echo "  Network connections terminated"
+          echo "============================================================"
+          echo ""
+          echo "NEURAL MASTER SYSTEM - SESSION ENDED"
