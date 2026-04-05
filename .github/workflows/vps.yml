@@ -1,0 +1,405 @@
+# =====================================================================================
+#              🖥 VPS 4-16 GENERATOR 🚀
+#         Windows RDP + VNC + Web | Ubuntu SSH | Tailscale | Telegram Bot
+# =====================================================================================
+
+name: 🖥 VPS 4-16 GENERATOR 🚀
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Session Duration
+        required: true
+        default: '2h'
+        type: choice
+        options: ['30m', '1h', '2h', '4h', '6h']
+      target_os:
+        description: Target OS
+        required: true
+        default: 'windows'
+        type: choice
+        options: ['windows', 'ubuntu', 'both']
+      performance_mode:
+        description: Performance Mode
+        required: false
+        default: 'balanced'
+        type: choice
+        options: ['balanced', 'performance', 'quantum']
+      telegram_notify:
+        description: Send Telegram Notification
+        required: false
+        default: true
+        type: boolean
+      auto_cleanup:
+        description: Auto Cleanup
+        required: false
+        default: true
+        type: boolean
+
+env:
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    outputs:
+      session_id: ${{ steps.init.outputs.session_id }}
+      duration_minutes: ${{ steps.init.outputs.duration_minutes }}
+      termination_time: ${{ steps.init.outputs.termination_time }}
+      start_timestamp: ${{ steps.init.outputs.start_timestamp }}
+    steps:
+      - id: init
+        run: |
+          SESSION_ID="VPS-$(date +%Y%m%d-%H%M%S)-$((RANDOM%9000+1000))"
+          START_TS=$(date +%s)
+          DUR_INPUT="${{ github.event.inputs.duration }}"
+          case "$DUR_INPUT" in "30m") DUR=30;; "1h") DUR=60;; "2h") DUR=120;; "4h") DUR=240;; "6h") DUR=360;; *) DUR=120;; esac
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+          echo "start_timestamp=$START_TS" >> $GITHUB_OUTPUT
+          echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
+          echo "termination_time=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_OUTPUT
+          echo "============================================================"
+          echo "         🖥 VPS 4-16 GENERATOR ACTIVE 🚀"
+          echo "============================================================"
+          echo "  Session ID    : $SESSION_ID"
+          echo "  Duration      : $DUR minutes"
+          echo "  Target OS     : ${{ github.event.inputs.target_os }}"
+          echo "  Mode          : ${{ github.event.inputs.performance_mode }}"
+          echo "============================================================"
+
+  # ==================== WINDOWS 11 WITH RDP + VNC + WEB ====================
+  windows_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'windows' || github.event.inputs.target_os == 'both'
+    runs-on: windows-latest
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      novnc_link: ${{ steps.novnc.outputs.novnc_link }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      os_type: windows
+      connection_type: rdp
+    steps:
+      - run: Write-Host "=== WINDOWS 11 DEPLOYMENT WITH VNC + WEB ===" -ForegroundColor Cyan
+      
+      - name: Enable Remote Desktop
+        run: |
+          Write-Host "[1/8] Enabling Remote Desktop..." -ForegroundColor Yellow
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-In" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service TermService -Force -ErrorAction SilentlyContinue
+          Write-Host "[OK] Remote Desktop enabled" -ForegroundColor Green
+      
+      - name: Install TightVNC Server
+        run: |
+          Write-Host "[2/8] Installing TightVNC Server..." -ForegroundColor Yellow
+          $vncUrl = "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi"
+          $vncInstaller = "$env:TEMP\tightvnc.msi"
+          Invoke-WebRequest -Uri $vncUrl -OutFile $vncInstaller -UseBasicParsing
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$vncInstaller`"", "/quiet", "/norestart" -Wait
+          Start-Sleep -Seconds 3
+          Write-Host "[OK] TightVNC installed" -ForegroundColor Green
+      
+      - name: Configure TightVNC
+        run: |
+          Write-Host "[3/8] Configuring TightVNC..." -ForegroundColor Yellow
+          $vncPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 12 | ForEach-Object {[char]$_})
+          echo "VNC_PASSWORD=$vncPassword" >> $env:GITHUB_ENV
+          $registryPath = "HKLM:\SOFTWARE\TightVNC\Server"
+          New-Item -Path $registryPath -Force | Out-Null
+          Set-ItemProperty -Path $registryPath -Name "ControlPassword" -Value $vncPassword -Force
+          Set-ItemProperty -Path $registryPath -Name "UseVncAuthentication" -Value 1 -Force
+          Set-ItemProperty -Path $registryPath -Name "AcceptRfbConnections" -Value 1 -Force
+          Set-ItemProperty -Path $registryPath -Name "AllowLoopback" -Value 1 -Force
+          netsh advfirewall firewall add rule name="VNC-In" dir=in action=allow protocol=TCP localport=5900
+          Start-Service -Name "tvnserver" -ErrorAction SilentlyContinue
+          Set-Service -Name "tvnserver" -StartupType Automatic
+          Write-Host "[OK] VNC configured" -ForegroundColor Green
+      
+      - name: Install noVNC Web Interface
+        run: |
+          Write-Host "[4/8] Installing noVNC web interface..." -ForegroundColor Yellow
+          mkdir C:\novnc -Force
+          cd C:\novnc
+          Invoke-WebRequest -Uri "https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.zip" -OutFile "novnc.zip" -UseBasicParsing
+          Expand-Archive -Path "novnc.zip" -DestinationPath "." -Force
+          Move-Item "C:\novnc\noVNC-1.4.0\*" "C:\novnc\" -Force
+          Remove-Item "C:\novnc\noVNC-1.4.0" -Force -Recurse
+          Remove-Item "C:\novnc\novnc.zip" -Force
+          
+          $websockifyUrl = "https://github.com/novnc/websockify/archive/refs/tags/v0.11.0.zip"
+          Invoke-WebRequest -Uri $websockifyUrl -OutFile "websockify.zip" -UseBasicParsing
+          Expand-Archive -Path "websockify.zip" -DestinationPath "." -Force
+          Move-Item "C:\novnc\websockify-0.11.0\*" "C:\novnc\" -Force
+          Remove-Item "C:\novnc\websockify-0.11.0" -Force -Recurse
+          Remove-Item "C:\novnc\websockify.zip" -Force
+          Write-Host "[OK] noVNC installed" -ForegroundColor Green
+      
+      - name: Start noVNC Service
+        run: |
+          Write-Host "Starting noVNC service..." -ForegroundColor Yellow
+          $wsScript = "C:\novnc\websockify\websockify.py"
+          $novncDir = "C:\novnc"
+          $vncPort = 5900
+          $webPort = 6080
+          
+          netsh advfirewall firewall add rule name="noVNC-In" dir=in action=allow protocol=TCP localport=$webPort
+          
+          $psCode = "cd '$novncDir'; python websockify\websockify.py --web . $webPort localhost:$vncPort"
+          $action = New-ScheduledTaskAction -Execute "python" -Argument "-c `"$psCode`""
+          $trigger = New-ScheduledTaskTrigger -AtStartup
+          $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+          Register-ScheduledTask -TaskName "noVNC" -Action $action -Trigger $trigger -Principal $principal -Force
+          Start-ScheduledTask -TaskName "noVNC"
+          Start-Sleep -Seconds 5
+          Write-Host "[OK] noVNC started on port $webPort" -ForegroundColor Green
+      
+      - name: Create User Account
+        id: create_user
+        run: |
+          Write-Host "[5/8] Creating user account..." -ForegroundColor Yellow
+          $username = "vps_$((Get-Random -Minimum 1000 -Maximum 9999))"
+          $password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 20 | ForEach-Object {[char]$_})
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name $username -Password $securePass -AccountNeverExpires -PasswordNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+          echo "username=$username" >> $env:GITHUB_OUTPUT
+          echo "password=$password" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] User created: $username" -ForegroundColor Green
+      
+      - name: Install Tailscale
+        run: |
+          Write-Host "[6/8] Installing Tailscale..." -ForegroundColor Yellow
+          $msiPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath -UseBasicParsing
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
+          Write-Host "[OK] Tailscale installed" -ForegroundColor Green
+      
+      - name: Connect Tailscale
+        id: tailscale
+        run: |
+          Write-Host "[7/8] Connecting to Tailscale..." -ForegroundColor Yellow
+          Start-Sleep -Seconds 3
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=vps-generator --accept-routes
+          Start-Sleep -Seconds 3
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "tailscale_ip=$ip" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Tailscale IP: $ip" -ForegroundColor Green
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          Write-Host "[8/8] Getting public IP..." -ForegroundColor Yellow
+          try { $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 3).Content.Trim() } catch { $ip = "UNAVAILABLE" }
+          echo "public_ip=$ip" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Public IP: $ip" -ForegroundColor Green
+      
+      - name: Generate noVNC Link
+        id: novnc
+        run: |
+          $tailscaleIp = "${{ steps.tailscale.outputs.tailscale_ip }}"
+          $novncLink = "http://${tailscaleIp}:6080/vnc.html?host=${tailscaleIp}&port=6080"
+          echo "novnc_link=$novncLink" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] noVNC link generated" -ForegroundColor Green
+      
+      - name: Verify Deployment
+        id: verify
+        run: |
+          $svc = Get-Service TermService -ErrorAction SilentlyContinue
+          if ($svc.Status -eq 'Running') { 
+            echo "status=active" >> $env:GITHUB_OUTPUT
+            Write-Host ""
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "         🖥 VPS 4-16 GENERATOR READY 🚀" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "  RDP Public    : ${{ steps.get_public_ip.outputs.public_ip }}:3389" -ForegroundColor Green
+            Write-Host "  RDP Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:3389" -ForegroundColor Green
+            Write-Host "  VNC Public    : ${{ steps.get_public_ip.outputs.public_ip }}:5900" -ForegroundColor Green
+            Write-Host "  VNC Tailscale : ${{ steps.tailscale.outputs.tailscale_ip }}:5900" -ForegroundColor Green
+            Write-Host "  noVNC Link    : ${{ steps.novnc.outputs.novnc_link }}" -ForegroundColor Green
+            Write-Host "  Username      : ${{ steps.create_user.outputs.username }}" -ForegroundColor Green
+            Write-Host "  Password      : ${{ steps.create_user.outputs.password }}" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host ""
+          } else { echo "status=failed" >> $env:GITHUB_OUTPUT }
+      
+      - name: Keep Session Alive
+        run: |
+          $END = [int](Get-Date -UFormat %s) + ${{ needs.init.outputs.duration_minutes }} * 60
+          while ([int](Get-Date -UFormat %s) -lt $END) { 
+            $LEFT = (($END - [int](Get-Date -UFormat %s))/60)
+            Write-Host "[WINDOWS] Active - $([math]::Floor($LEFT)) minutes remaining" -ForegroundColor DarkCyan
+            Start-Sleep 60 
+          }
+
+  # ==================== UBUNTU 22.04 WITH SSH ====================
+  ubuntu_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'ubuntu' || github.event.inputs.target_os == 'both'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+      os_type: ubuntu
+      connection_type: ssh
+    steps:
+      - run: echo "=== UBUNTU 22.04 DEPLOYMENT ==="
+      
+      - name: Quick System Update
+        run: |
+          echo "[1/4] Quick system update..."
+          sudo apt update -qq
+          sudo apt install -y -qq openssh-server
+          echo "[OK] Ready"
+      
+      - name: Install Tailscale
+        run: |
+          echo "[2/4] Installing Tailscale..."
+          curl -fsSL https://tailscale.com/install.sh | sh
+          echo "[OK] Done"
+      
+      - name: Connect Tailscale
+        id: tailscale
+        run: |
+          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=vps-ubuntu --accept-routes
+          sleep 2
+          TAILSCALE_IP=$(tailscale ip -4)
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
+          echo "[OK] Tailscale IP: $TAILSCALE_IP"
+      
+      - name: Create User
+        id: create_user
+        run: |
+          echo "[3/4] Creating user..."
+          USERNAME="vps_$((RANDOM%9000+1000))"
+          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
+          sudo useradd -m -s /bin/bash "$USERNAME"
+          echo "$USERNAME:$PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo "$USERNAME"
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "[OK] User: $USERNAME"
+      
+      - name: Configure SSH
+        run: |
+          echo "[4/4] Configuring SSH..."
+          sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+          echo "[OK] SSH ready"
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          IP=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "public_ip=$IP" >> $GITHUB_OUTPUT
+      
+      - name: Verify
+        id: verify
+        run: |
+          if sudo systemctl is-active ssh > /dev/null 2>&1; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo ""
+            echo "============================================================"
+            echo "              UBUNTU 22.04 READY"
+            echo "============================================================"
+            echo "  SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }}"
+            echo "  SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }}"
+            echo "  Password      : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+            echo ""
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Keep Alive
+        run: |
+          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
+          while [ $(date +%s) -lt $END ]; do
+            echo "[UBUNTU] Active - $((($END - $(date +%s))/60)) minutes left"
+            sleep 60
+          done
+
+  # ==================== FAST TELEGRAM NOTIFICATION ====================
+  telegram_notify:
+    needs: [init, windows_deploy, ubuntu_deploy]
+    if: always() && github.event.inputs.telegram_notify == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Fast Notification
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MSG=""
+          MSG="$MSG"$'\n'
+          MSG="$MSG"'🖥 VPS 4-16 GENERATOR 🚀'$'\n'
+          MSG="$MSG"'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'$'\n'
+          MSG="$MSG"'📋 SESSION'$'\n'
+          MSG="$MSG"'────────────────────────────'$'\n'
+          MSG="$MSG"'🆔 ID: '"${{ needs.init.outputs.session_id }}"$'\n'
+          MSG="$MSG"'⏱️ Duration: '"${{ github.event.inputs.duration }}"$'\n'
+          MSG="$MSG"'⌛ Expires: '"${{ needs.init.outputs.termination_time }}"$'\n'
+          MSG="$MSG"'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'$'\n'
+          
+          if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'🪟 WINDOWS 11'$'\n'
+            MSG="$MSG"'────────────────────────────'$'\n'
+            MSG="$MSG"'🌍 Public RDP: '"${{ needs.windows_deploy.outputs.public_ip }}:3389"$'\n'
+            MSG="$MSG"'🔗 TS RDP: '"${{ needs.windows_deploy.outputs.tailscale_ip }}:3389"$'\n'
+            MSG="$MSG"'🌍 Public VNC: '"${{ needs.windows_deploy.outputs.public_ip }}:5900"$'\n'
+            MSG="$MSG"'🔗 TS VNC: '"${{ needs.windows_deploy.outputs.tailscale_ip }}:5900"$'\n'
+            MSG="$MSG"'🖥️ noVNC: '"${{ needs.windows_deploy.outputs.novnc_link }}"$'\n'
+            MSG="$MSG"'👤 User: '"${{ needs.windows_deploy.outputs.username }}"$'\n'
+            MSG="$MSG"'🔐 Pass: '"${{ needs.windows_deploy.outputs.password }}"$'\n'
+          fi
+          
+          if [ "${{ needs.ubuntu_deploy.outputs.status }}" = "active" ]; then
+            MSG="$MSG"$'\n'
+            MSG="$MSG"'🐧 UBUNTU 22.04'$'\n'
+            MSG="$MSG"'────────────────────────────'$'\n'
+            MSG="$MSG"'🌍 Public SSH: ssh '"${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.public_ip }}"$'\n'
+            MSG="$MSG"'🔗 TS SSH: ssh '"${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.tailscale_ip }}"$'\n'
+            MSG="$MSG"'🔐 Pass: '"${{ needs.ubuntu_deploy.outputs.password }}"$'\n'
+          fi
+          
+          MSG="$MSG"$'\n'
+          MSG="$MSG"'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'$'\n'
+          MSG="$MSG"'✅ SYSTEM ONLINE'$'\n'
+          MSG="$MSG"'🔒 Connect via Tailscale'$'\n'
+          MSG="$MSG"'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'$'\n'
+          
+          if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+              -d chat_id="$CHAT_ID" \
+              -d text="$MSG" \
+              -d parse_mode="HTML" \
+              -d disable_web_page_preview="true"
+          fi
+
+  # ==================== FAST CLEANUP ====================
+  memory_purge:
+    needs: [init]
+    if: always() && github.event.inputs.auto_cleanup == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo ""
+          echo "============================================================"
+          echo "         🖥 VPS 4-16 GENERATOR - CLEANUP"
+          echo "============================================================"
+          echo "  Session: ${{ needs.init.outputs.session_id }}"
+          echo "  Credentials destroyed"
+          echo "============================================================"
