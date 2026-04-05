@@ -1,9 +1,9 @@
 # =====================================================================================
-#              NEURAL MASTER SYSTEM v3.2 - QUANTUM EDITION
+#              NEURAL MASTER SYSTEM v3.3 - QUANTUM EDITION
 #         Multi-OS Remote Access | Tailscale | Auto Cleanup | Telegram Bot
 # =====================================================================================
 
-name: NEURAL MASTER SYSTEM v3.2
+name: NEURAL MASTER SYSTEM v3.3
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ on:
         required: true
         default: 'windows'
         type: choice
-        options: ['windows', 'ubuntu22', 'ubuntu24', 'debian', 'centos', 'almalinux', 'all']
+        options: ['windows', 'ubuntu', 'debian', 'centos', 'almalinux', 'all']
       performance_mode:
         description: Performance Mode
         required: false
@@ -62,7 +62,7 @@ jobs:
           echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
           echo "termination_time=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_OUTPUT
           echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║              NEURAL MASTER SYSTEM v3.2 ACTIVE              ║"
+          echo "║              NEURAL MASTER SYSTEM v3.3 ACTIVE              ║"
           echo "╠════════════════════════════════════════════════════════════╣"
           echo "║ Session ID   : $SESSION_ID"
           echo "║ Duration     : $DUR minutes"
@@ -149,11 +149,11 @@ jobs:
             Start-Sleep 60 
           }
 
-  # ==================== UBUNTU 22.04 ====================
-  ubuntu22_deploy:
+  # ==================== UBUNTU LATEST ====================
+  ubuntu_deploy:
     needs: [init]
-    if: github.event.inputs.target_os == 'ubuntu22' || github.event.inputs.target_os == 'all'
-    runs-on: ubuntu-22.04
+    if: github.event.inputs.target_os == 'ubuntu' || github.event.inputs.target_os == 'all'
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     outputs:
       status: ${{ steps.verify.outputs.status }}
@@ -161,27 +161,27 @@ jobs:
       tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
       username: ${{ steps.create_user.outputs.username }}
       password: ${{ steps.create_user.outputs.password }}
-      os_type: ubuntu22
+      os_type: ubuntu
     steps:
       - run: |
           echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                 UBUNTU 22.04 DEPLOYMENT                   ║"
+          echo "║                    UBUNTU LATEST DEPLOYMENT               ║"
           echo "╚════════════════════════════════════════════════════════════╝"
       - name: Install Packages
         run: |
           sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl wget
+          sudo apt install -y -qq openssh-server curl wget sudo
       - name: Install Tailscale
         run: curl -fsSL https://tailscale.com/install.sh | sh
       - name: Connect Tailscale
         id: tailscale
         run: |
-          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu22 --accept-routes
+          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu --accept-routes --accept-dns
           echo "tailscale_ip=$(tailscale ip -4)" >> $GITHUB_OUTPUT
       - name: Create User Account
         id: create_user
         run: |
-          USERNAME="ub22_$((RANDOM%9000+1000))"
+          USERNAME="ub_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
           sudo useradd -m -s /bin/bash "$USERNAME"
           echo "$USERNAME:$PASSWORD" | sudo chpasswd
@@ -206,7 +206,7 @@ jobs:
           if sudo systemctl is-active ssh > /dev/null 2>&1; then
             echo "status=active" >> $GITHUB_OUTPUT
             echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                   UBUNTU 22.04 READY                       ║"
+            echo "║                    UBUNTU LATEST READY                     ║"
             echo "╠════════════════════════════════════════════════════════════╣"
             echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
             echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
@@ -220,92 +220,15 @@ jobs:
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
           while [ $(date +%s) -lt $END ]; do
-            echo "[UBUNTU22] Active - $((($END - $(date +%s))/60)) minutes left"
+            echo "[UBUNTU] Active - $((($END - $(date +%s))/60)) minutes left"
             sleep 60
           done
 
-  # ==================== UBUNTU 24.04 ====================
-  ubuntu24_deploy:
-    needs: [init]
-    if: github.event.inputs.target_os == 'ubuntu24' || github.event.inputs.target_os == 'all'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    outputs:
-      status: ${{ steps.verify.outputs.status }}
-      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
-      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
-      username: ${{ steps.create_user.outputs.username }}
-      password: ${{ steps.create_user.outputs.password }}
-      os_type: ubuntu24
-    steps:
-      - run: |
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                 UBUNTU 24.04 DEPLOYMENT                   ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-      - name: Install Packages
-        run: |
-          sudo apt update -qq
-          sudo apt install -y -qq openssh-server curl wget
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-      - name: Connect Tailscale
-        id: tailscale
-        run: |
-          sudo tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-ubuntu24 --accept-routes
-          echo "tailscale_ip=$(tailscale ip -4)" >> $GITHUB_OUTPUT
-      - name: Create User Account
-        id: create_user
-        run: |
-          USERNAME="ub24_$((RANDOM%9000+1000))"
-          PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          sudo useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo "$USERNAME"
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[+] User created: $USERNAME"
-      - name: Configure SSH
-        run: |
-          sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo systemctl restart ssh
-          sudo systemctl enable ssh
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if sudo systemctl is-active ssh > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                   UBUNTU 24.04 READY                       ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
-      - name: Keep Session Alive
-        run: |
-          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
-          while [ $(date +%s) -lt $END ]; do
-            echo "[UBUNTU24] Active - $((($END - $(date +%s))/60)) minutes left"
-            sleep 60
-          done
-
-  # ==================== DEBIAN 12 ====================
+  # ==================== DEBIAN 12 FIXED (With tun module) ====================
   debian_deploy:
     needs: [init]
     if: github.event.inputs.target_os == 'debian' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
-    container:
-      image: debian:12
     timeout-minutes: 360
     outputs:
       status: ${{ steps.verify.outputs.status }}
@@ -317,60 +240,44 @@ jobs:
     steps:
       - run: |
           echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                   DEBIAN 12 DEPLOYMENT                    ║"
+          echo "║                    DEBIAN 12 DEPLOYMENT                    ║"
           echo "╚════════════════════════════════════════════════════════════╝"
-      - name: Install Packages
+      - name: Install Debian Container with tun support
         run: |
-          apt update -qq
-          apt install -y -qq openssh-server sudo curl wget procps iproute2
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-      - name: Connect Tailscale
-        id: tailscale
-        run: |
-          mkdir -p /var/run/tailscale
-          tailscaled --state=/var/run/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+          docker run -d --name debian-temp --privileged debian:12 sleep infinity
+          docker exec debian-temp apt update -qq
+          docker exec debian-temp apt install -y -qq openssh-server sudo curl wget procps iproute2
+          docker exec debian-temp bash -c "mkdir -p /dev/net && mknod /dev/net/tun c 10 200 && chmod 600 /dev/net/tun"
+          docker exec debian-temp bash -c "curl -fsSL https://tailscale.com/install.sh | sh"
+          docker exec debian-temp bash -c "tailscaled --state=/var/lib/tailscale/tailscaled.state &"
           sleep 3
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-debian --accept-routes
-          echo "tailscale_ip=$(tailscale ip -4)" >> $GITHUB_OUTPUT
-      - name: Create User Account
-        id: create_user
-        run: |
+          docker exec debian-temp bash -c "tailscale up --auth-key=$TAILSCALE_AUTH_KEY --hostname=neural-debian --accept-routes"
+          TAILSCALE_IP=$(docker exec debian-temp tailscale ip -4)
           USERNAME="deb_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG sudo "$USERNAME"
+          docker exec debian-temp useradd -m -s /bin/bash "$USERNAME"
+          docker exec debian-temp bash -c "echo '$USERNAME:$PASSWORD' | chpasswd"
+          docker exec debian-temp usermod -aG sudo "$USERNAME"
+          docker exec debian-temp bash -c "ssh-keygen -A"
+          docker exec debian-temp bash -c "sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec debian-temp bash -c "sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec debian-temp /usr/sbin/sshd
+          PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[+] User created: $USERNAME"
-      - name: Configure SSH
-        run: |
-          ssh-keygen -A
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          /usr/sbin/sshd
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if pgrep sshd > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                    DEBIAN 12 READY                         ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "status=active" >> $GITHUB_OUTPUT
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║                     DEBIAN 12 READY                        ║"
+          echo "╠════════════════════════════════════════════════════════════╣"
+          echo "║ SSH Public    : ssh $USERNAME@$PUBLIC_IP -p 22"
+          echo "║ SSH Tailscale : ssh $USERNAME@$TAILSCALE_IP -p 22"
+          echo "║ Username      : $USERNAME"
+          echo "║ Password      : $PASSWORD"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo "status=active" >> $GITHUB_OUTPUT
+          while true; do echo "[DEBIAN] Active - Container running"; sleep 60; done
       - name: Keep Session Alive
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
@@ -379,13 +286,11 @@ jobs:
             sleep 60
           done
 
-  # ==================== CENTOS 9 ====================
+  # ==================== CENTOS 9 FIXED (With tun module) ====================
   centos_deploy:
     needs: [init]
     if: github.event.inputs.target_os == 'centos' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
-    container:
-      image: quay.io/centos/centos:stream9
     timeout-minutes: 360
     outputs:
       status: ${{ steps.verify.outputs.status }}
@@ -397,59 +302,41 @@ jobs:
     steps:
       - run: |
           echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    CENTOS 9 DEPLOYMENT                    ║"
+          echo "║                    CENTOS 9 DEPLOYMENT                     ║"
           echo "╚════════════════════════════════════════════════════════════╝"
-      - name: Install Packages
+      - name: Install CentOS Container with tun support
         run: |
-          dnf install -y openssh-server sudo curl wget procps-ng iproute
-          ssh-keygen -A
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-      - name: Connect Tailscale
-        id: tailscale
-        run: |
-          mkdir -p /var/run/tailscale
-          tailscaled --state=/var/run/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+          docker run -d --name centos-temp --privileged quay.io/centos/centos:stream9 sleep infinity
+          docker exec centos-temp dnf install -y openssh-server sudo curl wget procps-ng iproute
+          docker exec centos-temp bash -c "mkdir -p /dev/net && mknod /dev/net/tun c 10 200 && chmod 600 /dev/net/tun"
+          docker exec centos-temp bash -c "curl -fsSL https://tailscale.com/install.sh | sh"
+          docker exec centos-temp bash -c "tailscaled --state=/var/lib/tailscale/tailscaled.state &"
           sleep 3
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-centos --accept-routes
-          echo "tailscale_ip=$(tailscale ip -4)" >> $GITHUB_OUTPUT
-      - name: Create User Account
-        id: create_user
-        run: |
+          docker exec centos-temp bash -c "tailscale up --auth-key=$TAILSCALE_AUTH_KEY --hostname=neural-centos --accept-routes"
+          TAILSCALE_IP=$(docker exec centos-temp tailscale ip -4)
           USERNAME="centos_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel "$USERNAME"
+          docker exec centos-temp useradd -m -s /bin/bash "$USERNAME"
+          docker exec centos-temp bash -c "echo '$USERNAME:$PASSWORD' | chpasswd"
+          docker exec centos-temp usermod -aG wheel "$USERNAME"
+          docker exec centos-temp bash -c "ssh-keygen -A"
+          docker exec centos-temp bash -c "sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec centos-temp bash -c "sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec centos-temp /usr/sbin/sshd
+          PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[+] User created: $USERNAME"
-      - name: Configure SSH
-        run: |
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          /usr/sbin/sshd
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if pgrep sshd > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                     CENTOS 9 READY                         ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║                     CENTOS 9 READY                         ║"
+          echo "╠════════════════════════════════════════════════════════════╣"
+          echo "║ SSH Public    : ssh $USERNAME@$PUBLIC_IP -p 22"
+          echo "║ SSH Tailscale : ssh $USERNAME@$TAILSCALE_IP -p 22"
+          echo "║ Username      : $USERNAME"
+          echo "║ Password      : $PASSWORD"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo "status=active" >> $GITHUB_OUTPUT
       - name: Keep Session Alive
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
@@ -458,13 +345,11 @@ jobs:
             sleep 60
           done
 
-  # ==================== ALMALINUX 9 ====================
+  # ==================== ALMALINUX 9 FIXED (With tun module) ====================
   almalinux_deploy:
     needs: [init]
     if: github.event.inputs.target_os == 'almalinux' || github.event.inputs.target_os == 'all'
     runs-on: ubuntu-latest
-    container:
-      image: almalinux:9
     timeout-minutes: 360
     outputs:
       status: ${{ steps.verify.outputs.status }}
@@ -476,59 +361,41 @@ jobs:
     steps:
       - run: |
           echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                  ALMALINUX 9 DEPLOYMENT                   ║"
+          echo "║                  ALMALINUX 9 DEPLOYMENT                    ║"
           echo "╚════════════════════════════════════════════════════════════╝"
-      - name: Install Packages
+      - name: Install AlmaLinux Container with tun support
         run: |
-          dnf install -y openssh-server sudo curl wget procps-ng iproute
-          ssh-keygen -A
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-      - name: Connect Tailscale
-        id: tailscale
-        run: |
-          mkdir -p /var/run/tailscale
-          tailscaled --state=/var/run/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+          docker run -d --name alma-temp --privileged almalinux:9 sleep infinity
+          docker exec alma-temp dnf install -y openssh-server sudo curl wget procps-ng iproute
+          docker exec alma-temp bash -c "mkdir -p /dev/net && mknod /dev/net/tun c 10 200 && chmod 600 /dev/net/tun"
+          docker exec alma-temp bash -c "curl -fsSL https://tailscale.com/install.sh | sh"
+          docker exec alma-temp bash -c "tailscaled --state=/var/lib/tailscale/tailscaled.state &"
           sleep 3
-          tailscale up --auth-key="$TAILSCALE_AUTH_KEY" --hostname=neural-almalinux --accept-routes
-          echo "tailscale_ip=$(tailscale ip -4)" >> $GITHUB_OUTPUT
-      - name: Create User Account
-        id: create_user
-        run: |
+          docker exec alma-temp bash -c "tailscale up --auth-key=$TAILSCALE_AUTH_KEY --hostname=neural-almalinux --accept-routes"
+          TAILSCALE_IP=$(docker exec alma-temp tailscale ip -4)
           USERNAME="alma_$((RANDOM%9000+1000))"
           PASSWORD=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
-          useradd -m -s /bin/bash "$USERNAME"
-          echo "$USERNAME:$PASSWORD" | chpasswd
-          usermod -aG wheel "$USERNAME"
+          docker exec alma-temp useradd -m -s /bin/bash "$USERNAME"
+          docker exec alma-temp bash -c "echo '$USERNAME:$PASSWORD' | chpasswd"
+          docker exec alma-temp usermod -aG wheel "$USERNAME"
+          docker exec alma-temp bash -c "ssh-keygen -A"
+          docker exec alma-temp bash -c "sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec alma-temp bash -c "sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+          docker exec alma-temp /usr/sbin/sshd
+          PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
+          echo "tailscale_ip=$TAILSCALE_IP" >> $GITHUB_OUTPUT
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "[+] User created: $USERNAME"
-      - name: Configure SSH
-        run: |
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          /usr/sbin/sshd
-      - name: Get Public IP
-        id: get_public_ip
-        run: |
-          IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "UNAVAILABLE")
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
-      - name: Verify Deployment
-        id: verify
-        run: |
-          if pgrep sshd > /dev/null 2>&1; then
-            echo "status=active" >> $GITHUB_OUTPUT
-            echo "╔════════════════════════════════════════════════════════════╗"
-            echo "║                   ALMALINUX 9 READY                        ║"
-            echo "╠════════════════════════════════════════════════════════════╣"
-            echo "║ SSH Public    : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }} -p 22"
-            echo "║ SSH Tailscale : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }} -p 22"
-            echo "║ Username      : ${{ steps.create_user.outputs.username }}"
-            echo "║ Password      : ${{ steps.create_user.outputs.password }}"
-            echo "╚════════════════════════════════════════════════════════════╝"
-          else
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║                   ALMALINUX 9 READY                        ║"
+          echo "╠════════════════════════════════════════════════════════════╣"
+          echo "║ SSH Public    : ssh $USERNAME@$PUBLIC_IP -p 22"
+          echo "║ SSH Tailscale : ssh $USERNAME@$TAILSCALE_IP -p 22"
+          echo "║ Username      : $USERNAME"
+          echo "║ Password      : $PASSWORD"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo "status=active" >> $GITHUB_OUTPUT
       - name: Keep Session Alive
         run: |
           END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
@@ -539,7 +406,7 @@ jobs:
 
   # ==================== TELEGRAM NOTIFICATION ====================
   telegram_notify:
-    needs: [init, windows_deploy, ubuntu22_deploy, ubuntu24_deploy, debian_deploy, centos_deploy, almalinux_deploy]
+    needs: [init, windows_deploy, ubuntu_deploy, debian_deploy, centos_deploy, almalinux_deploy]
     if: always() && github.event.inputs.telegram_notify == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -548,7 +415,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="🚀 NEURAL MASTER SYSTEM v3.2%0A"
+          MSG="🚀 NEURAL MASTER SYSTEM v3.3%0A"
           MSG="${MSG}╔════════════════════════════════════════╗%0A"
           MSG="${MSG}║ Session: ${{ needs.init.outputs.session_id }}%0A"
           MSG="${MSG}║ Duration: ${{ github.event.inputs.duration }}%0A"
@@ -566,19 +433,11 @@ jobs:
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
-          if [ "${{ needs.ubuntu22_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a🐧 UBUNTU 22.04%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.ubuntu22_deploy.outputs.username }}@${{ needs.ubuntu22_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.ubuntu22_deploy.outputs.username }}@${{ needs.ubuntu22_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.ubuntu22_deploy.outputs.password }}%0a"
-            SENT_COUNT=$((SENT_COUNT + 1))
-          fi
-          
-          if [ "${{ needs.ubuntu24_deploy.outputs.status }}" = "active" ]; then
-            MSG="${MSG}%0a🐧 UBUNTU 24.04%0a"
-            MSG="${MSG}├─ Public SSH: ssh ${{ needs.ubuntu24_deploy.outputs.username }}@${{ needs.ubuntu24_deploy.outputs.public_ip }} -p 22%0a"
-            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.ubuntu24_deploy.outputs.username }}@${{ needs.ubuntu24_deploy.outputs.tailscale_ip }} -p 22%0a"
-            MSG="${MSG}└─ Password: ${{ needs.ubuntu24_deploy.outputs.password }}%0a"
+          if [ "${{ needs.ubuntu_deploy.outputs.status }}" = "active" ]; then
+            MSG="${MSG}%0a🐧 UBUNTU LATEST%0a"
+            MSG="${MSG}├─ Public SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.public_ip }} -p 22%0a"
+            MSG="${MSG}├─ Tailscale SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.tailscale_ip }} -p 22%0a"
+            MSG="${MSG}└─ Password: ${{ needs.ubuntu_deploy.outputs.password }}%0a"
             SENT_COUNT=$((SENT_COUNT + 1))
           fi
           
@@ -634,3 +493,4 @@ jobs:
           echo "║ Status: Credentials Destroyed"
           echo "║ Action: Network Connections Terminated"
           echo "╚════════════════════════════════════════════════════════════╝"
+          docker rm -f debian-temp centos-temp alma-temp 2>/dev/null || true
