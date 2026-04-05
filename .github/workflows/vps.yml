@@ -151,31 +151,153 @@ jobs:
           Remove-Item $vcDir -Recurse -Force -ErrorAction SilentlyContinue
           New-Item $vcDir -ItemType Directory -Force | Out-Null
           Set-Location $vcDir
-          $indexHtml = '<!DOCTYPE html>
-          <html>
-          <head><title>VPS Remote Desktop</title></head>
-          <body>
-          <h1>VPS 4-16 GENERATOR</h1>
-          <p>VNC Server: localhost:5900</p>
-          <p>Status: Online</p>
-          </body>
-          </html>'
-          $indexHtml | Out-File -FilePath "index.html" -Encoding UTF8
+          
+          Write-Host "Creating index.html with noVNC viewer..." -ForegroundColor Yellow
+          
+          $htmlContent = '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPS 4-16 GENERATOR - noVNC</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: #16213e; border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: center; }
+        .header h1 { color: #0f3460; font-size: 28px; }
+        .header h1 span { color: #e94560; }
+        .status-bar { background: #16213e; border-radius: 10px; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .status-item { display: flex; align-items: center; gap: 10px; color: #fff; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .vnc-container { background: #000; border-radius: 10px; overflow: hidden; }
+        .vnc-toolbar { background: #0f3460; padding: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .vnc-toolbar button { background: #e94560; border: none; color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer; }
+        .vnc-toolbar button:hover { opacity: 0.8; }
+        .connection-status { margin-left: auto; color: #fff; font-size: 14px; }
+        #canvas { width: 100%; height: 70vh; background: #000; }
+        .info { background: #16213e; border-radius: 10px; padding: 15px; margin-top: 20px; text-align: center; color: #fff; }
+        a { color: #e94560; text-decoration: none; }
+        .loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .loading.hide { display: none; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e94560; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div style="color:#fff; margin-top:20px;">Connecting to VPS...</div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>🖥 <span>VPS 4-16 GENERATOR</span> 🚀</h1>
+            <p style="color:#888;">noVNC Remote Desktop Client</p>
+        </div>
+        <div class="status-bar">
+            <div class="status-item"><div class="status-dot"></div><span>Status:</span><span id="statusText">Connecting...</span></div>
+            <div class="status-item"><span>Server:</span><span id="serverHost">Loading...</span></div>
+            <div class="status-item"><span>Port:</span><span id="serverPort">6080</span></div>
+        </div>
+        <div class="vnc-container">
+            <div class="vnc-toolbar">
+                <button onclick="sendCtrlAltDel()">Ctrl+Alt+Del</button>
+                <button onclick="toggleFullscreen()">Fullscreen</button>
+                <button onclick="refreshConnection()">Refresh</button>
+                <button onclick="showInfo()">Info</button>
+                <div class="connection-status" id="connStatus">Ready</div>
+            </div>
+            <div id="canvas"></div>
+        </div>
+        <div class="info">
+            <p>💡 Login with Administrator account | 🔒 Encrypted WebSocket Connection</p>
+        </div>
+    </div>
+    <script src="https://novnc.com/noVNC-1.4.0/app/webutil.js"></script>
+    <script src="https://novnc.com/noVNC-1.4.0/vnc.js"></script>
+    <script>
+        let rfb, connected = false;
+        const urlParams = new URLSearchParams(window.location.search);
+        let host = urlParams.get("host") || window.location.hostname;
+        let port = urlParams.get("port") || "6080";
+        document.getElementById("serverHost").innerText = host;
+        document.getElementById("serverPort").innerText = port;
+        
+        function connectVNC() {
+            try {
+                if (rfb) rfb.disconnect();
+                document.getElementById("loading").classList.remove("hide");
+                const url = "ws://" + host + ":" + port;
+                rfb = new RFB(document.getElementById("canvas"), url, { shared: true });
+                rfb.addEventListener("connect", function() {
+                    connected = true;
+                    document.getElementById("loading").classList.add("hide");
+                    document.getElementById("statusText").innerText = "Connected";
+                    document.getElementById("connStatus").innerHTML = "✅ Connected";
+                });
+                rfb.addEventListener("disconnect", function() {
+                    connected = false;
+                    document.getElementById("loading").classList.add("hide");
+                    document.getElementById("statusText").innerText = "Disconnected";
+                    document.getElementById("connStatus").innerHTML = "❌ Disconnected";
+                });
+                rfb.addEventListener("credentialsrequired", function() {
+                    let pass = prompt("Enter VNC password:");
+                    if (pass) rfb.sendCredentials({ password: pass });
+                });
+            } catch(e) {
+                document.getElementById("loading").classList.add("hide");
+                alert("Connection error: " + e.message);
+            }
+        }
+        
+        function disconnectVNC() { if (rfb && connected) { rfb.disconnect(); } }
+        function refreshConnection() { disconnectVNC(); setTimeout(connectVNC, 1000); }
+        function sendCtrlAltDel() { if (rfb && connected) rfb.sendCtrlAltDel(); else alert("Not connected"); }
+        function toggleFullscreen() { let elem = document.documentElement; if (!document.fullscreenElement) elem.requestFullscreen(); else document.exitFullscreen(); }
+        function showInfo() { alert("VPS 4-16 GENERATOR\n\nRDP Port: 3389\nVNC Port: 5900\nWebSocket Port: 6080\n\nCheck Telegram for login credentials"); }
+        
+        window.addEventListener("load", function() { setTimeout(connectVNC, 500); });
+        window.addEventListener("resize", function() { if (rfb && connected) rfb.resizeSession(); });
+        document.addEventListener("keydown", function(e) { if (e.ctrlKey && e.altKey && e.key === "Delete") { e.preventDefault(); sendCtrlAltDel(); } });
+    </script>
+</body>
+</html>'
+          
+          # Ghi file index.html
+          $htmlContent | Out-File -FilePath "index.html" -Encoding UTF8
+          
+          # Tạo file vercel.json
           $vercelJson = '{
             "version": 2,
             "builds": [{"src": "index.html", "use": "@vercel/static"}],
             "routes": [{"src": "/(.*)", "dest": "/index.html"}]
           }'
           $vercelJson | Out-File -FilePath "vercel.json" -Encoding UTF8
+          
+          # Deploy lên Vercel
+          Write-Host "Deploying to Vercel..." -ForegroundColor Yellow
           npm install -g vercel --silent
-          $output = vercel --token="$env:VERCEL_TOKEN" --prod --yes 2>&1
-          if ($output -match 'https://([a-z0-9-]+\.vercel\.app)') {
-            $url = "https://$($matches[1])/vnc.html?host=$($env:TAILSCALE_IP)&port=6080"
+          
+          # Lấy Tailscale IP
+          $tailscaleIp = "${{ steps.tailscale.outputs.tailscale_ip }}"
+          
+          # Deploy và lấy URL
+          $deployOutput = vercel --token="$env:VERCEL_TOKEN" --prod --yes 2>&1
+          Write-Host "Deploy output: $deployOutput" -ForegroundColor Cyan
+          
+          # Tìm URL từ output
+          if ($deployOutput -match 'https://([a-z0-9-]+\.vercel\.app)') {
+            $baseUrl = "https://$($matches[1])"
           } else {
-            $url = "https://vps-github.vercel.app/vnc.html?host=$($env:TAILSCALE_IP)&port=6080"
+            $baseUrl = "https://vps-github.vercel.app"
           }
-          echo "vercel_url=$url" >> $env:GITHUB_OUTPUT
-          Write-Host "[OK] Vercel tunnel: $url" -ForegroundColor Green
+          
+          # Tạo URL đầy đủ với host và port
+          $fullUrl = "$baseUrl/index.html?host=$tailscaleIp&port=6080"
+          echo "vercel_url=$fullUrl" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Vercel tunnel: $fullUrl" -ForegroundColor Green
       
       - name: Create User
         id: create_user
@@ -329,7 +451,7 @@ jobs:
             sleep 60
           done
 
-  # ==================== TELEGRAM NOTIFICATION FIXED ====================
+  # ==================== TELEGRAM NOTIFICATION ====================
   telegram_notify:
     needs: [init, windows_deploy, ubuntu_deploy]
     if: always() && github.event.inputs.telegram_notify == 'true'
