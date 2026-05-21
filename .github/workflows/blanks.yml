@@ -1,0 +1,399 @@
+# =====================================================================================
+#              🖥 VPS 4-16 GENERATOR 🚀
+#         Windows RDP + VNC + Web | Ubuntu SSH | Tailscale | Vercel Tunnel
+# =====================================================================================
+
+name: 🖥 VPS 4-16 GENERATOR 🚀
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Session Duration
+        required: true
+        default: '2h'
+        type: choice
+        options: ['30m', '1h', '2h', '4h', '6h']
+      target_os:
+        description: Target OS
+        required: true
+        default: 'windows'
+        type: choice
+        options: ['windows', 'ubuntu', 'both']
+      telegram_notify:
+        description: Send Telegram Notification
+        required: false
+        default: true
+        type: boolean
+      auto_cleanup:
+        description: Auto Cleanup
+        required: false
+        default: true
+        type: boolean
+
+env:
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    outputs:
+      session_id: ${{ steps.init.outputs.session_id }}
+      duration_minutes: ${{ steps.init.outputs.duration_minutes }}
+      termination_time: ${{ steps.init.outputs.termination_time }}
+    steps:
+      - id: init
+        run: |
+          SESSION_ID="VPS-$(date +%Y%m%d-%H%M%S)-$((RANDOM%9000+1000))"
+          DUR_INPUT="${{ github.event.inputs.duration }}"
+          case "$DUR_INPUT" in "30m") DUR=30;; "1h") DUR=60;; "2h") DUR=120;; "4h") DUR=240;; "6h") DUR=360;; *) DUR=120;; esac
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+          echo "duration_minutes=$DUR" >> $GITHUB_OUTPUT
+          echo "termination_time=$(date -d "+$DUR minutes" "+%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_OUTPUT
+          echo "============================================================"
+          echo "         VPS 4-16 GENERATOR ACTIVE"
+          echo "============================================================"
+          echo "  Session ID    : $SESSION_ID"
+          echo "  Duration      : $DUR minutes"
+          echo "  Target OS     : ${{ github.event.inputs.target_os }}"
+          echo "============================================================"
+
+  # ==================== WINDOWS 11 ====================
+  windows_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'windows' || github.event.inputs.target_os == 'both'
+    runs-on: windows-latest
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      vercel_url: ${{ steps.vercel.outputs.vercel_url }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+    steps:
+      - run: Write-Host "=== WINDOWS 11 DEPLOYMENT ===" -ForegroundColor Cyan
+      
+      - name: Enable RDP
+        run: |
+          Write-Host "[1/8] Enabling RDP..." -ForegroundColor Yellow
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service TermService -Force
+          Write-Host "[OK] RDP ready" -ForegroundColor Green
+      
+      - name: Install TightVNC
+        run: |
+          Write-Host "[2/8] Installing TightVNC..." -ForegroundColor Yellow
+          $url = "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi"
+          $out = "$env:TEMP\tightvnc.msi"
+          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+          Start-Process msiexec -ArgumentList "/i $out /quiet /norestart" -Wait
+          Start-Sleep -Seconds 3
+          Write-Host "[OK] TightVNC installed" -ForegroundColor Green
+      
+      - name: Setup VNC
+        run: |
+          Write-Host "[3/8] Setting up VNC..." -ForegroundColor Yellow
+          $pass = -join ((65..90)+(97..122)+(48..57) | Get-Random -Count 12 | ForEach-Object {[char]$_})
+          echo "VNC_PASSWORD=$pass" >> $env:GITHUB_ENV
+          $reg = "HKLM:\SOFTWARE\TightVNC\Server"
+          New-Item -Path $reg -Force | Out-Null
+          Set-ItemProperty -Path $reg -Name "ControlPassword" -Value $pass
+          Set-ItemProperty -Path $reg -Name "UseVncAuthentication" -Value 1
+          Set-ItemProperty -Path $reg -Name "AcceptRfbConnections" -Value 1
+          netsh advfirewall firewall add rule name="VNC" dir=in action=allow protocol=TCP localport=5900
+          Start-Service tvnserver -ErrorAction SilentlyContinue
+          Set-Service tvnserver -StartupType Automatic
+          Write-Host "[OK] VNC on port 5900" -ForegroundColor Green
+      
+      - name: Install noVNC
+        run: |
+          Write-Host "[4/8] Installing noVNC..." -ForegroundColor Yellow
+          Remove-Item C:\novnc -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item C:\novnc -ItemType Directory -Force | Out-Null
+          Set-Location C:\novnc
+          Invoke-WebRequest -Uri "https://codeload.github.com/novnc/noVNC/zip/refs/tags/v1.4.0" -OutFile "novnc.zip" -UseBasicParsing
+          Invoke-WebRequest -Uri "https://codeload.github.com/novnc/websockify/zip/refs/tags/v0.11.0" -OutFile "ws.zip" -UseBasicParsing
+          Expand-Archive -Path "novnc.zip" -DestinationPath "." -Force
+          Expand-Archive -Path "ws.zip" -DestinationPath "." -Force
+          $novncFolder = Get-ChildItem -Directory | Where-Object { $_.Name -like "noVNC-*" } | Select-Object -First 1
+          $wsFolder = Get-ChildItem -Directory | Where-Object { $_.Name -like "websockify-*" } | Select-Object -First 1
+          Get-ChildItem "$($novncFolder.FullName)" | Copy-Item -Destination "C:\novnc\" -Recurse -Force
+          New-Item "C:\novnc\websockify" -ItemType Directory -Force | Out-Null
+          Get-ChildItem "$($wsFolder.FullName)" | Copy-Item -Destination "C:\novnc\websockify\" -Recurse -Force
+          Remove-Item "*.zip" -Force
+          Remove-Item $novncFolder.FullName -Recurse -Force
+          Remove-Item $wsFolder.FullName -Recurse -Force
+          Write-Host "[OK] noVNC ready" -ForegroundColor Green
+      
+      - name: Start noVNC Service
+        run: |
+          Write-Host "[5/8] Starting noVNC..." -ForegroundColor Yellow
+          netsh advfirewall firewall add rule name="noVNC" dir=in action=allow protocol=TCP localport=6080
+          $psCode = "Set-Location 'C:\novnc'; python websockify\websockify.py --web . 6080 localhost:5900"
+          $action = New-ScheduledTaskAction -Execute "python" -Argument "-c `"$psCode`""
+          $trigger = New-ScheduledTaskTrigger -AtStartup
+          $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+          Register-ScheduledTask -TaskName "noVNC" -Action $action -Trigger $trigger -Principal $principal -Force
+          Start-ScheduledTask -TaskName "noVNC"
+          Start-Sleep -Seconds 5
+          Write-Host "[OK] noVNC on port 6080" -ForegroundColor Green
+      
+      - name: Deploy to Vercel Tunnel
+        id: vercel
+        run: |
+          Write-Host "[6/8] Creating Vercel tunnel..." -ForegroundColor Yellow
+          $vcDir = "$env:TEMP\vercel-tunnel"
+          Remove-Item $vcDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item $vcDir -ItemType Directory -Force | Out-Null
+          Set-Location $vcDir
+          $indexHtml = '<!DOCTYPE html>
+          <html>
+          <head><title>VPS Remote Desktop</title></head>
+          <body>
+          <h1>VPS 4-16 GENERATOR</h1>
+          <p>VNC Server: localhost:5900</p>
+          <p>Status: Online</p>
+          </body>
+          </html>'
+          $indexHtml | Out-File -FilePath "index.html" -Encoding UTF8
+          $vercelJson = '{
+            "version": 2,
+            "builds": [{"src": "index.html", "use": "@vercel/static"}],
+            "routes": [{"src": "/(.*)", "dest": "/index.html"}]
+          }'
+          $vercelJson | Out-File -FilePath "vercel.json" -Encoding UTF8
+          npm install -g vercel --silent
+          $output = vercel --token="$env:VERCEL_TOKEN" --prod --yes 2>&1
+          if ($output -match 'https://([a-z0-9-]+\.vercel\.app)') {
+            $url = "https://$($matches[1])/vnc.html?host=$($env:TAILSCALE_IP)&port=6080"
+          } else {
+            $url = "https://vps-github.vercel.app/vnc.html?host=$($env:TAILSCALE_IP)&port=6080"
+          }
+          echo "vercel_url=$url" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Vercel tunnel: $url" -ForegroundColor Green
+      
+      - name: Create User
+        id: create_user
+        run: |
+          Write-Host "[7/8] Creating user..." -ForegroundColor Yellow
+          $user = "vps_$((Get-Random -Minimum 1000 -Maximum 9999))"
+          $pass = -join ((65..90)+(97..122)+(48..57) | Get-Random -Count 20 | ForEach-Object {[char]$_})
+          $sec = ConvertTo-SecureString $pass -AsPlainText -Force
+          New-LocalUser -Name $user -Password $sec -PasswordNeverExpires -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member $user
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user
+          echo "username=$user" >> $env:GITHUB_OUTPUT
+          echo "password=$pass" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] User: $user" -ForegroundColor Green
+      
+      - name: Install Tailscale
+        run: |
+          Write-Host "[8/8] Installing Tailscale..." -ForegroundColor Yellow
+          $msi = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi -UseBasicParsing
+          Start-Process msiexec -ArgumentList "/i $msi /quiet /norestart" -Wait
+          Start-Sleep -Seconds 3
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey="$env:TAILSCALE_AUTH_KEY" --hostname=vps-generator --accept-routes
+          Start-Sleep -Seconds 3
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "tailscale_ip=$ip" >> $env:GITHUB_OUTPUT
+          Write-Host "[OK] Tailscale IP: $ip" -ForegroundColor Green
+        id: tailscale
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          try {
+            $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing -TimeoutSec 3).Content.Trim()
+          } catch {
+            $ip = "UNAVAILABLE"
+          }
+          echo "public_ip=$ip" >> $env:GITHUB_OUTPUT
+      
+      - name: Verify
+        id: verify
+        run: |
+          $rdpStatus = (Get-Service TermService).Status -eq 'Running'
+          if ($rdpStatus) {
+            echo "status=active" >> $env:GITHUB_OUTPUT
+            Write-Host ""
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "         VPS 4-16 GENERATOR READY" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+            Write-Host "  Public RDP   : ${{ steps.get_public_ip.outputs.public_ip }}:3389" -ForegroundColor Green
+            Write-Host "  Tailscale RDP: ${{ steps.tailscale.outputs.tailscale_ip }}:3389" -ForegroundColor Green
+            Write-Host "  noVNC Link   : ${{ steps.vercel.outputs.vercel_url }}" -ForegroundColor Green
+            Write-Host "  Username     : ${{ steps.create_user.outputs.username }}" -ForegroundColor Green
+            Write-Host "  Password     : ${{ steps.create_user.outputs.password }}" -ForegroundColor Green
+            Write-Host "============================================================" -ForegroundColor Green
+          } else {
+            echo "status=failed" >> $env:GITHUB_OUTPUT
+          }
+      
+      - name: Keep Alive
+        run: |
+          $END = [int](Get-Date -UFormat %s) + ${{ needs.init.outputs.duration_minutes }} * 60
+          while ([int](Get-Date -UFormat %s) -lt $END) {
+            $LEFT = [math]::Floor((($END - [int](Get-Date -UFormat %s))/60))
+            Write-Host "[WINDOWS] Active - $LEFT minutes left" -ForegroundColor DarkCyan
+            Start-Sleep 60
+          }
+
+  # ==================== UBUNTU 22.04 ====================
+  ubuntu_deploy:
+    needs: [init]
+    if: github.event.inputs.target_os == 'ubuntu' || github.event.inputs.target_os == 'both'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+      public_ip: ${{ steps.get_public_ip.outputs.public_ip }}
+      tailscale_ip: ${{ steps.tailscale.outputs.tailscale_ip }}
+      username: ${{ steps.create_user.outputs.username }}
+      password: ${{ steps.create_user.outputs.password }}
+    steps:
+      - run: echo "=== UBUNTU 22.04 DEPLOYMENT ==="
+      
+      - name: Install SSH
+        run: |
+          echo "[1/4] Installing SSH..."
+          sudo apt update -qq
+          sudo apt install -y -qq openssh-server
+          echo "[OK] SSH ready"
+      
+      - name: Setup Tailscale
+        run: |
+          echo "[2/4] Setting up Tailscale..."
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname=vps-ubuntu --accept-routes
+          sleep 2
+          IP=$(tailscale ip -4)
+          echo "tailscale_ip=$IP" >> $GITHUB_OUTPUT
+          echo "[OK] Tailscale IP: $IP"
+        id: tailscale
+      
+      - name: Create User
+        id: create_user
+        run: |
+          echo "[3/4] Creating user..."
+          USER="vps_$((RANDOM%9000+1000))"
+          PASS=$(openssl rand -base64 20 | tr -d '=+/' | cut -c1-24)
+          sudo useradd -m -s /bin/bash "$USER"
+          echo "$USER:$PASS" | sudo chpasswd
+          sudo usermod -aG sudo "$USER"
+          echo "username=$USER" >> $GITHUB_OUTPUT
+          echo "password=$PASS" >> $GITHUB_OUTPUT
+          echo "[OK] User: $USER"
+      
+      - name: Configure SSH
+        run: |
+          echo "[4/4] Configuring SSH..."
+          sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+          echo "[OK] SSH ready"
+      
+      - name: Get Public IP
+        id: get_public_ip
+        run: |
+          IP=$(curl -s --max-time 3 https://api.ipify.org)
+          echo "public_ip=$IP" >> $GITHUB_OUTPUT
+      
+      - name: Verify
+        id: verify
+        run: |
+          if systemctl is-active ssh > /dev/null; then
+            echo "status=active" >> $GITHUB_OUTPUT
+            echo ""
+            echo "============================================================"
+            echo "              UBUNTU 22.04 READY"
+            echo "============================================================"
+            echo "  Public SSH : ssh ${{ steps.create_user.outputs.username }}@${{ steps.get_public_ip.outputs.public_ip }}"
+            echo "  Tailscale  : ssh ${{ steps.create_user.outputs.username }}@${{ steps.tailscale.outputs.tailscale_ip }}"
+            echo "  Password   : ${{ steps.create_user.outputs.password }}"
+            echo "============================================================"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Keep Alive
+        run: |
+          END=$(($(date +%s) + ${{ needs.init.outputs.duration_minutes }} * 60))
+          while [ $(date +%s) -lt $END ]; do
+            echo "[UBUNTU] Active - $((($END - $(date +%s))/60)) minutes left"
+            sleep 60
+          done
+
+  # ==================== TELEGRAM NOTIFICATION FIXED ====================
+  telegram_notify:
+    needs: [init, windows_deploy, ubuntu_deploy]
+    if: always() && github.event.inputs.telegram_notify == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Message
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          TEXT="VPS 4-16 GENERATOR%0A"
+          TEXT="${TEXT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+          TEXT="${TEXT}📋 SESSION INFO%0A"
+          TEXT="${TEXT}────────────────────────────%0A"
+          TEXT="${TEXT}🆔 ID: ${{ needs.init.outputs.session_id }}%0A"
+          TEXT="${TEXT}⏱️ Duration: ${{ github.event.inputs.duration }}%0A"
+          TEXT="${TEXT}⌛ Expires: ${{ needs.init.outputs.termination_time }}%0A"
+          TEXT="${TEXT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+          
+          if [ "${{ needs.windows_deploy.outputs.status }}" = "active" ]; then
+            TEXT="${TEXT}%0A"
+            TEXT="${TEXT}🪟 WINDOWS 11%0A"
+            TEXT="${TEXT}────────────────────────────%0A"
+            TEXT="${TEXT}🌍 Public RDP: ${{ needs.windows_deploy.outputs.public_ip }}:3389%0A"
+            TEXT="${TEXT}🔗 Tailscale RDP: ${{ needs.windows_deploy.outputs.tailscale_ip }}:3389%0A"
+            TEXT="${TEXT}🖥️ noVNC: ${{ needs.windows_deploy.outputs.vercel_url }}%0A"
+            TEXT="${TEXT}👤 Username: ${{ needs.windows_deploy.outputs.username }}%0A"
+            TEXT="${TEXT}🔐 Password: ${{ needs.windows_deploy.outputs.password }}%0A"
+          fi
+          
+          if [ "${{ needs.ubuntu_deploy.outputs.status }}" = "active" ]; then
+            TEXT="${TEXT}%0A"
+            TEXT="${TEXT}🐧 UBUNTU 22.04%0A"
+            TEXT="${TEXT}────────────────────────────%0A"
+            TEXT="${TEXT}🌍 Public SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.public_ip }}%0A"
+            TEXT="${TEXT}🔗 Tailscale SSH: ssh ${{ needs.ubuntu_deploy.outputs.username }}@${{ needs.ubuntu_deploy.outputs.tailscale_ip }}%0A"
+            TEXT="${TEXT}🔐 Password: ${{ needs.ubuntu_deploy.outputs.password }}%0A"
+          fi
+          
+          TEXT="${TEXT}%0A"
+          TEXT="${TEXT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+          TEXT="${TEXT}✅ SYSTEM ONLINE%0A"
+          TEXT="${TEXT}🔒 Connect via Tailscale for security%0A"
+          TEXT="${TEXT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d text="${TEXT}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true"
+          
+          echo "Telegram message sent"
+
+  # ==================== CLEANUP ====================
+  cleanup:
+    needs: [init]
+    if: always() && github.event.inputs.auto_cleanup == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo ""
+          echo "============================================================"
+          echo "              VPS 4-16 GENERATOR - CLEANUP"
+          echo "============================================================"
+          echo "  Session: ${{ needs.init.outputs.session_id }}"
+          echo "  Credentials destroyed"
+          echo "============================================================"
